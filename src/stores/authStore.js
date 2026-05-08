@@ -71,6 +71,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
+  const updateProfile = async (profileData) => {
+    const response = await axiosInstance.put('/profile', profileData);
+    setUser(response.data.data.user);
+    return response.data;
+  };
+
+  const uploadAvatar = async (file) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await axiosInstance.post('/profile/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (user.value) {
+      user.value = { ...user.value, avatar: response.data.data.avatar };
+    }
+    return response.data;
+  };
+
   const clearAuth = () => {
     user.value = null;
     token.value = null;
@@ -100,6 +118,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     fetchUser,
     logout,
+    updateProfile,
+    uploadAvatar,
     clearAuth,
     initializeAuth,
   };
