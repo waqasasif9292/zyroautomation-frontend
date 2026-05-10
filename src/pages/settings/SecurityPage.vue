@@ -1,4 +1,5 @@
 <template>
+  <AppLayout>
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-2xl mx-auto">
       <div class="bg-white rounded-lg shadow p-8">
@@ -90,6 +91,7 @@
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 
 <script setup>
@@ -97,6 +99,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
 import axiosInstance from '../../services/AuthService';
+import AppLayout from '../../layouts/AppLayout.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
