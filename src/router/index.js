@@ -14,6 +14,9 @@ const routes = [
   { path: '/brands', component: () => import('../pages/brands/BrandsListPage.vue'), meta: { requiresAuth: true } },
   { path: '/brands/create', component: () => import('../pages/brands/BrandCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/brands/:id/edit', component: () => import('../pages/brands/BrandEditPage.vue'), meta: { requiresAuth: true } },
+  { path: '/integrations', component: () => import('../pages/integrations/IntegrationsListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/integrations/create', component: () => import('../pages/integrations/IntegrationCreatePage.vue'), meta: { requiresAuth: true } },
+  { path: '/integrations/:id/edit', component: () => import('../pages/integrations/IntegrationEditPage.vue'), meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({
