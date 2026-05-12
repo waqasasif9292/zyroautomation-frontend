@@ -1,10 +1,10 @@
 <template>
   <aside class="sidebar">
     <!-- Brand -->
-    <div class="sidebar-brand">
+    <button class="sidebar-brand" type="button" @click="router.push('/dashboard')">
       <div class="brand-logo">Z</div>
       <span class="brand-name">Zyro Automation</span>
-    </div>
+    </button>
 
     <!-- Nav -->
     <nav class="sidebar-nav">
@@ -78,6 +78,12 @@ const navItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
   },
   {
+    key: 'products',
+    label: 'Products',
+    to: '/products',
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`,
+  },
+  {
     key: 'settings',
     label: 'Settings',
     to: '/settings',
@@ -106,8 +112,17 @@ const navItems = [
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 20px 18px 16px;
+  border: none;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar-brand:hover .brand-name {
+  color: #fff;
 }
 
 .brand-logo {

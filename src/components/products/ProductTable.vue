@@ -1,0 +1,178 @@
+<template>
+  <div class="table-wrap">
+    <table class="products-table">
+      <thead>
+        <tr>
+          <th class="col-serial">#</th>
+          <th class="col-picture">Picture</th>
+          <th>Name</th>
+          <th>Sale Price</th>
+          <th>Cost</th>
+          <th>Inventory</th>
+          <th class="col-actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template v-if="loading">
+          <tr v-for="row in 5" :key="row">
+            <td v-for="col in 7" :key="col"><span class="skeleton"></span></td>
+          </tr>
+        </template>
+        <tr v-else v-for="(product, index) in products" :key="product.id">
+          <td class="serial">{{ index + 1 }}</td>
+          <td>
+            <img class="product-image" :src="product.picture_url" :alt="product.name">
+          </td>
+          <td>
+            <div class="product-name">{{ product.name }}</div>
+          </td>
+          <td class="money">{{ formatMoney(product.sale_price) }}</td>
+          <td class="money">{{ formatMoney(product.cost) }}</td>
+          <td>{{ product.total_inventory }}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn" type="button" title="Edit product" aria-label="Edit product" @click="$emit('edit', product.id)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
+              <button class="icon-btn danger" type="button" title="Delete product" aria-label="Delete product" @click="$emit('delete', product)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</template>
+
+<script setup>
+defineProps({
+  products: {
+    type: Array,
+    default: () => [],
+  },
+  loading: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+defineEmits(['edit', 'delete']);
+
+const formatMoney = (value) => `PKR ${Number(value || 0).toLocaleString()}`;
+</script>
+
+<style scoped>
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+th {
+  padding: 12px 14px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+td {
+  padding: 13px 14px;
+  color: #374151;
+  font-size: 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+tbody tr:hover {
+  background: #f9fafb;
+}
+
+.col-serial {
+  width: 60px;
+}
+
+.col-picture {
+  width: 90px;
+}
+
+.col-actions {
+  width: 110px;
+}
+
+.serial,
+.money,
+.product-name {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.product-image {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: #3b82f6;
+  border-color: #bfdbfe;
+}
+
+.icon-btn.danger:hover {
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
+.skeleton {
+  display: block;
+  width: 100%;
+  height: 18px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+</style>
