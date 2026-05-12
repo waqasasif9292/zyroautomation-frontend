@@ -23,7 +23,7 @@
 
     <div v-if="addresses.length > 0" class="addresses-section">
       <p class="form-label">Pickup Address</p>
-      <p class="form-sublabel">Select the pickup address that should be used for this brand.</p>
+      <p class="form-sublabel">Select the pickup address that should be used for this courier.</p>
 
       <div class="address-list">
         <button

@@ -62,16 +62,23 @@
             </div>
             <div v-if="isPostexSelected" class="field">
               <label>Pickup Address</label>
-              <select v-model="form.pickup_address_code" :class="{ invalid: errors.pickup_address_code }">
-                <option value="">Select Pickup Address</option>
+              <select
+                v-model="form.pickup_address_code"
+                :class="{ invalid: errors.pickup_address_code }"
+                :disabled="postexPickupLoading || postexPickupAddresses.length === 0"
+              >
+                <option value="">
+                  {{ postexPickupLoading ? 'Fetching pickup addresses...' : 'Select Pickup Address' }}
+                </option>
                 <option
-                  v-for="integration in postexIntegrations"
-                  :key="integration.id"
-                  :value="integration.courier_options?.pickup_address_code"
+                  v-for="address in postexPickupAddresses"
+                  :key="address.addressCode"
+                  :value="address.addressCode"
                 >
-                  {{ pickupAddressName(integration) }}
+                  {{ pickupAddressName(address) }}
                 </option>
               </select>
+              <span v-if="postexPickupLoading" class="helper-text">Fetching pickup addresses from PostEx...</span>
               <span v-if="errors.pickup_address_code" class="field-error">{{ errors.pickup_address_code }}</span>
             </div>
             <div v-else class="field">
@@ -86,12 +93,24 @@
             </div>
             <div class="field">
               <label>Destination City</label>
-              <select v-model="form.destination_city" :class="{ invalid: errors.destination_city }">
-                <option value=""></option>
-                <option>Lahore</option>
-                <option>Karachi</option>
-                <option>Islamabad</option>
+              <select
+                v-model="form.destination_city"
+                :class="{ invalid: errors.destination_city }"
+                :disabled="isPostexSelected && postexCityLoading"
+                @focus="ensurePostexDeliveryCities"
+              >
+                <option value="">
+                  {{ postexCityLoading ? 'Fetching cities...' : 'Select Destination City' }}
+                </option>
+                <option
+                  v-for="city in destinationCityOptions"
+                  :key="city.value"
+                  :value="city.value"
+                >
+                  {{ city.label }}
+                </option>
               </select>
+              <span v-if="postexCityLoading" class="helper-text">Fetching delivery cities from PostEx...</span>
               <span v-if="errors.destination_city" class="field-error">{{ errors.destination_city }}</span>
             </div>
           </div>
@@ -184,6 +203,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import { getCourierName } from '../../constants/couriers';
+import IntegrationService from '../../services/IntegrationService';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -192,6 +212,12 @@ const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const items = ref([]);
 const errors = reactive({});
+const postexPickupAddresses = ref([]);
+const postexPickupLoading = ref(false);
+const postexPickupError = ref('');
+const postexDeliveryCities = ref([]);
+const postexCityLoading = ref(false);
+const postexCityError = ref('');
 
 const form = reactive({
   brand_id: '',
@@ -220,10 +246,9 @@ const item = reactive({
 
 const selectedBrand = computed(() => brandStore.brands.find(brand => brand.id === form.brand_id));
 const brandSources = computed(() => selectedBrand.value?.sources || []);
-const brandIntegrations = computed(() => integrationStore.integrations.filter((integration) => integration.brand?.id === form.brand_id));
 const courierOptions = computed(() => {
   const bySlug = new Map();
-  brandIntegrations.value.forEach((integration) => {
+  integrationStore.integrations.forEach((integration) => {
     if (!bySlug.has(integration.courier_slug)) {
       bySlug.set(integration.courier_slug, {
         slug: integration.courier_slug,
@@ -234,30 +259,56 @@ const courierOptions = computed(() => {
   return [...bySlug.values()];
 });
 const isPostexSelected = computed(() => form.courier === 'postex');
-const postexIntegrations = computed(() => brandIntegrations.value.filter((integration) => integration.courier_slug === 'postex'));
+const postexIntegration = computed(() => integrationStore.integrations.find((integration) => integration.courier_slug === 'postex'));
+const destinationCityOptions = computed(() => {
+  if (isPostexSelected.value) {
+    return postexDeliveryCities.value.map((city) => ({
+      value: city.operationalCityName,
+      label: city.countryName ? `${city.operationalCityName} - ${city.countryName}` : city.operationalCityName,
+    }));
+  }
+
+  return ['Lahore', 'Karachi', 'Islamabad'].map((city) => ({
+    value: city,
+    label: city,
+  }));
+});
 
 watch(() => form.brand_id, () => {
   form.source = '';
   form.courier = '';
   form.pickup_address_code = '';
   form.origin_city = '';
+  form.destination_city = '';
   delete errors.brand_id;
   delete errors.source;
   delete errors.courier;
   delete errors.pickup_address_code;
   delete errors.origin_city;
+  delete errors.destination_city;
 });
 
 watch(() => form.source, () => {
   delete errors.source;
 });
 
-watch(() => form.courier, () => {
+watch(() => form.courier, async () => {
   form.pickup_address_code = '';
   form.origin_city = '';
+  form.destination_city = '';
+  postexPickupAddresses.value = [];
+  postexPickupError.value = '';
+  postexDeliveryCities.value = [];
+  postexCityError.value = '';
   delete errors.courier;
   delete errors.pickup_address_code;
   delete errors.origin_city;
+  delete errors.destination_city;
+
+  if (form.courier === 'postex') {
+    fetchPostexPickupAddresses();
+    fetchPostexDeliveryCities();
+  }
 });
 
 watch(() => form.pickup_address_code, () => {
@@ -290,9 +341,13 @@ onMounted(async () => {
   ]);
 });
 
-const pickupAddressName = (integration) => {
-  const address = integration.courier_options?.pickup_address;
-  return address?.contactPersonName || address?.address || integration.courier_options?.pickup_address_code || 'Pickup Address';
+const pickupAddressName = (address) => {
+  return [
+    address.contactPersonName || address.address || 'Pickup Address',
+    address.cityName,
+    address.phone1,
+    address.addressCode,
+  ].filter(Boolean).join(' - ');
 };
 
 const addItem = () => {
@@ -308,6 +363,77 @@ const copyItems = async () => {
   if (navigator.clipboard && text) {
     await navigator.clipboard.writeText(text);
   }
+};
+
+const fetchPostexPickupAddresses = async () => {
+  const token = getPostexApiToken();
+
+  if (!token) {
+    postexPickupError.value = 'PostEx API token is missing. Update the PostEx integration first.';
+    errors.pickup_address_code = postexPickupError.value;
+    return;
+  }
+
+  postexPickupLoading.value = true;
+  postexPickupError.value = '';
+
+  try {
+    postexPickupAddresses.value = await integrationStore.fetchPostexPickupAddresses(token);
+    if (postexPickupAddresses.value.length === 0) {
+      postexPickupError.value = 'No pickup addresses found for this PostEx account.';
+      errors.pickup_address_code = postexPickupError.value;
+    }
+  } catch (error) {
+    postexPickupError.value = apiErrorMessage(error, 'Unable to fetch PostEx pickup addresses.');
+    errors.pickup_address_code = postexPickupError.value;
+  } finally {
+    postexPickupLoading.value = false;
+  }
+};
+
+const getPostexApiToken = () => postexIntegration.value?.courier_options?.api_token;
+
+const fetchPostexDeliveryCities = async () => {
+  const token = getPostexApiToken();
+
+  if (!token) {
+    postexCityError.value = 'PostEx API token is missing. Update the PostEx integration first.';
+    errors.destination_city = postexCityError.value;
+    return;
+  }
+
+  postexCityLoading.value = true;
+  postexCityError.value = '';
+
+  try {
+    const res = await IntegrationService.fetchPostexOperationalCities({
+      token,
+      operationalCityType: 'delivery',
+    });
+    postexDeliveryCities.value = res.data.data.cities;
+    if (postexDeliveryCities.value.length === 0) {
+      postexCityError.value = 'No delivery cities found for this PostEx account.';
+      errors.destination_city = postexCityError.value;
+    }
+  } catch (error) {
+    postexCityError.value = apiErrorMessage(error, 'Unable to fetch PostEx delivery cities.');
+    errors.destination_city = postexCityError.value;
+  } finally {
+    postexCityLoading.value = false;
+  }
+};
+
+const ensurePostexDeliveryCities = () => {
+  if (!isPostexSelected.value || postexCityLoading.value || postexDeliveryCities.value.length > 0) return;
+  fetchPostexDeliveryCities();
+};
+
+const apiErrorMessage = (error, fallback) => {
+  const serverMessage = error.response?.data?.message || error.response?.data?.error;
+  if (serverMessage) return serverMessage;
+  if (error.response?.status) return `${fallback} Server returned HTTP ${error.response.status}.`;
+  if (error.request) return `${fallback} No response from API server.`;
+  return fallback;
 };
 
 const handleSave = () => {
@@ -342,8 +468,20 @@ const handleSave = () => {
   });
 
   if (isPostexSelected.value) {
-    if (!form.pickup_address_code) {
+    if (postexPickupLoading.value) {
+      errors.pickup_address_code = 'Pickup addresses are still loading.';
+    } else if (postexPickupError.value) {
+      errors.pickup_address_code = postexPickupError.value;
+    } else if (!form.pickup_address_code) {
       errors.pickup_address_code = 'Pickup address is required.';
+    }
+
+    if (postexCityLoading.value) {
+      errors.destination_city = 'Destination cities are still loading.';
+    } else if (postexCityError.value) {
+      errors.destination_city = postexCityError.value;
+    } else if (!form.destination_city) {
+      errors.destination_city = 'Destination city is required.';
     }
   } else if (!form.origin_city) {
     errors.origin_city = 'Origin city is required.';
@@ -478,6 +616,12 @@ select:disabled {
 
 .field-error {
   color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.helper-text {
+  color: #64748b;
   font-size: 11px;
   font-weight: 600;
 }

@@ -56,8 +56,8 @@ export const useIntegrationStore = defineStore('integration', () => {
     }
   };
 
-  const checkDuplicate = async (brandId, courierSlug) => {
-    const res = await IntegrationService.checkDuplicate({ brand_id: brandId, courier_slug: courierSlug });
+  const checkDuplicate = async (courierSlug) => {
+    const res = await IntegrationService.checkDuplicate({ courier_slug: courierSlug });
     return res.data.data.exists;
   };
 
@@ -66,6 +66,11 @@ export const useIntegrationStore = defineStore('integration', () => {
     if (cityName) params.cityName = cityName;
     const res = await IntegrationService.fetchPostexPickupAddresses(params);
     return res.data.data.addresses;
+  };
+
+  const fetchPostexOperationalCities = async (token, operationalCityType = 'delivery') => {
+    const res = await IntegrationService.fetchPostexOperationalCities({ token, operationalCityType });
+    return res.data.data.cities;
   };
 
   return {
@@ -79,5 +84,6 @@ export const useIntegrationStore = defineStore('integration', () => {
     deleteIntegration,
     checkDuplicate,
     fetchPostexPickupAddresses,
+    fetchPostexOperationalCities,
   };
 });

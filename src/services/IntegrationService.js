@@ -22,4 +22,7 @@ export default {
   fetchPostexPickupAddresses(params) {
     return axiosInstance.get('/integrations/postex/pickup-addresses', { params });
   },
+  fetchPostexOperationalCities(params) {
+    return axiosInstance.get('/integrations/postex/operational-cities', { params });
+  },
 };

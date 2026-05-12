@@ -1,7 +1,7 @@
 <template>
   <div class="table-wrapper">
     <div class="table-header">
-      <div>Brand</div>
+      <div>Name</div>
       <div>Courier</div>
       <div>Options</div>
       <div class="text-right">Actions</div>
@@ -22,7 +22,7 @@
         :key="integration.id"
         class="table-row"
       >
-        <div class="brand-cell">{{ integration.brand?.name }}</div>
+        <div class="name-cell">{{ integration.name }}</div>
         <div class="courier-cell">
           <div class="logo-wrapper">
             <img
@@ -69,7 +69,7 @@
 import { reactive } from 'vue';
 import { getCourierBySlug } from '../../constants/couriers';
 
-const props = defineProps({
+defineProps({
   integrations: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
 });
@@ -123,7 +123,7 @@ const onImgError = (slug) => {
   background: #f9fafb;
 }
 
-.brand-cell {
+.name-cell {
   font-weight: 600;
   color: #1e293b;
 }

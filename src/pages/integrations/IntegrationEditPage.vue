@@ -19,20 +19,19 @@
             <section class="section">
               <header class="section-header">
                 <div>
-                  <p class="section-title">Brand</p>
-                  <p class="section-subtitle">Brand cannot be changed after the integration is created.</p>
+                  <p class="section-title">Name</p>
+                  <p class="section-subtitle">Update the label for this courier account.</p>
                 </div>
               </header>
               <div class="form-group">
-                <div class="locked-select">
-                  <select v-model="form.brand_id" class="form-select" disabled>
-                    <option v-for="brand in brands" :key="brand.id" :value="brand.id">
-                      {{ brand.name }}
-                    </option>
-                  </select>
-                  <span class="lock-icon">🔒</span>
-                </div>
-                <p class="helper-text">Brand cannot be changed after the integration is created.</p>
+                <input
+                  v-model="form.name"
+                  class="form-input"
+                  :class="{ 'input-error': errors.name }"
+                  type="text"
+                  placeholder="Main PostEx account"
+                />
+                <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
               </div>
             </section>
 
@@ -69,7 +68,7 @@
 
           <template #footer v-if="!notFound">
             <button class="btn-secondary" type="button" :disabled="saving" @click="router.push('/integrations')">Cancel</button>
-            <button class="btn-primary" type="button" :disabled="saving || postexIncomplete" @click="handleSubmit">
+            <button class="btn-primary" type="button" :disabled="disableSave" @click="handleSubmit">
               <span v-if="saving" class="spinner"></span>
               <span v-else>Save Changes</span>
             </button>
@@ -82,7 +81,6 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
-import { storeToRefs } from 'pinia';
 import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
@@ -91,18 +89,15 @@ import CourierSelector from '../../components/integrations/CourierSelector.vue';
 import CourierOptionsBox from '../../components/integrations/CourierOptionsBox.vue';
 import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
-import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
 const router = useRouter();
 const route = useRoute();
-const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
-const { brands } = storeToRefs(brandStore);
 
 const form = reactive({
   id: '',
-  brand_id: '',
+  name: '',
   courier_slug: '',
   courier_options: {},
 });
@@ -123,12 +118,14 @@ const postexError = computed(() => {
   if (!form.courier_options.pickup_address_code) return 'Please fetch and select a PostEx pickup address.';
   return '';
 });
+const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value);
 
 const handleSubmit = async () => {
-  if (postexIncomplete.value) return;
+  if (disableSave.value) return;
   saving.value = true;
   try {
     await integrationStore.updateIntegration(form.id, {
+      name: form.name.trim(),
       courier_options: form.courier_options,
     });
     router.push({ path: '/integrations', query: { toast: 'updated' } });
@@ -142,11 +139,10 @@ const handleSubmit = async () => {
 };
 
 onMounted(async () => {
-  await brandStore.fetchBrands();
   try {
     const integration = await integrationStore.fetchIntegration(route.params.id);
     form.id = integration.id;
-    form.brand_id = integration.brand.id;
+    form.name = integration.name || '';
     form.courier_slug = integration.courier_slug;
     form.courier_options = integration.courier_options || {};
   } catch (error) {
@@ -210,26 +206,28 @@ onMounted(async () => {
   gap: 6px;
 }
 
-.form-select {
+.form-input {
   width: 100%;
   border: 1px solid #d1d5db;
   border-radius: 10px;
   padding: 10px 12px;
-  background: #f9fafb;
+  background: #fff;
   font-size: 15px;
   color: #111827;
 }
 
-.locked-select {
-  position: relative;
+.form-input:focus {
+  outline: none;
+  border-color: #1e293b;
 }
 
-.lock-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
+.input-error {
+  border-color: #ef4444 !important;
+}
+
+.field-error {
+  font-size: 13px;
+  color: #ef4444;
 }
 
 .helper-text {

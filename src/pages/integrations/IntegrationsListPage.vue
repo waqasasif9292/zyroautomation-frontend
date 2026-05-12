@@ -12,7 +12,7 @@
           <div class="panel-header">
             <div>
               <h2 class="panel-title">Courier Integrations</h2>
-              <p class="panel-subtitle">Connect your brands to courier services.</p>
+              <p class="panel-subtitle">Connect courier services.</p>
             </div>
             <button class="btn-add" @click="router.push('/integrations/create')">+ Add Integration</button>
           </div>
@@ -36,8 +36,7 @@
 
     <IntegrationDeleteModal
       v-if="showDelete"
-      :brandName="selectedIntegration?.brand?.name || 'Brand'"
-      :courierName="selectedIntegration?.courier_name || 'Courier'"
+      :courierName="selectedIntegration?.name || selectedIntegration?.courier_name || 'Courier'"
       :loading="deleteLoading"
       @cancel="closeDeleteModal"
       @confirm="handleDelete"

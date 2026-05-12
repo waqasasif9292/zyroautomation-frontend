@@ -6,57 +6,48 @@
       <main class="page-content">
         <IntegrationFormCard
           title="Add Integration"
-          subtitle="Link a brand to a courier service."
+          subtitle="Connect a courier service."
           :loading="initialLoading"
         >
           <template #default>
-            <!-- Section 1: Brand -->
             <section class="section">
               <header class="section-header">
                 <div>
-                  <p class="section-title">Brand</p>
-                  <p class="section-subtitle">Select the brand this courier will fulfill orders for.</p>
+                  <p class="section-title">Name</p>
+                  <p class="section-subtitle">Add a label for this courier account.</p>
                 </div>
               </header>
               <div class="form-group">
-                <select
-                  v-model="form.brand_id"
-                  class="form-select"
-                  :class="{ 'input-error': errors.brand_id }"
-                  :disabled="brandLoading || !hasBrands"
-                >
-                  <option disabled value="">
-                    {{ hasBrands ? 'Select a brand...' : 'No brands found — create a brand first.' }}
-                  </option>
-                  <option v-for="brand in brands" :key="brand.id" :value="brand.id">
-                    {{ brand.name }}
-                  </option>
-                </select>
-                <p v-if="errors.brand_id" class="field-error">{{ errors.brand_id }}</p>
+                <input
+                  v-model="form.name"
+                  class="form-input"
+                  :class="{ 'input-error': errors.name }"
+                  type="text"
+                  placeholder="Main PostEx account"
+                />
+                <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
               </div>
             </section>
 
             <div class="divider"></div>
 
-            <!-- Section 2: Courier -->
             <section class="section">
               <header class="section-header">
                 <div>
                   <p class="section-title">Courier</p>
-                  <p class="section-subtitle">Choose the courier service for this brand. Only one courier per brand.</p>
+                  <p class="section-subtitle">Choose the courier service to connect.</p>
                 </div>
               </header>
               <CourierSelector v-model="form.courier_slug" />
               <div v-if="duplicateWarning" class="warning-box">
                 <p class="warning-text">{{ duplicateWarning }}</p>
-                <p class="warning-helper">Select a different courier or brand to proceed.</p>
+                <p class="warning-helper">Select a different courier to proceed.</p>
               </div>
               <p v-if="errors.courier_slug" class="field-error">{{ errors.courier_slug }}</p>
             </section>
 
             <div class="divider"></div>
 
-            <!-- Section 3: Options -->
             <section class="section">
               <header class="section-header">
                 <div>
@@ -81,7 +72,7 @@
             </button>
             <button class="btn-primary" type="button" :disabled="disableSave" @click="handleSubmit">
               <span v-if="saving" class="spinner"></span>
-              <span v-else>{{ hasBrands ? 'Save Integration' : 'Create a brand first' }}</span>
+              <span v-else>Save Integration</span>
             </button>
           </template>
         </IntegrationFormCard>
@@ -91,8 +82,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { storeToRefs } from 'pinia';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
@@ -101,16 +91,13 @@ import CourierSelector from '../../components/integrations/CourierSelector.vue';
 import CourierOptionsBox from '../../components/integrations/CourierOptionsBox.vue';
 import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
-import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
 const router = useRouter();
-const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
-const { brands, loading: brandLoading } = storeToRefs(brandStore);
 
 const form = reactive({
-  brand_id: '',
+  name: '',
   courier_slug: null,
   courier_options: {},
 });
@@ -118,10 +105,9 @@ const form = reactive({
 const errors = reactive({});
 const duplicateWarning = ref('');
 const checkingDuplicate = ref(false);
-const initialLoading = ref(true);
+const initialLoading = ref(false);
 const saving = ref(false);
 
-const hasBrands = computed(() => brands.value.length > 0);
 const postexIncomplete = computed(() => {
   if (form.courier_slug !== 'postex') return false;
   return !form.courier_options.api_token || !form.courier_options.pickup_address_code;
@@ -132,21 +118,21 @@ const postexError = computed(() => {
   if (!form.courier_options.pickup_address_code) return 'Please fetch and select a PostEx pickup address.';
   return '';
 });
-const disableSave = computed(() => saving.value || !hasBrands.value || !form.brand_id || !form.courier_slug || checkingDuplicate.value || Boolean(duplicateWarning.value) || postexIncomplete.value);
+const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || checkingDuplicate.value || Boolean(duplicateWarning.value) || postexIncomplete.value);
 
 const resetErrors = () => {
-  errors.brand_id = '';
+  errors.name = '';
   errors.courier_slug = '';
 };
 
 const runDuplicateCheck = async () => {
   duplicateWarning.value = '';
-  if (!form.brand_id || !form.courier_slug) return;
+  if (!form.courier_slug) return;
   checkingDuplicate.value = true;
   try {
-    const exists = await integrationStore.checkDuplicate(form.brand_id, form.courier_slug);
+    const exists = await integrationStore.checkDuplicate(form.courier_slug);
     if (exists) {
-      duplicateWarning.value = `This brand is already connected to ${getCourierName(form.courier_slug)}. Each brand can only have one integration per courier.`;
+      duplicateWarning.value = `${getCourierName(form.courier_slug)} is already connected.`;
     }
   } catch (error) {
     console.error(error);
@@ -155,7 +141,7 @@ const runDuplicateCheck = async () => {
   }
 };
 
-watch(() => [form.brand_id, form.courier_slug], runDuplicateCheck);
+watch(() => form.courier_slug, runDuplicateCheck);
 watch(() => form.courier_slug, () => {
   form.courier_options = {};
 });
@@ -166,7 +152,7 @@ const handleSubmit = async () => {
   saving.value = true;
   try {
     await integrationStore.createIntegration({
-      brand_id: form.brand_id,
+      name: form.name.trim(),
       courier_slug: form.courier_slug,
       courier_options: form.courier_options,
     });
@@ -180,10 +166,6 @@ const handleSubmit = async () => {
   }
 };
 
-onMounted(async () => {
-  await brandStore.fetchBrands();
-  initialLoading.value = false;
-});
 </script>
 
 <style scoped>
@@ -239,7 +221,7 @@ onMounted(async () => {
   gap: 6px;
 }
 
-.form-select {
+.form-input {
   width: 100%;
   border: 1px solid #d1d5db;
   border-radius: 10px;
@@ -249,7 +231,7 @@ onMounted(async () => {
   color: #111827;
 }
 
-.form-select:focus {
+.form-input:focus {
   outline: none;
   border-color: #1e293b;
 }

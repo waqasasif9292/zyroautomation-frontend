@@ -3,8 +3,7 @@
     <div class="modal-card">
       <h3 class="modal-title">Delete Integration</h3>
       <p class="modal-body">
-        Are you sure you want to remove the <span>{{ courierName }}</span> integration for
-        <span>{{ brandName }}</span>? This cannot be undone.
+        Are you sure you want to remove the <span>{{ courierName }}</span> integration? This cannot be undone.
       </p>
       <div class="modal-actions">
         <button class="btn-secondary" :disabled="loading" @click="$emit('cancel')">Cancel</button>
@@ -19,7 +18,6 @@
 
 <script setup>
 defineProps({
-  brandName: { type: String, required: true },
   courierName: { type: String, required: true },
   loading: { type: Boolean, default: false },
 });

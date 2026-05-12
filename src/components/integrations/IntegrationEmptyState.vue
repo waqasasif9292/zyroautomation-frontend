@@ -7,7 +7,7 @@
       </svg>
     </div>
     <h3>No integrations yet</h3>
-    <p>Connect a courier to one of your brands to get started.</p>
+    <p>Connect a courier service to get started.</p>
     <slot></slot>
   </div>
 </template>
