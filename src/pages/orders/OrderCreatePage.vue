@@ -101,6 +101,38 @@
               <span v-if="postexPickupLoading" class="helper-text">Fetching pickup addresses from PostEx...</span>
               <span v-if="errors.pickup_address_code" class="field-error">{{ errors.pickup_address_code }}</span>
             </div>
+            <div v-else-if="isDastaqSelected" class="field">
+              <label>Pickup Address</label>
+              <select
+                v-model="form.pickup_address_code"
+                :class="{ invalid: errors.pickup_address_code }"
+                :disabled="dastaqPickupLoading"
+                @focus="ensureDastaqPickupAddresses"
+              >
+                <option value="">
+                  {{ dastaqPickupLoading ? 'Fetching pickup addresses...' : 'Select Pickup Address' }}
+                </option>
+                <option
+                  v-for="address in dastaqPickupAddresses"
+                  :key="address.id"
+                  :value="address.id"
+                >
+                  {{ dastaqPickupAddressName(address) }}
+                </option>
+              </select>
+              <span v-if="dastaqPickupLoading" class="helper-text">Fetching pickup addresses from Dastaq...</span>
+              <span v-if="errors.pickup_address_code" class="field-error">{{ errors.pickup_address_code }}</span>
+            </div>
+            <div v-else-if="isLeopardSelected" class="field">
+              <label>Pickup Address</label>
+              <select v-model="form.leopard_pickup_address_id" :class="{ invalid: errors.leopard_pickup_address_id }">
+                <option value="">Select Pickup Address</option>
+                <option v-for="address in leopardPickupAddresses" :key="address.id" :value="address.id">
+                  {{ leopardPickupAddressName(address) }}
+                </option>
+              </select>
+              <span v-if="errors.leopard_pickup_address_id" class="field-error">{{ errors.leopard_pickup_address_id }}</span>
+            </div>
             <div v-else class="field">
               <label>Origin City</label>
               <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }">
@@ -114,13 +146,13 @@
             <div class="field">
               <label>Destination City</label>
               <select
-                v-model="form.destination_city"
+                v-model="destinationCitySelection"
                 :class="{ invalid: errors.destination_city }"
-                :disabled="isPostexSelected && postexCityLoading"
-                @focus="ensurePostexDeliveryCities"
+                :disabled="(isPostexSelected && postexCityLoading) || (isLeopardSelected && leopardCityLoading) || (isDastaqSelected && dastaqCityLoading)"
+                @focus="ensureDestinationCities"
               >
                 <option value="">
-                  {{ postexCityLoading ? 'Fetching cities...' : 'Select Destination City' }}
+                  {{ citySelectPlaceholder }}
                 </option>
                 <option
                   v-for="city in destinationCityOptions"
@@ -131,23 +163,23 @@
                 </option>
               </select>
               <span v-if="postexCityLoading" class="helper-text">Fetching delivery cities from PostEx...</span>
+              <span v-if="leopardCityLoading" class="helper-text">Loading Leopard cities...</span>
+              <span v-if="dastaqCityLoading" class="helper-text">Fetching allowed cities from Dastaq...</span>
               <span v-if="errors.destination_city" class="field-error">{{ errors.destination_city }}</span>
             </div>
           </div>
 
           <div class="grid two compact">
             <div class="field">
-              <label>Packet Weight</label>
-              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" step="0.1" placeholder="0.2">
+              <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight' }}</label>
+              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'">
               <span v-if="errors.packet_weight" class="field-error">{{ errors.packet_weight }}</span>
             </div>
             <div class="field">
-              <label>Shipment Type</label>
+              <label>{{ isDastaqSelected ? 'Payment Type' : 'Shipment Type' }}</label>
               <select v-model="form.shipment_type" :class="{ invalid: errors.shipment_type }">
-                <option value=""></option>
-                <option>Overnight</option>
-                <option>Same Day</option>
-                <option>Detain</option>
+                <option value="">{{ isDastaqSelected ? 'Select Payment Type' : 'Select Shipment Type' }}</option>
+                <option v-for="type in shipmentTypeOptions" :key="type" :value="type">{{ type }}</option>
               </select>
               <span v-if="errors.shipment_type" class="field-error">{{ errors.shipment_type }}</span>
             </div>
@@ -261,6 +293,17 @@ const postexPickupError = ref('');
 const postexDeliveryCities = ref([]);
 const postexCityLoading = ref(false);
 const postexCityError = ref('');
+const leopardPickupAddresses = ref([]);
+const leopardCities = ref([]);
+const leopardShipmentTypes = ref([]);
+const leopardCityLoading = ref(false);
+const leopardCityError = ref('');
+const dastaqPickupAddresses = ref([]);
+const dastaqPickupLoading = ref(false);
+const dastaqPickupError = ref('');
+const dastaqCities = ref([]);
+const dastaqCityLoading = ref(false);
+const dastaqCityError = ref('');
 
 const form = reactive({
   brand_id: '',
@@ -271,8 +314,10 @@ const form = reactive({
   customer_address: '',
   courier_integration_id: '',
   pickup_address_code: '',
+  leopard_pickup_address_id: '',
   origin_city: '',
   destination_city: '',
+  destination_city_id: '',
   packet_weight: '0.2',
   shipment_type: '',
   cod: '',
@@ -291,6 +336,27 @@ const selectedBrand = computed(() => brandStore.brands.find(brand => brand.id ==
 const brandSources = computed(() => selectedBrand.value?.sources || []);
 const selectedIntegration = computed(() => integrationStore.integrations.find((integration) => String(integration.id) === String(form.courier_integration_id)));
 const isPostexSelected = computed(() => selectedIntegration.value?.courier_slug === 'postex');
+const isLeopardSelected = computed(() => selectedIntegration.value?.courier_slug === 'leopard');
+const isDastaqSelected = computed(() => selectedIntegration.value?.courier_slug === 'dastaq');
+const isGramWeightSelected = computed(() => isLeopardSelected.value || isDastaqSelected.value);
+const destinationCitySelection = computed({
+  get() {
+    return isLeopardSelected.value ? form.destination_city_id : form.destination_city;
+  },
+  set(value) {
+    if (isLeopardSelected.value) {
+      const city = leopardCities.value.find((item) => String(item.id) === String(value));
+      form.destination_city_id = value ? Number(value) : '';
+      form.destination_city = city?.name || '';
+      if (city?.shipment_type?.length && !city.shipment_type.includes(form.shipment_type)) {
+        form.shipment_type = city.shipment_type[0];
+      }
+    } else {
+      form.destination_city = value;
+      form.destination_city_id = '';
+    }
+  },
+});
 const destinationCityOptions = computed(() => {
   if (isPostexSelected.value) {
     return postexDeliveryCities.value.map((city) => ({
@@ -299,10 +365,40 @@ const destinationCityOptions = computed(() => {
     }));
   }
 
+  if (isLeopardSelected.value) {
+    return leopardCities.value.map((city) => ({
+      value: city.id,
+      label: city.name,
+    }));
+  }
+
+  if (isDastaqSelected.value) {
+    return dastaqCities.value.map((city) => ({
+      value: city,
+      label: city,
+    }));
+  }
+
   return ['Lahore', 'Karachi', 'Islamabad'].map((city) => ({
     value: city,
     label: city,
   }));
+});
+const citySelectPlaceholder = computed(() => {
+  if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value) return 'Fetching cities...';
+  return 'Select Destination City';
+});
+const shipmentTypeOptions = computed(() => {
+  if (isLeopardSelected.value) {
+    const city = leopardCities.value.find((item) => String(item.id) === String(form.destination_city_id));
+    return city?.shipment_type?.length ? city.shipment_type : leopardShipmentTypes.value;
+  }
+
+  if (isDastaqSelected.value) {
+    return ['cod', 'non-cod'];
+  }
+
+  return ['Overnight', 'Same Day', 'Detain'];
 });
 
 watch(() => form.brand_id, () => {
@@ -311,12 +407,15 @@ watch(() => form.brand_id, () => {
   form.source = '';
   form.courier_integration_id = '';
   form.pickup_address_code = '';
+  form.leopard_pickup_address_id = '';
   form.origin_city = '';
   form.destination_city = '';
+  form.destination_city_id = '';
   delete errors.brand_id;
   delete errors.source;
   delete errors.courier_integration_id;
   delete errors.pickup_address_code;
+  delete errors.leopard_pickup_address_id;
   delete errors.origin_city;
   delete errors.destination_city;
 });
@@ -327,14 +426,22 @@ watch(() => form.source, () => {
 
 const resetCourierDependentFields = () => {
   form.pickup_address_code = '';
+  form.leopard_pickup_address_id = '';
   form.origin_city = '';
   form.destination_city = '';
+  form.destination_city_id = '';
   postexPickupAddresses.value = [];
   postexPickupError.value = '';
   postexDeliveryCities.value = [];
   postexCityError.value = '';
+  leopardCityError.value = '';
+  dastaqPickupAddresses.value = [];
+  dastaqPickupError.value = '';
+  dastaqCities.value = [];
+  dastaqCityError.value = '';
   delete errors.courier_integration_id;
   delete errors.pickup_address_code;
+  delete errors.leopard_pickup_address_id;
   delete errors.origin_city;
   delete errors.destination_city;
 };
@@ -345,16 +452,26 @@ const loadPostexRuntimeData = async () => {
       fetchPostexPickupAddresses(),
       fetchPostexDeliveryCities(),
     ]);
+  } else if (isLeopardSelected.value) {
+    await loadLeopardRuntimeData();
+  } else if (isDastaqSelected.value) {
+    await loadDastaqRuntimeData();
   }
 };
 
 const handleCourierChange = async () => {
   resetCourierDependentFields();
+  form.packet_weight = isGramWeightSelected.value ? '500' : '0.2';
+  form.shipment_type = isDastaqSelected.value ? 'cod' : '';
   await loadPostexRuntimeData();
 };
 
 watch(() => form.pickup_address_code, () => {
   delete errors.pickup_address_code;
+});
+
+watch(() => form.leopard_pickup_address_id, () => {
+  delete errors.leopard_pickup_address_id;
 });
 
 [
@@ -382,7 +499,15 @@ onMounted(async () => {
   ]);
 
   if (isEditMode.value) {
-    await loadOrderForEdit(route.params.id);
+    try {
+      await loadOrderForEdit(route.params.id);
+    } catch (error) {
+      const message = error.response?.status === 404
+        ? 'This order no longer exists or you do not have access to it.'
+        : apiErrorMessage(error, 'Unable to load order for editing.');
+      window.alert(message);
+      router.push('/orders');
+    }
   }
 });
 
@@ -400,8 +525,10 @@ const loadOrderForEdit = async (id) => {
   form.customer_address = order.customer?.address || '';
   form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
   form.pickup_address_code = manual.pickup_address_code || '';
+  form.leopard_pickup_address_id = manual.leopard_pickup_address_id || '';
   form.origin_city = manual.origin_city || '';
   form.destination_city = manual.destination_city || order.customer?.city || '';
+  form.destination_city_id = manual.destination_city_id || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
   form.cod = manual.cod ?? order.total_price ?? '';
@@ -419,8 +546,16 @@ const loadOrderForEdit = async (id) => {
     quantity: line.quantity || 1,
   }));
 
-  if (isPostexSelected.value) {
+  const savedCourierSlug = manual.courier_slug || selectedIntegration.value?.courier_slug;
+  if (savedCourierSlug === 'postex') {
     await loadPostexRuntimeData();
+  } else if (savedCourierSlug === 'leopard') {
+    await loadLeopardRuntimeData();
+  } else if (savedCourierSlug === 'dastaq') {
+    await loadDastaqRuntimeData();
+    if (!['cod', 'non-cod'].includes(form.shipment_type)) {
+      form.shipment_type = Number(form.cod || 0) > 0 ? 'cod' : 'non-cod';
+    }
   }
 };
 
@@ -466,6 +601,131 @@ const pickupAddressName = (address) => {
     address.phone1,
     address.addressCode,
   ].filter(Boolean).join(' - ');
+};
+
+const leopardPickupAddressName = (address) => {
+  return [
+    address.shipment_name_eng || 'Pickup Address',
+    address.origin_city_name,
+    address.shipment_phone,
+  ].filter(Boolean).join(' - ');
+};
+
+const dastaqPickupAddressName = (address) => {
+  return [
+    address.name || address.address || 'Pickup Address',
+    address.city,
+    address.phone,
+    address.id,
+  ].filter(Boolean).join(' - ');
+};
+
+const loadLeopardRuntimeData = async () => {
+  await Promise.all([
+    fetchLeopardCities(),
+    fetchLeopardPickupAddresses(),
+  ]);
+};
+
+const fetchLeopardCities = async () => {
+  if (leopardCities.value.length) return;
+
+  leopardCityLoading.value = true;
+  leopardCityError.value = '';
+
+  try {
+    const res = await IntegrationService.fetchLeopardCities();
+    leopardCities.value = res.data.data.cities;
+    leopardShipmentTypes.value = res.data.data.shipment_types;
+  } catch (error) {
+    leopardCityError.value = apiErrorMessage(error, 'Unable to load Leopard cities.');
+    errors.destination_city = leopardCityError.value;
+  } finally {
+    leopardCityLoading.value = false;
+  }
+};
+
+const fetchLeopardPickupAddresses = async () => {
+  try {
+    const res = await IntegrationService.fetchLeopardPickupAddresses();
+    leopardPickupAddresses.value = res.data.data.addresses;
+    if (leopardPickupAddresses.value.length === 0) {
+      errors.leopard_pickup_address_id = 'Add a Leopard pickup address in Settings first.';
+    }
+  } catch (error) {
+    errors.leopard_pickup_address_id = apiErrorMessage(error, 'Unable to load Leopard pickup addresses.');
+  }
+};
+
+const getDastaqCredentials = () => ({
+  api_key: selectedIntegration.value?.courier_options?.api_key,
+  api_secret: selectedIntegration.value?.courier_options?.api_secret,
+});
+
+const loadDastaqRuntimeData = async () => {
+  await Promise.all([
+    fetchDastaqPickupAddresses(),
+    fetchDastaqCities(),
+  ]);
+};
+
+const fetchDastaqPickupAddresses = async () => {
+  const credentials = getDastaqCredentials();
+
+  if (!credentials.api_key || !credentials.api_secret) {
+    dastaqPickupError.value = 'Dastaq credentials are missing. Update the Dastaq integration first.';
+    errors.pickup_address_code = dastaqPickupError.value;
+    return;
+  }
+
+  dastaqPickupLoading.value = true;
+  dastaqPickupError.value = '';
+
+  try {
+    const res = await IntegrationService.fetchDastaqPickupAddresses(credentials);
+    dastaqPickupAddresses.value = res.data.data.addresses;
+    if (dastaqPickupAddresses.value.length === 0) {
+      dastaqPickupError.value = 'No pickup addresses found for this Dastaq account.';
+      errors.pickup_address_code = dastaqPickupError.value;
+    }
+  } catch (error) {
+    dastaqPickupError.value = apiErrorMessage(error, 'Unable to fetch Dastaq pickup addresses.');
+    errors.pickup_address_code = dastaqPickupError.value;
+  } finally {
+    dastaqPickupLoading.value = false;
+  }
+};
+
+const fetchDastaqCities = async () => {
+  const credentials = getDastaqCredentials();
+
+  if (!credentials.api_key || !credentials.api_secret) {
+    dastaqCityError.value = 'Dastaq credentials are missing. Update the Dastaq integration first.';
+    errors.destination_city = dastaqCityError.value;
+    return;
+  }
+
+  dastaqCityLoading.value = true;
+  dastaqCityError.value = '';
+
+  try {
+    const res = await IntegrationService.fetchDastaqAllowedCities(credentials);
+    dastaqCities.value = res.data.data.cities;
+    if (dastaqCities.value.length === 0) {
+      dastaqCityError.value = 'No destination cities found for this Dastaq account.';
+      errors.destination_city = dastaqCityError.value;
+    }
+  } catch (error) {
+    dastaqCityError.value = apiErrorMessage(error, 'Unable to fetch Dastaq allowed cities.');
+    errors.destination_city = dastaqCityError.value;
+  } finally {
+    dastaqCityLoading.value = false;
+  }
+};
+
+const ensureDastaqPickupAddresses = () => {
+  if (!isDastaqSelected.value || dastaqPickupLoading.value || dastaqPickupAddresses.value.length > 0) return;
+  fetchDastaqPickupAddresses();
 };
 
 const fetchPostexPickupAddresses = async () => {
@@ -545,12 +805,38 @@ const ensurePostexDeliveryCities = () => {
   fetchPostexDeliveryCities();
 };
 
+const ensureDestinationCities = () => {
+  if (isPostexSelected.value) {
+    ensurePostexDeliveryCities();
+  } else if (isDastaqSelected.value && !dastaqCityLoading.value && dastaqCities.value.length === 0) {
+    fetchDastaqCities();
+  }
+};
+
 const apiErrorMessage = (error, fallback) => {
   const serverMessage = error.response?.data?.message || error.response?.data?.error;
   if (serverMessage) return serverMessage;
   if (error.response?.status) return `${fallback} Server returned HTTP ${error.response.status}.`;
   if (error.request) return `${fallback} No response from API server.`;
   return fallback;
+};
+
+const formatApiErrorDetails = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map(formatApiErrorDetails).filter(Boolean).join('\n');
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, detail]) => {
+        const formatted = formatApiErrorDetails(detail);
+        return formatted ? `${key}: ${formatted}` : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+  return String(value);
 };
 
 const buildPayload = () => ({
@@ -607,6 +893,48 @@ const handleSave = async (mode) => {
     } else if (!form.destination_city) {
       errors.destination_city = 'Destination city is required.';
     }
+  } else if (isLeopardSelected.value) {
+    if (!form.leopard_pickup_address_id) {
+      errors.leopard_pickup_address_id = 'Pickup address is required.';
+    }
+
+    const leopardWeight = Number(form.packet_weight);
+    if (!Number.isInteger(leopardWeight) || leopardWeight <= 0) {
+      errors.packet_weight = 'Weight must be a whole number of grams.';
+    }
+
+    if (leopardCityLoading.value) {
+      errors.destination_city = 'Leopard cities are still loading.';
+    } else if (leopardCityError.value) {
+      errors.destination_city = leopardCityError.value;
+    } else if (!form.destination_city_id) {
+      errors.destination_city = 'Destination city is required.';
+    }
+  } else if (isDastaqSelected.value) {
+    if (dastaqPickupLoading.value) {
+      errors.pickup_address_code = 'Pickup addresses are still loading.';
+    } else if (dastaqPickupError.value) {
+      errors.pickup_address_code = dastaqPickupError.value;
+    } else if (!form.pickup_address_code) {
+      errors.pickup_address_code = 'Pickup address is required.';
+    }
+
+    const dastaqWeight = Number(form.packet_weight);
+    if (!Number.isInteger(dastaqWeight) || dastaqWeight <= 0) {
+      errors.packet_weight = 'Weight must be a whole number of grams.';
+    }
+
+    if (!['cod', 'non-cod'].includes(form.shipment_type)) {
+      errors.shipment_type = 'Shipment type must be cod or non-cod.';
+    }
+
+    if (dastaqCityLoading.value) {
+      errors.destination_city = 'Dastaq cities are still loading.';
+    } else if (dastaqCityError.value) {
+      errors.destination_city = dastaqCityError.value;
+    } else if (!form.destination_city) {
+      errors.destination_city = 'Destination city is required.';
+    }
   } else if (!form.origin_city) {
     errors.origin_city = 'Origin city is required.';
   }
@@ -627,9 +955,19 @@ const handleSave = async (mode) => {
     }
 
     if (mode === 'create') {
+      if (!isPostexSelected.value && !isLeopardSelected.value && !isDastaqSelected.value) {
+        window.alert('Shipment booking is only available for PostEx, Leopard, and Dastaq right now.');
+        router.push('/orders');
+        return;
+      }
+
       saving.value = false;
       creatingShipment.value = true;
-      const result = await orderStore.createPostexShipment(order.id);
+      const result = isLeopardSelected.value
+        ? await orderStore.createLeopardShipment(order.id)
+        : isDastaqSelected.value
+          ? await orderStore.createDastaqShipment(order.id)
+          : await orderStore.createPostexShipment(order.id);
       const tracking = result.tracking_number || 'created';
       window.alert(`Shipment created! Tracking: ${tracking}`);
     }
@@ -637,13 +975,20 @@ const handleSave = async (mode) => {
     router.push('/orders');
   } catch (error) {
     const responseErrors = error.response?.data?.errors;
-    const message = error.response?.data?.message || 'Unable to save order.';
-    if (responseErrors) {
+    const fallback = mode === 'create' && creatingShipment.value
+      ? 'Order was saved, but shipment booking failed.'
+      : 'Unable to save order.';
+    const message = error.response?.data?.message || fallback;
+    const dastaqDetails = formatApiErrorDetails(error.response?.data?.dastaq_response);
+    const errorDetails = formatApiErrorDetails(error.response?.data?.errors);
+
+    if (responseErrors && typeof responseErrors === 'object' && !Array.isArray(responseErrors)) {
       Object.assign(errors, Object.fromEntries(
         Object.entries(responseErrors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
       ));
     }
-    window.alert(message);
+
+    window.alert([message, dastaqDetails || errorDetails].filter(Boolean).join('\n\n'));
   } finally {
     saving.value = false;
     creatingShipment.value = false;

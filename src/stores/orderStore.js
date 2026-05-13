@@ -83,6 +83,16 @@ export const useOrderStore = defineStore('order', () => {
     return res.data.data;
   };
 
+  const createLeopardShipment = async (id) => {
+    const res = await OrderService.createLeopardShipment(id);
+    return res.data.data;
+  };
+
+  const createDastaqShipment = async (id) => {
+    const res = await OrderService.createDastaqShipment(id);
+    return res.data.data;
+  };
+
   const deleteOrder = async (id) => {
     await OrderService.deleteOrder(id);
     if (selectedOrder.value?.id === id) closePanel();
@@ -106,6 +116,8 @@ export const useOrderStore = defineStore('order', () => {
     createHold,
     updateHold,
     createPostexShipment,
+    createLeopardShipment,
+    createDastaqShipment,
     deleteOrder,
   };
 });

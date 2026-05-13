@@ -69,6 +69,13 @@
                 :apiPasswordError="errors.leopardApiPassword || leopardApiPasswordError"
                 :generalError="errors.leopard"
               />
+              <DastaqOptionsForm
+                v-else-if="form.courier_slug === 'dastaq'"
+                v-model="form.courier_options"
+                :apiKeyError="errors.dastaqApiKey || dastaqApiKeyError"
+                :apiSecretError="errors.dastaqApiSecret || dastaqApiSecretError"
+                :generalError="errors.dastaq"
+              />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
           </template>
@@ -96,6 +103,7 @@ import CourierSelector from '../../components/integrations/CourierSelector.vue';
 import CourierOptionsBox from '../../components/integrations/CourierOptionsBox.vue';
 import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.vue';
 import LeopardOptionsForm from '../../components/integrations/LeopardOptionsForm.vue';
+import DastaqOptionsForm from '../../components/integrations/DastaqOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -139,7 +147,21 @@ const leopardApiPasswordError = computed(() => {
   if (!form.courier_options.api_password) return 'The Leopard API password is required.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value || leopardIncomplete.value);
+const dastaqIncomplete = computed(() => {
+  if (form.courier_slug !== 'dastaq') return false;
+  return !form.courier_options.api_key || !form.courier_options.api_secret;
+});
+const dastaqApiKeyError = computed(() => {
+  if (form.courier_slug !== 'dastaq') return '';
+  if (!form.courier_options.api_key) return 'The Dastaq API key is required.';
+  return '';
+});
+const dastaqApiSecretError = computed(() => {
+  if (form.courier_slug !== 'dastaq') return '';
+  if (!form.courier_options.api_secret) return 'The Dastaq API secret is required.';
+  return '';
+});
+const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value);
 
 watch(() => form.courier_options.api_token, () => {
   errors.postex = '';
@@ -149,10 +171,20 @@ watch(() => [form.courier_options.api_key, form.courier_options.api_password], (
   errors.leopardApiKey = '';
   errors.leopardApiPassword = '';
 });
+watch(() => [form.courier_options.api_key, form.courier_options.api_secret], () => {
+  errors.dastaq = '';
+  errors.dastaqApiKey = '';
+  errors.dastaqApiSecret = '';
+});
 
 const applyOptionErrors = (responseErrors) => {
   const optionErrors = responseErrors?.courier_options;
   errors.postex = optionErrors?.api_token?.[0] || '';
+  if (form.courier_slug === 'dastaq') {
+    errors.dastaqApiKey = optionErrors?.api_key?.[0] || '';
+    errors.dastaqApiSecret = optionErrors?.api_secret?.[0] || '';
+    return;
+  }
   errors.leopardApiKey = optionErrors?.api_key?.[0] || '';
   errors.leopardApiPassword = optionErrors?.api_password?.[0] || '';
 };
@@ -173,6 +205,8 @@ const handleSubmit = async () => {
     } else if (error.response?.data?.message) {
       if (form.courier_slug === 'leopard') {
         errors.leopard = error.response.data.message;
+      } else if (form.courier_slug === 'dastaq') {
+        errors.dastaq = error.response.data.message;
       } else {
         errors.postex = error.response.data.message;
       }

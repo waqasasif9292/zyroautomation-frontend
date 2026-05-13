@@ -41,7 +41,7 @@ const handleClick = (item) => {
   } else if (route.path === '/settings') {
     emit('change', item.key);
   } else {
-    router.push('/settings');
+    router.push({ path: '/settings', query: { tab: item.key } });
   }
 };
 
@@ -57,6 +57,10 @@ const navItems = [
   {
     key: 'integrations', label: 'Integrations', to: '/integrations',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>`,
+  },
+  {
+    key: 'leopard', label: 'Leopard Pickup',
+    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62L18.3 8.38A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>`,
   },
   {
     key: 'notifications', label: 'Notifications',

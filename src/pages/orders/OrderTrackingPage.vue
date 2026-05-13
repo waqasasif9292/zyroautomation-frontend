@@ -12,6 +12,7 @@
         <div>
           <p class="eyebrow">Courier Tracking</p>
           <h1>{{ trackingNumber || 'Tracking' }}</h1>
+          <p v-if="courierName" class="courier-name">{{ courierName }}</p>
         </div>
       </section>
 
@@ -74,6 +75,7 @@
                 <span class="flag">F</span>
                 <h3>{{ event.message }}</h3>
                 <p>{{ formatEventDate(event.date) }}</p>
+                <p v-if="event.remarks" class="event-remarks">{{ event.remarks }}</p>
                 <small v-if="event.code">Code {{ event.code }}</small>
               </li>
             </ol>
@@ -87,7 +89,7 @@
               </svg>
             </div>
             <h3>No tracking history available yet.</h3>
-            <p>PostEx returned the current courier status, but detailed journey events are not available for this order yet.</p>
+            <p>The courier returned the current shipment status, but detailed journey events are not available for this order yet.</p>
           </div>
         </div>
       </section>
@@ -117,6 +119,7 @@ const trackingResponse = ref(null);
 
 const trackingNumber = computed(() => order.value?.tracking_number || trackingResponse.value?.tracking_number || '');
 const trackingStatus = computed(() => trackingResponse.value?.order_status || order.value?.status || '—');
+const courierName = computed(() => trackingResponse.value?.courier_name || order.value?.manual_order?.courier_name || order.value?.shipping_method || '');
 
 const fetchOrder = async () => {
   const res = await OrderService.getOrder(route.params.id);
@@ -128,7 +131,7 @@ const fetchTracking = async () => {
   trackingError.value = '';
 
   try {
-    const res = await OrderService.getPostexTrackingHistory(route.params.id);
+    const res = await OrderService.getTrackingHistory(route.params.id);
     trackingResponse.value = res.data.data;
     history.value = res.data.data.tracking_history || [];
     if (order.value && res.data.data.order_status) {
@@ -220,6 +223,13 @@ onMounted(loadPage);
   color: #111827;
   font-size: 24px;
   font-weight: 900;
+}
+
+.courier-name {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .tracking-shell {
@@ -404,6 +414,12 @@ onMounted(loadPage);
 .timeline-item small {
   margin-top: 4px;
   color: #94a3b8;
+}
+
+.timeline-item .event-remarks {
+  margin-top: 5px;
+  color: #334155;
+  font-weight: 750;
 }
 
 .empty-history {

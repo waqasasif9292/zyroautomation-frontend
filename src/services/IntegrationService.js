@@ -25,4 +25,16 @@ export default {
   fetchPostexOperationalCities(params) {
     return axiosInstance.get('/integrations/postex/operational-cities', { params });
   },
+  fetchLeopardCities() {
+    return axiosInstance.get('/integrations/leopard/cities');
+  },
+  fetchLeopardPickupAddresses() {
+    return axiosInstance.get('/settings/leopard-pickup-addresses');
+  },
+  fetchDastaqAllowedCities(params) {
+    return axiosInstance.get('/integrations/dastaq/allowed-cities', { params });
+  },
+  fetchDastaqPickupAddresses(params) {
+    return axiosInstance.get('/integrations/dastaq/pickup-addresses', { params });
+  },
 };

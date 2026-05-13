@@ -19,8 +19,20 @@ const OrderService = {
   createPostexShipment(id) {
     return axiosInstance.post(`/orders/${id}/postex/create-shipment`);
   },
+  createLeopardShipment(id) {
+    return axiosInstance.post(`/orders/${id}/leopard/create-shipment`);
+  },
+  createDastaqShipment(id) {
+    return axiosInstance.post(`/orders/${id}/dastaq/create-shipment`);
+  },
+  getTrackingHistory(id) {
+    return axiosInstance.get(`/orders/${id}/track-history`);
+  },
   getPostexTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/postex/track-history`);
+  },
+  getDastaqTrackingHistory(id) {
+    return axiosInstance.get(`/orders/${id}/dastaq/track-history`);
   },
   deleteOrder(id) {
     return axiosInstance.delete(`/orders/${id}`);
