@@ -1,5 +1,9 @@
 <template>
   <AppLayout>
+    <transition name="toast-fade">
+      <div v-if="toast" class="toast">{{ toast }}</div>
+    </transition>
+
     <main class="orders-page">
       <section class="orders-card">
         <div class="card-header">
@@ -39,6 +43,7 @@
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @delete="handleDelete"
+              @track="handleTrack"
             />
             <OrderPagination
               :pagination="orderStore.pagination"
@@ -55,6 +60,20 @@
         />
       </section>
     </main>
+
+    <ConfirmDialog
+      :show="showDeleteDialog"
+      title="Delete Order?"
+      message="This order will be removed from Zyro Automation. This action cannot be undone."
+      :details="selectedOrderLabel"
+      eyebrow="Order deletion"
+      confirmText="Delete Order"
+      cancelText="Keep Order"
+      variant="danger"
+      :loading="deleteLoading"
+      @cancel="closeDeleteDialog"
+      @confirm="confirmDelete"
+    />
   </AppLayout>
 </template>
 
@@ -67,6 +86,7 @@ import OrderEmptyState from '../components/orders/OrderEmptyState.vue';
 import OrderFiltersBar from '../components/orders/OrderFiltersBar.vue';
 import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrdersTable from '../components/orders/OrdersTable.vue';
+import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
 import { useBrandStore } from '../stores/brandStore';
 import { useOrderStore } from '../stores/orderStore';
 
@@ -74,6 +94,10 @@ const orderStore = useOrderStore();
 const brandStore = useBrandStore();
 const router = useRouter();
 const tableRef = ref(null);
+const toast = ref('');
+const showDeleteDialog = ref(false);
+const deleteLoading = ref(false);
+const selectedOrder = ref(null);
 
 const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_id || orderStore.filters.search
@@ -91,11 +115,50 @@ const changePage = async (page) => {
 };
 
 const handleEdit = (id) => {
-  window.alert(`Edit order ${id} will be added with the order status workflow.`);
+  router.push(`/orders/${id}/edit`);
+};
+
+const handleTrack = (id) => {
+  router.push(`/orders/${id}/tracking`);
 };
 
 const handleDelete = (id) => {
-  window.alert(`Delete order ${id} will be added with the order status workflow.`);
+  selectedOrder.value = orderStore.orders.find(order => order.id === id) || { id };
+  showDeleteDialog.value = true;
+};
+
+const selectedOrderLabel = computed(() => {
+  if (!selectedOrder.value) return '';
+  return selectedOrder.value.order_name || selectedOrder.value.customer?.name || selectedOrder.value.id;
+});
+
+const showToast = (message) => {
+  toast.value = message;
+  setTimeout(() => {
+    toast.value = '';
+  }, 3000);
+};
+
+const closeDeleteDialog = () => {
+  if (deleteLoading.value) return;
+  showDeleteDialog.value = false;
+  selectedOrder.value = null;
+};
+
+const confirmDelete = async () => {
+  if (!selectedOrder.value) return;
+  deleteLoading.value = true;
+  try {
+    await orderStore.deleteOrder(selectedOrder.value.id);
+    showToast('Order deleted.');
+    showDeleteDialog.value = false;
+    selectedOrder.value = null;
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to delete order.');
+  } finally {
+    deleteLoading.value = false;
+  }
 };
 
 const handleNewOrder = () => {
@@ -167,6 +230,31 @@ onMounted(async () => {
 
 .card-body {
   padding: 22px 28px 26px;
+}
+
+.toast {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  z-index: 9999;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  padding: 11px 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 @media (max-width: 760px) {

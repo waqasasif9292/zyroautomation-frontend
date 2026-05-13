@@ -3,10 +3,19 @@
     <main class="create-order-page">
       <section class="order-card">
         <header class="card-header">
-          <h1>Save Order</h1>
+          <div>
+            <p class="eyebrow">Orders</p>
+            <h1>{{ isEditMode ? 'Edit Order' : 'Create Order' }}</h1>
+          </div>
+          <span class="status-pill">{{ isEditMode ? 'Draft update' : 'Manual entry' }}</span>
         </header>
 
         <form class="order-form" @submit.prevent="handleSave">
+          <div class="section-title">
+            <span>01</span>
+            <h2>Brand & Source</h2>
+          </div>
+
           <div class="grid two">
             <div class="field">
               <label>Brand</label>
@@ -24,6 +33,11 @@
               </select>
               <span v-if="errors.source" class="field-error">{{ errors.source }}</span>
             </div>
+          </div>
+
+          <div class="section-title">
+            <span>02</span>
+            <h2>Customer</h2>
           </div>
 
           <div class="grid three">
@@ -49,23 +63,29 @@
             <span v-if="errors.customer_address" class="field-error">{{ errors.customer_address }}</span>
           </div>
 
-          <div class="section-line"></div>
+          <div class="section-title section-title-spaced">
+            <span>03</span>
+            <h2>Shipping</h2>
+          </div>
 
           <div class="grid three">
             <div class="field">
               <label>Ship Through</label>
-              <select v-model="form.courier" :class="{ invalid: errors.courier }">
+              <select v-model="form.courier_integration_id" :class="{ invalid: errors.courier_integration_id }" @change="handleCourierChange">
                 <option value="">Select Courier</option>
-                <option v-for="courier in courierOptions" :key="courier.slug" :value="courier.slug">{{ courier.name }}</option>
+                <option v-for="integration in integrationStore.integrations" :key="integration.id" :value="integration.id">
+                  {{ integration.name || integration.courier_name }}
+                </option>
               </select>
-              <span v-if="errors.courier" class="field-error">{{ errors.courier }}</span>
+              <span v-if="errors.courier_integration_id" class="field-error">{{ errors.courier_integration_id }}</span>
             </div>
             <div v-if="isPostexSelected" class="field">
               <label>Pickup Address</label>
               <select
                 v-model="form.pickup_address_code"
                 :class="{ invalid: errors.pickup_address_code }"
-                :disabled="postexPickupLoading || postexPickupAddresses.length === 0"
+                :disabled="postexPickupLoading"
+                @focus="ensurePostexPickupAddresses"
               >
                 <option value="">
                   {{ postexPickupLoading ? 'Fetching pickup addresses...' : 'Select Pickup Address' }}
@@ -133,7 +153,10 @@
             </div>
           </div>
 
-          <div class="section-line"></div>
+          <div class="section-title section-title-spaced">
+            <span>04</span>
+            <h2>Payment & Notes</h2>
+          </div>
 
           <div class="grid cod-row">
             <div class="field">
@@ -141,15 +164,6 @@
               <input v-model="form.cod" :class="{ invalid: errors.cod }" type="number" min="0" placeholder="999">
               <span v-if="errors.cod" class="field-error">{{ errors.cod }}</span>
             </div>
-            <div class="field">
-              <label>Delivery Charges</label>
-              <input v-model="form.delivery_charges" :class="{ invalid: errors.delivery_charges }" type="number" min="0" placeholder="150">
-              <span v-if="errors.delivery_charges" class="field-error">{{ errors.delivery_charges }}</span>
-            </div>
-            <label class="checkbox-field">
-              <input v-model="form.generate_label" type="checkbox">
-              <span>Generate Label</span>
-            </label>
           </div>
 
           <div class="field">
@@ -164,33 +178,55 @@
             <span v-if="errors.internal_notes" class="field-error">{{ errors.internal_notes }}</span>
           </div>
 
-          <div class="items-header">
-            <label>Order Items...</label>
+          <div class="items-header section-title-spaced">
+            <div class="section-title inline">
+              <span>05</span>
+              <h2>Order Items</h2>
+            </div>
             <button type="button" class="copy-btn" @click="copyItems">Copy</button>
           </div>
 
           <div class="item-row">
-            <select v-model="item.product" :class="{ invalid: errors.items }">
-              <option value="">Select Product</option>
-              <option>Heavy Duty Torch Light</option>
-              <option>Unbreakable Child Fridge Lock</option>
-              <option>Rechargeable Hammer Torch</option>
-            </select>
-            <input v-model.number="item.quantity" :class="{ invalid: errors.items }" type="number" min="0" placeholder="0">
+            <div class="field no-gap">
+              <select v-model="item.product_id" :class="{ invalid: errors.items }">
+                <option value="">Select Product</option>
+                <option v-for="product in productStore.products" :key="product.id" :value="product.id">
+                  {{ product.name }}
+                </option>
+              </select>
+            </div>
+            <div class="field no-gap">
+              <input v-model.number="item.quantity" :class="{ invalid: errors.items }" type="number" min="0" placeholder="0">
+            </div>
             <button type="button" class="add-item-btn" @click="addItem">Add</button>
           </div>
-          <span v-if="errors.items" class="field-error items-error">{{ errors.items }}</span>
+          <span v-if="errors.items || !hasOrderProducts" class="field-error items-error">
+            {{ errors.items || 'Add at least one product before saving.' }}
+          </span>
 
           <div v-if="items.length" class="selected-items">
-            <div v-for="(row, index) in items" :key="`${row.product}-${index}`" class="selected-item">
-              <span>{{ index + 1 }}. {{ row.product }}</span>
-              <strong>Qty: {{ row.quantity }}</strong>
+            <div v-for="(row, index) in items" :key="row.product_id" class="selected-item">
+              <img class="item-image" :src="row.picture_url" :alt="row.name">
+              <div class="item-main">
+                <span>{{ index + 1 }} x {{ row.name }}</span>
+                <strong>Rs. {{ Number(row.sale_price || 0).toLocaleString() }} Per Piece</strong>
+              </div>
+              <div class="item-qty">
+                <label>Qty</label>
+                <input v-model.number="row.quantity" type="number" min="1">
+              </div>
+              <button class="remove-item-btn" type="button" @click="removeItem(row.product_id)">Remove</button>
             </div>
           </div>
 
           <div class="actions">
             <button type="button" class="cancel-btn" @click="router.push('/orders')">Cancel</button>
-            <button type="submit" class="save-btn">Save</button>
+            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('hold')">
+              {{ saving ? 'Saving...' : 'Save as Hold' }}
+            </button>
+            <button type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
+              {{ creatingShipment ? 'Creating...' : 'Create Order' }}
+            </button>
           </div>
         </form>
       </section>
@@ -199,19 +235,26 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
-import { getCourierName } from '../../constants/couriers';
 import IntegrationService from '../../services/IntegrationService';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
+import { useOrderStore } from '../../stores/orderStore';
+import { useProductStore } from '../../stores/productStore';
 
 const router = useRouter();
+const route = useRoute();
 const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
+const orderStore = useOrderStore();
+const productStore = useProductStore();
 const items = ref([]);
 const errors = reactive({});
+const saving = ref(false);
+const creatingShipment = ref(false);
+const hydratingOrder = ref(false);
 const postexPickupAddresses = ref([]);
 const postexPickupLoading = ref(false);
 const postexPickupError = ref('');
@@ -226,40 +269,28 @@ const form = reactive({
   customer_contact: '',
   customer_contact_two: '',
   customer_address: '',
-  courier: '',
+  courier_integration_id: '',
   pickup_address_code: '',
   origin_city: '',
   destination_city: '',
   packet_weight: '0.2',
   shipment_type: '',
   cod: '',
-  delivery_charges: '',
-  generate_label: false,
   special_instructions: '',
   internal_notes: '',
 });
 
 const item = reactive({
-  product: '',
+  product_id: '',
   quantity: 0,
 });
 
+const isEditMode = computed(() => Boolean(route.params.id));
+const hasOrderProducts = computed(() => items.value.length > 0);
 const selectedBrand = computed(() => brandStore.brands.find(brand => brand.id === form.brand_id));
 const brandSources = computed(() => selectedBrand.value?.sources || []);
-const courierOptions = computed(() => {
-  const bySlug = new Map();
-  integrationStore.integrations.forEach((integration) => {
-    if (!bySlug.has(integration.courier_slug)) {
-      bySlug.set(integration.courier_slug, {
-        slug: integration.courier_slug,
-        name: integration.courier_name || getCourierName(integration.courier_slug),
-      });
-    }
-  });
-  return [...bySlug.values()];
-});
-const isPostexSelected = computed(() => form.courier === 'postex');
-const postexIntegration = computed(() => integrationStore.integrations.find((integration) => integration.courier_slug === 'postex'));
+const selectedIntegration = computed(() => integrationStore.integrations.find((integration) => String(integration.id) === String(form.courier_integration_id)));
+const isPostexSelected = computed(() => selectedIntegration.value?.courier_slug === 'postex');
 const destinationCityOptions = computed(() => {
   if (isPostexSelected.value) {
     return postexDeliveryCities.value.map((city) => ({
@@ -275,14 +306,16 @@ const destinationCityOptions = computed(() => {
 });
 
 watch(() => form.brand_id, () => {
+  if (hydratingOrder.value) return;
+
   form.source = '';
-  form.courier = '';
+  form.courier_integration_id = '';
   form.pickup_address_code = '';
   form.origin_city = '';
   form.destination_city = '';
   delete errors.brand_id;
   delete errors.source;
-  delete errors.courier;
+  delete errors.courier_integration_id;
   delete errors.pickup_address_code;
   delete errors.origin_city;
   delete errors.destination_city;
@@ -292,7 +325,7 @@ watch(() => form.source, () => {
   delete errors.source;
 });
 
-watch(() => form.courier, async () => {
+const resetCourierDependentFields = () => {
   form.pickup_address_code = '';
   form.origin_city = '';
   form.destination_city = '';
@@ -300,16 +333,25 @@ watch(() => form.courier, async () => {
   postexPickupError.value = '';
   postexDeliveryCities.value = [];
   postexCityError.value = '';
-  delete errors.courier;
+  delete errors.courier_integration_id;
   delete errors.pickup_address_code;
   delete errors.origin_city;
   delete errors.destination_city;
+};
 
-  if (form.courier === 'postex') {
-    fetchPostexPickupAddresses();
-    fetchPostexDeliveryCities();
+const loadPostexRuntimeData = async () => {
+  if (isPostexSelected.value) {
+    await Promise.all([
+      fetchPostexPickupAddresses(),
+      fetchPostexDeliveryCities(),
+    ]);
   }
-});
+};
+
+const handleCourierChange = async () => {
+  resetCourierDependentFields();
+  await loadPostexRuntimeData();
+};
 
 watch(() => form.pickup_address_code, () => {
   delete errors.pickup_address_code;
@@ -319,13 +361,11 @@ watch(() => form.pickup_address_code, () => {
   'customer_name',
   'customer_contact',
   'customer_address',
-  'courier',
-  'origin_city',
+  'courier_integration_id',
   'destination_city',
   'packet_weight',
   'shipment_type',
   'cod',
-  'delivery_charges',
   'special_instructions',
   'internal_notes',
 ].forEach((key) => {
@@ -338,8 +378,86 @@ onMounted(async () => {
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
+    productStore.products.length ? Promise.resolve() : productStore.fetchProducts(),
   ]);
+
+  if (isEditMode.value) {
+    await loadOrderForEdit(route.params.id);
+  }
 });
+
+const loadOrderForEdit = async (id) => {
+  const order = await orderStore.fetchOrder(id);
+  orderStore.closePanel();
+  const manual = order.manual_order || {};
+
+  hydratingOrder.value = true;
+  form.brand_id = order.brand_id || '';
+  form.source = order.source || '';
+  form.customer_name = order.customer?.name || '';
+  form.customer_contact = order.customer?.phone_local || order.customer?.phone_intl || '';
+  form.customer_contact_two = manual.customer_contact_two || order.customer?.phone_two || '';
+  form.customer_address = order.customer?.address || '';
+  form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
+  form.pickup_address_code = manual.pickup_address_code || '';
+  form.origin_city = manual.origin_city || '';
+  form.destination_city = manual.destination_city || order.customer?.city || '';
+  form.packet_weight = manual.packet_weight ?? '0.2';
+  form.shipment_type = manual.shipment_type || '';
+  form.cod = manual.cod ?? order.total_price ?? '';
+  form.special_instructions = manual.special_instructions || (order.shopify_order_id ? shopifyInstructions(order.line_items || []) : '');
+  form.internal_notes = manual.internal_notes || '';
+
+  await nextTick();
+  hydratingOrder.value = false;
+
+  items.value = order.shopify_order_id ? [] : (order.line_items || []).map((line) => ({
+    product_id: line.product_id,
+    name: line.title || line.name,
+    picture_url: line.picture_url,
+    sale_price: line.price,
+    quantity: line.quantity || 1,
+  }));
+
+  if (isPostexSelected.value) {
+    await loadPostexRuntimeData();
+  }
+};
+
+const addItem = () => {
+  const product = productStore.products.find((candidate) => candidate.id === item.product_id);
+  if (!product) return;
+
+  const existing = items.value.find((row) => row.product_id === product.id);
+  if (existing) {
+    existing.quantity += item.quantity || 1;
+  } else {
+    items.value.push({
+      product_id: product.id,
+      name: product.name,
+      picture_url: product.picture_url,
+      sale_price: product.sale_price,
+      quantity: item.quantity || 1,
+    });
+  }
+
+  item.product_id = '';
+  item.quantity = 0;
+  delete errors.items;
+};
+
+const removeItem = (productId) => {
+  items.value = items.value.filter((row) => row.product_id !== productId);
+};
+
+const copyItems = async () => {
+  const text = items.value.map(row => `${row.quantity} x ${row.name}`).join('\n');
+  if (navigator.clipboard && text) {
+    await navigator.clipboard.writeText(text);
+  }
+};
+
+const getPostexApiToken = () => selectedIntegration.value?.courier_options?.api_token;
 
 const pickupAddressName = (address) => {
   return [
@@ -348,21 +466,6 @@ const pickupAddressName = (address) => {
     address.phone1,
     address.addressCode,
   ].filter(Boolean).join(' - ');
-};
-
-const addItem = () => {
-  if (!item.product) return;
-  items.value.push({ product: item.product, quantity: item.quantity || 1 });
-  item.product = '';
-  item.quantity = 0;
-  delete errors.items;
-};
-
-const copyItems = async () => {
-  const text = items.value.map(row => `${row.quantity} x ${row.product}`).join('\n');
-  if (navigator.clipboard && text) {
-    await navigator.clipboard.writeText(text);
-  }
 };
 
 const fetchPostexPickupAddresses = async () => {
@@ -378,7 +481,8 @@ const fetchPostexPickupAddresses = async () => {
   postexPickupError.value = '';
 
   try {
-    postexPickupAddresses.value = await integrationStore.fetchPostexPickupAddresses(token);
+    const res = await IntegrationService.fetchPostexPickupAddresses({ token });
+    postexPickupAddresses.value = res.data.data.addresses;
     if (postexPickupAddresses.value.length === 0) {
       postexPickupError.value = 'No pickup addresses found for this PostEx account.';
       errors.pickup_address_code = postexPickupError.value;
@@ -391,7 +495,10 @@ const fetchPostexPickupAddresses = async () => {
   }
 };
 
-const getPostexApiToken = () => postexIntegration.value?.courier_options?.api_token;
+const ensurePostexPickupAddresses = () => {
+  if (!isPostexSelected.value || postexPickupLoading.value || postexPickupAddresses.value.length > 0) return;
+  fetchPostexPickupAddresses();
+};
 
 const fetchPostexDeliveryCities = async () => {
   const token = getPostexApiToken();
@@ -423,6 +530,16 @@ const fetchPostexDeliveryCities = async () => {
   }
 };
 
+const shopifyInstructions = (lineItems = []) => {
+  return lineItems.map((line) => {
+    const quantity = Number(line.quantity || 1);
+    const title = line.title || line.name || 'Product';
+    const variant = line.variant_title || line.variant || '';
+
+    return `${quantity} X ${title}${variant ? ` - ${variant}` : ''}`;
+  }).join('\n');
+};
+
 const ensurePostexDeliveryCities = () => {
   if (!isPostexSelected.value || postexCityLoading.value || postexDeliveryCities.value.length > 0) return;
   fetchPostexDeliveryCities();
@@ -436,7 +553,15 @@ const apiErrorMessage = (error, fallback) => {
   return fallback;
 };
 
-const handleSave = () => {
+const buildPayload = () => ({
+  ...form,
+  line_items: items.value.map((row) => ({
+    product_id: row.product_id,
+    quantity: Number(row.quantity || 1),
+  })),
+});
+
+const handleSave = async (mode) => {
   Object.keys(errors).forEach(key => delete errors[key]);
 
   if (!form.brand_id) {
@@ -451,12 +576,11 @@ const handleSave = () => {
     customer_name: 'Customer name is required.',
     customer_contact: 'Customer contact is required.',
     customer_address: 'Customer address is required.',
-    courier: 'Courier is required.',
+    courier_integration_id: 'Courier is required.',
     destination_city: 'Destination city is required.',
     packet_weight: 'Packet weight is required.',
     shipment_type: 'Shipment type is required.',
     cod: 'Cash on delivery is required.',
-    delivery_charges: 'Delivery charges are required.',
     special_instructions: 'Special instructions are required.',
     internal_notes: 'Internal notes are required.',
   };
@@ -487,55 +611,118 @@ const handleSave = () => {
     errors.origin_city = 'Origin city is required.';
   }
 
-  if (!items.value.length && !item.product) {
+  if (!hasOrderProducts.value) {
     errors.items = 'At least one order item is required.';
   }
 
   if (Object.keys(errors).length) return;
 
-  window.alert('Create order backend workflow will be added later.');
+  saving.value = true;
+  try {
+    let order;
+    if (isEditMode.value) {
+      order = await orderStore.updateHold(route.params.id, buildPayload());
+    } else {
+      order = await orderStore.createHold(buildPayload());
+    }
+
+    if (mode === 'create') {
+      saving.value = false;
+      creatingShipment.value = true;
+      const result = await orderStore.createPostexShipment(order.id);
+      const tracking = result.tracking_number || 'created';
+      window.alert(`Shipment created! Tracking: ${tracking}`);
+    }
+
+    router.push('/orders');
+  } catch (error) {
+    const responseErrors = error.response?.data?.errors;
+    const message = error.response?.data?.message || 'Unable to save order.';
+    if (responseErrors) {
+      Object.assign(errors, Object.fromEntries(
+        Object.entries(responseErrors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
+      ));
+    }
+    window.alert(message);
+  } finally {
+    saving.value = false;
+    creatingShipment.value = false;
+  }
 };
 </script>
 
 <style scoped>
 .create-order-page {
   min-height: 100vh;
-  padding: 12px;
-  background: #f1f5f9;
+  padding: 30px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 30%),
+    #f1f5f9;
 }
 
 .order-card {
+  max-width: 1280px;
+  margin: 0 auto;
   background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
 
 .card-header {
-  padding: 18px 22px;
-  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 30px;
+  border-bottom: 1px solid #e2e8f0;
+  background:
+    linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.95));
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .card-header h1 {
   margin: 0;
-  color: #172554;
-  font-size: 14px;
-  font-weight: 800;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .order-form {
   display: grid;
-  gap: 22px;
-  padding: 22px 36px;
+  gap: 18px;
+  padding: 28px 30px 30px;
 }
 
 .grid {
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 
 .grid.two {
-  grid-template-columns: 250px 250px;
+  grid-template-columns: repeat(2, minmax(220px, 300px));
 }
 
 .grid.three {
@@ -543,11 +730,11 @@ const handleSave = () => {
 }
 
 .grid.compact {
-  grid-template-columns: 250px 250px;
+  grid-template-columns: repeat(2, minmax(220px, 280px));
 }
 
 .grid.cod-row {
-  grid-template-columns: 250px 250px auto;
+  grid-template-columns: minmax(220px, 280px);
   align-items: end;
 }
 
@@ -557,11 +744,15 @@ const handleSave = () => {
   gap: 8px;
 }
 
+.field.no-gap {
+  gap: 0;
+}
+
 .field label,
 .items-header label {
-  color: #1e3a8a;
+  color: #334155;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .optional-label {
@@ -573,23 +764,24 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #fff;
-  color: #1e293b;
-  font-size: 12px;
+  color: #0f172a;
+  font-size: 13px;
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
 input,
 select {
-  height: 34px;
-  padding: 0 10px;
+  height: 42px;
+  padding: 0 12px;
 }
 
 textarea {
-  min-height: 50px;
-  padding: 10px;
+  min-height: 88px;
+  padding: 12px;
   resize: vertical;
 }
 
@@ -602,7 +794,8 @@ select {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #1e293b;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 select:disabled {
@@ -617,128 +810,249 @@ select:disabled {
 .field-error {
   color: #ef4444;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 750;
 }
 
 .helper-text {
   color: #64748b;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .items-error {
-  margin-top: -16px;
+  margin-top: -8px;
 }
 
-.section-line {
-  height: 3px;
-  background: #128018;
-  margin: 14px 0 0;
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
 }
 
-.checkbox-field {
+.section-title-spaced {
+  margin-top: 12px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.section-title.inline {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.section-title span {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 34px;
-  color: #64748b;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #2563eb;
   font-size: 12px;
-  white-space: nowrap;
+  font-weight: 900;
 }
 
-.checkbox-field input {
-  width: 13px;
-  height: 13px;
+.section-title h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 900;
 }
 
 .items-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: -14px;
+  gap: 14px;
 }
 
 .copy-btn {
-  border: 1px solid #4f46e5;
-  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
   background: #fff;
-  color: #4f46e5;
-  padding: 4px 8px;
-  font-size: 11px;
+  color: #2563eb;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 850;
   cursor: pointer;
 }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) 160px 56px;
-  gap: 22px;
+  grid-template-columns: minmax(280px, 420px) 160px 78px;
+  gap: 14px;
   align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 14px;
 }
 
 .add-item-btn,
-.save-btn {
+.hold-btn,
+.create-btn {
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   background: #5865e8;
   color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 850;
   cursor: pointer;
+  transition: transform 0.15s, background 0.15s, opacity 0.15s;
 }
 
 .add-item-btn {
-  height: 28px;
+  height: 42px;
+  background: #2563eb;
+}
+
+.add-item-btn:hover,
+.hold-btn:hover:not(:disabled),
+.create-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .selected-items {
   display: grid;
-  gap: 8px;
-  max-width: 560px;
+  gap: 12px;
+  max-width: 860px;
 }
 
 .selected-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 96px auto;
+  align-items: center;
+  gap: 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
   color: #334155;
+  font-size: 13px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.item-image {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.item-main span {
+  overflow: hidden;
+  color: #0f172a;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-main strong {
+  color: #64748b;
+  font-weight: 750;
+}
+
+.item-qty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-qty label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.remove-item-btn {
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  color: #ef4444;
+  padding: 9px 11px;
   font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
 }
 
 .actions {
   display: flex;
+  justify-content: flex-end;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .cancel-btn {
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   background: #fff;
   color: #374151;
-  padding: 7px 12px;
-  font-size: 11px;
-  font-weight: 700;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 850;
   cursor: pointer;
 }
 
-.save-btn {
-  padding: 7px 12px;
+.hold-btn,
+.create-btn {
+  padding: 10px 14px;
+}
+
+.hold-btn {
+  background: #64748b;
+}
+
+.create-btn {
+  background: #1e293b;
+}
+
+.hold-btn:disabled,
+.create-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 900px) {
+  .create-order-page {
+    padding: 18px;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+  }
+
   .order-form {
-    padding: 20px;
+    padding: 22px;
   }
 
   .grid.two,
   .grid.three,
   .grid.compact,
   .grid.cod-row,
-  .item-row {
+  .item-row,
+  .selected-item {
     grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: stretch;
+    flex-direction: column;
   }
 }
 </style>

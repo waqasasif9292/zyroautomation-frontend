@@ -20,6 +20,28 @@
             <OrderDetailSection title="Customer" :rows="customerRows" />
             <OrderDetailSection title="Order Summary" :rows="summaryRows" />
 
+            <section v-if="hasTrackingNumber" class="detail-section">
+              <h3>Courier Tracking</h3>
+              <div class="rows">
+                <div class="detail-row">
+                  <span>Tracking</span>
+                  <strong>
+                    <button
+                      class="tracking-button"
+                      type="button"
+                      @click="router.push(`/orders/${props.order.id}/tracking`)"
+                    >
+                      {{ trackingNumber }}
+                    </button>
+                  </strong>
+                </div>
+                <div class="detail-row">
+                  <span>Courier status</span>
+                  <strong>{{ props.order.status || '—' }}</strong>
+                </div>
+              </div>
+            </section>
+
             <section class="detail-section">
               <h3>Products</h3>
               <div class="product-row" v-for="item in order.line_items" :key="item.shopify_line_item_id">
@@ -43,8 +65,11 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import OrderDetailSection from './OrderDetailSection.vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
+
+const router = useRouter();
 
 const props = defineProps({
   open: {
@@ -96,6 +121,9 @@ const summaryRows = computed(() => [
 
 const hasUtm = computed(() => Object.values(props.order?.utm || {}).some(Boolean));
 
+const trackingNumber = computed(() => props.order?.tracking_number || '');
+const hasTrackingNumber = computed(() => Boolean(trackingNumber.value));
+
 const utmRows = computed(() => [
   { label: 'Source', value: props.order.utm?.source },
   { label: 'Medium', value: props.order.utm?.medium },
@@ -110,6 +138,15 @@ const metaRows = computed(() => [
   { label: 'Tags', value: props.order.tags },
   { label: 'Received at', value: formatDateTime(props.order.created_at) },
 ]);
+
+const formatDate = (value) => {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+};
 </script>
 
 <style scoped>
@@ -244,5 +281,66 @@ const metaRows = computed(() => [
 @keyframes pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
+}
+
+.tracking-button {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tracking-button:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
+.error-text,
+.helper-text {
+  margin-top: 12px;
+  color: #f43f5e;
+  font-size: 13px;
+}
+
+.helper-text {
+  color: #64748b;
+}
+
+.tracking-history {
+  margin-top: 14px;
+}
+
+.tracking-history h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.tracking-history ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tracking-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.history-message {
+  color: #334155;
+  font-size: 14px;
+}
+
+.history-code {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
 }
 </style>

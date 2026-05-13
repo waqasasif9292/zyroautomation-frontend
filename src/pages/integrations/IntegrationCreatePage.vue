@@ -39,10 +39,6 @@
                 </div>
               </header>
               <CourierSelector v-model="form.courier_slug" />
-              <div v-if="duplicateWarning" class="warning-box">
-                <p class="warning-text">{{ duplicateWarning }}</p>
-                <p class="warning-helper">Select a different courier to proceed.</p>
-              </div>
               <p v-if="errors.courier_slug" class="field-error">{{ errors.courier_slug }}</p>
             </section>
 
@@ -60,7 +56,7 @@
               <PostexOptionsForm
                 v-if="form.courier_slug === 'postex'"
                 v-model="form.courier_options"
-                :errorMessage="postexError"
+                :errorMessage="errors.postex || postexError"
               />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
@@ -103,47 +99,31 @@ const form = reactive({
 });
 
 const errors = reactive({});
-const duplicateWarning = ref('');
-const checkingDuplicate = ref(false);
 const initialLoading = ref(false);
 const saving = ref(false);
 
 const postexIncomplete = computed(() => {
   if (form.courier_slug !== 'postex') return false;
-  return !form.courier_options.api_token || !form.courier_options.pickup_address_code;
+  return !form.courier_options.api_token;
 });
 const postexError = computed(() => {
   if (form.courier_slug !== 'postex') return '';
   if (!form.courier_options.api_token) return 'The PostEx API token is required.';
-  if (!form.courier_options.pickup_address_code) return 'Please fetch and select a PostEx pickup address.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || checkingDuplicate.value || Boolean(duplicateWarning.value) || postexIncomplete.value);
+const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value);
 
 const resetErrors = () => {
   errors.name = '';
   errors.courier_slug = '';
 };
 
-const runDuplicateCheck = async () => {
-  duplicateWarning.value = '';
-  if (!form.courier_slug) return;
-  checkingDuplicate.value = true;
-  try {
-    const exists = await integrationStore.checkDuplicate(form.courier_slug);
-    if (exists) {
-      duplicateWarning.value = `${getCourierName(form.courier_slug)} is already connected.`;
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    checkingDuplicate.value = false;
-  }
-};
-
-watch(() => form.courier_slug, runDuplicateCheck);
 watch(() => form.courier_slug, () => {
   form.courier_options = {};
+  errors.postex = '';
+});
+watch(() => form.courier_options.api_token, () => {
+  errors.postex = '';
 });
 
 const handleSubmit = async () => {
@@ -160,6 +140,12 @@ const handleSubmit = async () => {
   } catch (error) {
     if (error.response?.data?.errors) {
       Object.assign(errors, error.response.data.errors);
+      const apiTokenError = error.response.data.errors?.courier_options?.api_token?.[0];
+      if (apiTokenError) {
+        errors.postex = apiTokenError;
+      }
+    } else if (error.response?.data?.message) {
+      errors.postex = error.response.data.message;
     }
   } finally {
     saving.value = false;
@@ -243,26 +229,6 @@ const handleSubmit = async () => {
 .field-error {
   font-size: 13px;
   color: #ef4444;
-}
-
-.warning-text {
-  margin-top: 10px;
-  font-size: 13px;
-  color: #f59e0b;
-}
-
-.warning-box {
-  margin-top: 10px;
-  background: #fffbeb;
-  border: 1px solid #fef3c7;
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.warning-helper {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: #b45309;
 }
 
 .btn-secondary,

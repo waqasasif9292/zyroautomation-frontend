@@ -35,6 +35,20 @@
         </div>
       </section>
     </main>
+
+    <ConfirmDialog
+      :show="showDeleteDialog"
+      title="Delete Product?"
+      message="This product will be removed from your catalog. Existing orders will keep their saved order details."
+      :details="selectedProduct?.name || ''"
+      eyebrow="Product deletion"
+      confirmText="Delete Product"
+      cancelText="Keep Product"
+      variant="danger"
+      :loading="deleteLoading"
+      @cancel="closeDeleteDialog"
+      @confirm="handleDelete"
+    />
   </AppLayout>
 </template>
 
@@ -45,6 +59,7 @@ import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import ProductEmptyState from '../../components/products/ProductEmptyState.vue';
 import ProductTable from '../../components/products/ProductTable.vue';
+import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
 import { useProductStore } from '../../stores/productStore';
 
 const router = useRouter();
@@ -52,16 +67,40 @@ const route = useRoute();
 const productStore = useProductStore();
 const { products, loading } = storeToRefs(productStore);
 const toast = ref('');
+const showDeleteDialog = ref(false);
+const deleteLoading = ref(false);
+const selectedProduct = ref(null);
 
 const showToast = (message) => {
   toast.value = message;
   setTimeout(() => { toast.value = ''; }, 3000);
 };
 
-const confirmDelete = async (product) => {
-  if (!window.confirm(`Delete ${product.name}?`)) return;
-  await productStore.deleteProduct(product.id);
-  showToast('Product deleted.');
+const confirmDelete = (product) => {
+  selectedProduct.value = product;
+  showDeleteDialog.value = true;
+};
+
+const closeDeleteDialog = () => {
+  if (deleteLoading.value) return;
+  showDeleteDialog.value = false;
+  selectedProduct.value = null;
+};
+
+const handleDelete = async () => {
+  if (!selectedProduct.value) return;
+  deleteLoading.value = true;
+  try {
+    await productStore.deleteProduct(selectedProduct.value.id);
+    showToast('Product deleted.');
+    showDeleteDialog.value = false;
+    selectedProduct.value = null;
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to delete product.');
+  } finally {
+    deleteLoading.value = false;
+  }
 };
 
 onMounted(async () => {

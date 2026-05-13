@@ -80,10 +80,15 @@
       </main>
     </div>
 
-    <!-- Regenerate Modal -->
-    <WebhookRegenModal
+    <ConfirmDialog
       :show="showRegenModal"
-      :brandName="form.name"
+      title="Regenerate Webhook URL?"
+      message="A new webhook URL will be created. Your existing Shopify webhook will stop working until you update it in Shopify."
+      :details="form.name"
+      eyebrow="Webhook settings"
+      confirmText="Regenerate URL"
+      cancelText="Keep Current URL"
+      variant="danger"
       :loading="regenLoading"
       @confirm="handleRegenerate"
       @cancel="showRegenModal = false"
@@ -99,7 +104,7 @@ import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import BrandFormCard from '../../components/brands/BrandFormCard.vue';
 import SourceChecklist from '../../components/brands/SourceChecklist.vue';
 import WebhookUrlField from '../../components/brands/WebhookUrlField.vue';
-import WebhookRegenModal from '../../components/brands/WebhookRegenModal.vue';
+import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
 import { useBrandStore } from '../../stores/brandStore';
 
 const router     = useRouter();

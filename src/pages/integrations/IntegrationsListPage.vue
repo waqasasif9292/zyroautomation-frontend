@@ -34,9 +34,15 @@
       </main>
     </div>
 
-    <IntegrationDeleteModal
-      v-if="showDelete"
-      :courierName="selectedIntegration?.name || selectedIntegration?.courier_name || 'Courier'"
+    <ConfirmDialog
+      :show="showDelete"
+      title="Delete Integration?"
+      message="This courier integration will be removed from your account. Orders already created will keep their saved courier details."
+      :details="selectedIntegration?.name || selectedIntegration?.courier_name || 'Courier'"
+      eyebrow="Courier integration"
+      confirmText="Delete Integration"
+      cancelText="Keep Integration"
+      variant="danger"
       :loading="deleteLoading"
       @cancel="closeDeleteModal"
       @confirm="handleDelete"
@@ -52,7 +58,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import IntegrationTable from '../../components/integrations/IntegrationTable.vue';
 import IntegrationEmptyState from '../../components/integrations/IntegrationEmptyState.vue';
-import IntegrationDeleteModal from '../../components/integrations/IntegrationDeleteModal.vue';
+import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
 const router = useRouter();
@@ -88,7 +94,8 @@ const handleDelete = async () => {
   try {
     await integrationStore.deleteIntegration(selectedIntegration.value.id);
     showToast('Integration deleted.');
-    closeDeleteModal();
+    showDelete.value = false;
+    selectedIntegration.value = null;
   } catch (error) {
     console.error(error);
     showToast('Failed to delete integration.');

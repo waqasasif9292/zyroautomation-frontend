@@ -12,6 +12,7 @@
           <th class="col-products">Product(s)</th>
           <th class="col-total">Total</th>
           <th class="col-payment">Payment</th>
+          <th class="col-tracking">Tracking</th>
           <th class="col-status">Status</th>
           <th class="col-actions"></th>
         </tr>
@@ -19,7 +20,7 @@
       <tbody>
         <template v-if="loading">
           <tr v-for="row in 5" :key="row">
-            <td v-for="col in 11" :key="col"><span class="skeleton"></span></td>
+            <td v-for="col in 12" :key="col"><span class="skeleton"></span></td>
           </tr>
         </template>
         <tr v-else v-for="(order, index) in orders" :key="order.id" class="order-row" @click="$emit('view', order.id)">
@@ -47,6 +48,17 @@
               <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
             </div>
           </td>
+          <td>
+            <button
+              v-if="order.tracking_number"
+              type="button"
+              class="tracking-code"
+              @click.stop="$emit('track', order.id)"
+            >
+              {{ order.tracking_number }}
+            </button>
+            <span v-else class="tracking-empty">—</span>
+          </td>
           <td><OrderStatusBadge :status="order.status" /></td>
           <td>
             <div class="action-buttons">
@@ -56,23 +68,21 @@
                   <circle cx="12" cy="12" r="3" />
                 </svg>
               </button>
-              <template v-if="canManage(order)">
-                <button class="icon-btn" type="button" aria-label="Edit order" title="Edit order" @click.stop="$emit('edit', order.id)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
-                </button>
-                <button class="icon-btn danger" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
-                </button>
-              </template>
+              <button v-if="canEdit(order)" class="icon-btn" type="button" aria-label="Edit order" title="Edit order" @click.stop="$emit('edit', order.id)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
+              <button class="icon-btn danger" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
             </div>
           </td>
         </tr>
@@ -99,11 +109,11 @@ defineProps({
   },
 });
 
-defineEmits(['view', 'edit', 'delete']);
+defineEmits(['view', 'edit', 'delete', 'track']);
 
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
-const canManage = (order) => ['pending confirmation', 'hold'].includes((order.status || '').toLowerCase());
+const canEdit = (order) => ['pending confirmation', 'hold'].includes((order.status || '').toLowerCase());
 const formatDate = (value) => {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
@@ -156,7 +166,8 @@ td {
 .col-city { width: 8%; }
 .col-products { width: 13%; }
 .col-total { width: 8%; }
-.col-payment { width: 10%; }
+.col-payment { width: 9%; }
+.col-tracking { width: 9%; }
 .col-status { width: 8%; }
 .col-actions { width: 6%; }
 
@@ -199,6 +210,34 @@ td {
   padding: 2px 6px;
   font-size: 11px;
   font-weight: 700;
+}
+
+.tracking-code,
+.tracking-empty {
+  display: inline-block;
+  overflow: hidden;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  color: #1e40af;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tracking-code {
+  cursor: pointer;
+}
+
+.tracking-code:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.tracking-empty {
+  color: #94a3b8;
 }
 
 .source-badge {

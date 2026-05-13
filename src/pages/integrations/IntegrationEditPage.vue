@@ -60,7 +60,7 @@
               <PostexOptionsForm
                 v-if="form.courier_slug === 'postex'"
                 v-model="form.courier_options"
-                :errorMessage="postexError"
+                :errorMessage="errors.postex || postexError"
               />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
@@ -80,7 +80,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
@@ -110,15 +110,18 @@ const notFound = ref(false);
 const courierName = computed(() => getCourierName(form.courier_slug));
 const postexIncomplete = computed(() => {
   if (form.courier_slug !== 'postex') return false;
-  return !form.courier_options.api_token || !form.courier_options.pickup_address_code;
+  return !form.courier_options.api_token;
 });
 const postexError = computed(() => {
   if (form.courier_slug !== 'postex') return '';
   if (!form.courier_options.api_token) return 'The PostEx API token is required.';
-  if (!form.courier_options.pickup_address_code) return 'Please fetch and select a PostEx pickup address.';
   return '';
 });
 const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value);
+
+watch(() => form.courier_options.api_token, () => {
+  errors.postex = '';
+});
 
 const handleSubmit = async () => {
   if (disableSave.value) return;
@@ -132,6 +135,12 @@ const handleSubmit = async () => {
   } catch (error) {
     if (error.response?.data?.errors) {
       Object.assign(errors, error.response.data.errors);
+      const apiTokenError = error.response.data.errors?.courier_options?.api_token?.[0];
+      if (apiTokenError) {
+        errors.postex = apiTokenError;
+      }
+    } else if (error.response?.data?.message) {
+      errors.postex = error.response.data.message;
     }
   } finally {
     saving.value = false;

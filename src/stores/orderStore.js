@@ -6,7 +6,7 @@ const defaultFilters = () => ({
   brand_id: null,
   financial_status: null,
   search: '',
-  sort: 'shopify_created_at_desc',
+  sort: 'created_id_desc',
   page: 1,
 });
 
@@ -41,6 +41,7 @@ export const useOrderStore = defineStore('order', () => {
     try {
       const res = await OrderService.getOrder(id);
       selectedOrder.value = res.data.data.order;
+      return selectedOrder.value;
     } finally {
       detailLoading.value = false;
     }
@@ -67,6 +68,27 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const createHold = async (payload) => {
+    const res = await OrderService.createHold(payload);
+    return res.data.data.order;
+  };
+
+  const updateHold = async (id, payload) => {
+    const res = await OrderService.updateHold(id, payload);
+    return res.data.data.order;
+  };
+
+  const createPostexShipment = async (id) => {
+    const res = await OrderService.createPostexShipment(id);
+    return res.data.data;
+  };
+
+  const deleteOrder = async (id) => {
+    await OrderService.deleteOrder(id);
+    if (selectedOrder.value?.id === id) closePanel();
+    await fetchOrders();
+  };
+
   return {
     orders,
     pagination,
@@ -81,5 +103,9 @@ export const useOrderStore = defineStore('order', () => {
     setFilter,
     setPage,
     resetFilters,
+    createHold,
+    updateHold,
+    createPostexShipment,
+    deleteOrder,
   };
 });

@@ -14,6 +14,8 @@ const props = defineProps({
 
 const labels = {
   'Pending Confirmation': 'Pending Confirmation',
+  HOLD: 'HOLD',
+  Hold: 'HOLD',
   pending: 'Pending',
   paid: 'Paid',
   refunded: 'Refunded',
@@ -22,7 +24,7 @@ const labels = {
   partially_refunded: 'Partially refunded',
 };
 
-const label = computed(() => labels[props.status] || '—');
+const label = computed(() => labels[props.status] || props.status || '—');
 const statusClass = computed(() => `status-${(props.status || 'unknown').toLowerCase().replace(/\s+/g, '-')}`);
 </script>
 
@@ -39,6 +41,7 @@ const statusClass = computed(() => `status-${(props.status || 'unknown').toLower
 
 .status-pending-confirmation,
 .status-pending { background: #fef3c7; color: #92400e; }
+.status-hold { background: #f1f5f9; color: #475569; }
 .status-paid { background: #dcfce7; color: #166534; }
 .status-refunded,
 .status-partially_refunded { background: #fee2e2; color: #991b1b; }
