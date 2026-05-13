@@ -9,7 +9,7 @@ export const COURIERS = [
     slug: 'leopard',
     name: 'Leopard',
     image: '/images/couriers/leopard.png',
-    placeholder: 'Leopard configuration options will appear here.'
+    placeholder: 'Enter your Leopard API key and password to connect this courier.'
   },
   {
     slug: 'argo',

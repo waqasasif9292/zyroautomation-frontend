@@ -58,6 +58,13 @@
                 v-model="form.courier_options"
                 :errorMessage="errors.postex || postexError"
               />
+              <LeopardOptionsForm
+                v-else-if="form.courier_slug === 'leopard'"
+                v-model="form.courier_options"
+                :apiKeyError="errors.leopardApiKey || leopardApiKeyError"
+                :apiPasswordError="errors.leopardApiPassword || leopardApiPasswordError"
+                :generalError="errors.leopard"
+              />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
           </template>
@@ -86,6 +93,7 @@ import IntegrationFormCard from '../../components/integrations/IntegrationFormCa
 import CourierSelector from '../../components/integrations/CourierSelector.vue';
 import CourierOptionsBox from '../../components/integrations/CourierOptionsBox.vue';
 import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.vue';
+import LeopardOptionsForm from '../../components/integrations/LeopardOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -111,7 +119,21 @@ const postexError = computed(() => {
   if (!form.courier_options.api_token) return 'The PostEx API token is required.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value);
+const leopardIncomplete = computed(() => {
+  if (form.courier_slug !== 'leopard') return false;
+  return !form.courier_options.api_key || !form.courier_options.api_password;
+});
+const leopardApiKeyError = computed(() => {
+  if (form.courier_slug !== 'leopard') return '';
+  if (!form.courier_options.api_key) return 'The Leopard API key is required.';
+  return '';
+});
+const leopardApiPasswordError = computed(() => {
+  if (form.courier_slug !== 'leopard') return '';
+  if (!form.courier_options.api_password) return 'The Leopard API password is required.';
+  return '';
+});
+const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value || leopardIncomplete.value);
 
 const resetErrors = () => {
   errors.name = '';
@@ -121,10 +143,25 @@ const resetErrors = () => {
 watch(() => form.courier_slug, () => {
   form.courier_options = {};
   errors.postex = '';
+  errors.leopard = '';
+  errors.leopardApiKey = '';
+  errors.leopardApiPassword = '';
 });
 watch(() => form.courier_options.api_token, () => {
   errors.postex = '';
 });
+watch(() => [form.courier_options.api_key, form.courier_options.api_password], () => {
+  errors.leopard = '';
+  errors.leopardApiKey = '';
+  errors.leopardApiPassword = '';
+});
+
+const applyOptionErrors = (responseErrors) => {
+  const optionErrors = responseErrors?.courier_options;
+  errors.postex = optionErrors?.api_token?.[0] || '';
+  errors.leopardApiKey = optionErrors?.api_key?.[0] || '';
+  errors.leopardApiPassword = optionErrors?.api_password?.[0] || '';
+};
 
 const handleSubmit = async () => {
   resetErrors();
@@ -140,12 +177,13 @@ const handleSubmit = async () => {
   } catch (error) {
     if (error.response?.data?.errors) {
       Object.assign(errors, error.response.data.errors);
-      const apiTokenError = error.response.data.errors?.courier_options?.api_token?.[0];
-      if (apiTokenError) {
-        errors.postex = apiTokenError;
-      }
+      applyOptionErrors(error.response.data.errors);
     } else if (error.response?.data?.message) {
-      errors.postex = error.response.data.message;
+      if (form.courier_slug === 'leopard') {
+        errors.leopard = error.response.data.message;
+      } else {
+        errors.postex = error.response.data.message;
+      }
     }
   } finally {
     saving.value = false;
