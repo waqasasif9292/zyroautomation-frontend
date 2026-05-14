@@ -72,6 +72,13 @@
                 :apiSecretError="errors.dastaqApiSecret || dastaqApiSecretError"
                 :generalError="errors.dastaq"
               />
+              <ArgoOptionsForm
+                v-else-if="form.courier_slug === 'argo'"
+                v-model="form.courier_options"
+                :apiKeyError="errors.argoApiKey || argoApiKeyError"
+                :apiSecretError="errors.argoApiSecret || argoApiSecretError"
+                :generalError="errors.argo"
+              />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
           </template>
@@ -102,6 +109,7 @@ import CourierOptionsBox from '../../components/integrations/CourierOptionsBox.v
 import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.vue';
 import LeopardOptionsForm from '../../components/integrations/LeopardOptionsForm.vue';
 import DastaqOptionsForm from '../../components/integrations/DastaqOptionsForm.vue';
+import ArgoOptionsForm from '../../components/integrations/ArgoOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -155,7 +163,21 @@ const dastaqApiSecretError = computed(() => {
   if (!form.courier_options.api_secret) return 'The Dastaq API secret is required.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value);
+const argoIncomplete = computed(() => {
+  if (form.courier_slug !== 'argo') return false;
+  return !form.courier_options.api_key || !form.courier_options.api_secret;
+});
+const argoApiKeyError = computed(() => {
+  if (form.courier_slug !== 'argo') return '';
+  if (!form.courier_options.api_key) return 'The Argo API key is required.';
+  return '';
+});
+const argoApiSecretError = computed(() => {
+  if (form.courier_slug !== 'argo') return '';
+  if (!form.courier_options.api_secret) return 'The Argo API secret is required.';
+  return '';
+});
+const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value || argoIncomplete.value);
 
 const resetErrors = () => {
   errors.name = '';
@@ -171,6 +193,9 @@ watch(() => form.courier_slug, () => {
   errors.dastaq = '';
   errors.dastaqApiKey = '';
   errors.dastaqApiSecret = '';
+  errors.argo = '';
+  errors.argoApiKey = '';
+  errors.argoApiSecret = '';
 });
 watch(() => form.courier_options.api_token, () => {
   errors.postex = '';
@@ -184,11 +209,19 @@ watch(() => [form.courier_options.api_key, form.courier_options.api_secret], () 
   errors.dastaq = '';
   errors.dastaqApiKey = '';
   errors.dastaqApiSecret = '';
+  errors.argo = '';
+  errors.argoApiKey = '';
+  errors.argoApiSecret = '';
 });
 
 const applyOptionErrors = (responseErrors) => {
   const optionErrors = responseErrors?.courier_options;
   errors.postex = optionErrors?.api_token?.[0] || '';
+  if (form.courier_slug === 'argo') {
+    errors.argoApiKey = optionErrors?.api_key?.[0] || '';
+    errors.argoApiSecret = optionErrors?.api_secret?.[0] || '';
+    return;
+  }
   if (form.courier_slug === 'dastaq') {
     errors.dastaqApiKey = optionErrors?.api_key?.[0] || '';
     errors.dastaqApiSecret = optionErrors?.api_secret?.[0] || '';
@@ -216,6 +249,8 @@ const handleSubmit = async () => {
     } else if (error.response?.data?.message) {
       if (form.courier_slug === 'leopard') {
         errors.leopard = error.response.data.message;
+      } else if (form.courier_slug === 'argo') {
+        errors.argo = error.response.data.message;
       } else if (form.courier_slug === 'dastaq') {
         errors.dastaq = error.response.data.message;
       } else {

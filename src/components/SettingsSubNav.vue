@@ -1,15 +1,25 @@
 <template>
   <aside class="settings-sidebar">
     <nav class="sidebar-nav">
-      <button
-        v-for="item in navItems"
-        :key="item.key"
-        :class="['nav-item', { active: effectiveActive === item.key }]"
-        @click="handleClick(item)"
-      >
-        <span class="nav-icon" v-html="item.icon"></span>
-        {{ item.label }}
-      </button>
+      <template v-for="item in navItems" :key="item.key">
+        <button
+          :class="['nav-item', { active: effectiveActive === item.key || childKeys(item).includes(effectiveActive) }]"
+          @click="handleClick(item)"
+        >
+          <span class="nav-icon" v-html="item.icon"></span>
+          {{ item.label }}
+        </button>
+        <div v-if="item.children" class="nav-children">
+          <button
+            v-for="child in item.children"
+            :key="child.key"
+            :class="['nav-item nav-child', { active: effectiveActive === child.key }]"
+            @click="handleClick(child)"
+          >
+            {{ child.label }}
+          </button>
+        </div>
+      </template>
     </nav>
   </aside>
 </template>
@@ -30,10 +40,13 @@ const router = useRouter();
 const effectiveActive = computed(() => {
   if (props.activeKey) return props.activeKey;
   if (route.path.startsWith('/integrations')) return 'integrations';
+  if (route.path.startsWith('/leopard-pickup-addresses')) return 'leopard';
   if (route.path.startsWith('/brands')) return 'brands';
   if (route.path.startsWith('/settings/security')) return 'security';
   return 'profile';
 });
+
+const childKeys = (item) => item.children?.map(child => child.key) ?? [];
 
 const handleClick = (item) => {
   if (item.to) {
@@ -57,10 +70,10 @@ const navItems = [
   {
     key: 'integrations', label: 'Integrations', to: '/integrations',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>`,
-  },
-  {
-    key: 'leopard', label: 'Leopard Pickup',
-    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62L18.3 8.38A1 1 0 0 0 17.52 8H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>`,
+    children: [
+      { key: 'integrations', label: 'Courier Integration', to: '/integrations' },
+      { key: 'leopard', label: 'Leopard Pickup Addresses', to: '/leopard-pickup-addresses' },
+    ],
   },
   {
     key: 'notifications', label: 'Notifications',
@@ -128,5 +141,18 @@ const navItems = [
   align-items: center;
   color: #9ca3af;
   flex-shrink: 0;
+}
+
+.nav-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -1px 0 4px 28px;
+}
+
+.nav-child {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #64748b;
 }
 </style>

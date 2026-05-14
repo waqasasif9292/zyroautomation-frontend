@@ -39,6 +39,47 @@
             <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
           </div>
 
+          <div class="grid two">
+            <div class="form-group">
+              <label class="form-label">Brand Email</label>
+              <input
+                v-model="form.email"
+                type="email"
+                class="form-input"
+                :class="{ 'input-error': errors.email }"
+                placeholder="support@example.com"
+                maxlength="160"
+              />
+              <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Brand Phone Number</label>
+              <input
+                v-model="form.phone"
+                type="text"
+                class="form-input"
+                :class="{ 'input-error': errors.phone }"
+                placeholder="+923001234567"
+                maxlength="60"
+              />
+              <span v-if="errors.phone" class="field-error">{{ errors.phone }}</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Brand Address</label>
+            <textarea
+              v-model="form.address"
+              class="form-input form-textarea"
+              :class="{ 'input-error': errors.address }"
+              placeholder="Office or warehouse address"
+              maxlength="500"
+              rows="3"
+            ></textarea>
+            <span v-if="errors.address" class="field-error">{{ errors.address }}</span>
+          </div>
+
           <!-- Sources -->
           <div class="form-group">
             <label class="form-label">Sources</label>
@@ -124,6 +165,9 @@ const errors            = reactive({});
 
 const form = reactive({
   name:    '',
+  email:   '',
+  phone:   '',
+  address: '',
   sources: [],
 });
 
@@ -132,17 +176,22 @@ const showToast = (msg) => {
   setTimeout(() => { toast.value = ''; }, 4000);
 };
 
+const brandCustomSources = (sources = []) => {
+  const predefined = ['Website', 'WhatsApp', 'Abandoned', 'Social'].map(source => source.toLowerCase());
+  return sources.filter(source => !predefined.includes(String(source).toLowerCase()));
+};
+
 onMounted(async () => {
   try {
-    const [brand, sources] = await Promise.all([
-      brandStore.fetchBrand(id),
-      brandStore.fetchCustomSources().catch(() => []),
-    ]);
+    const brand = await brandStore.fetchBrand(id);
 
     form.name           = brand.name;
+    form.email          = brand.email || '';
+    form.phone          = brand.phone || '';
+    form.address        = brand.address || '';
     form.sources        = [...(brand.sources ?? [])];
     currentWebhookUrl.value = brand.webhook_url;
-    customSources.value = sources;
+    customSources.value = brandCustomSources(brand.sources ?? []);
   } catch (err) {
     if (err.response?.status === 404) {
       notFound.value = true;
@@ -162,6 +211,21 @@ const handleSubmit = async () => {
     valid = false;
   }
 
+  if (!form.email.trim()) {
+    errors.email = 'Brand email is required.';
+    valid = false;
+  }
+
+  if (!form.phone.trim()) {
+    errors.phone = 'Brand phone number is required.';
+    valid = false;
+  }
+
+  if (!form.address.trim()) {
+    errors.address = 'Brand address is required.';
+    valid = false;
+  }
+
   if (form.sources.length === 0) {
     errors.sources = 'Please select at least one source.';
     valid = false;
@@ -171,7 +235,13 @@ const handleSubmit = async () => {
 
   saving.value = true;
   try {
-    await brandStore.updateBrand(id, { name: form.name.trim(), sources: form.sources });
+    await brandStore.updateBrand(id, {
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      address: form.address.trim(),
+      sources: form.sources,
+    });
     router.push('/brands?toast=updated');
   } catch (err) {
     const data = err.response?.data;
@@ -220,6 +290,12 @@ const handleRegenerate = async () => {
   min-width: 0;
 }
 
+.grid.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -257,6 +333,11 @@ const handleRegenerate = async () => {
 
 .form-input::placeholder {
   color: #9ca3af;
+}
+
+.form-textarea {
+  min-height: 92px;
+  resize: vertical;
 }
 
 .input-error {
@@ -401,5 +482,11 @@ const handleRegenerate = async () => {
 .toast-fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+@media (max-width: 760px) {
+  .grid.two {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

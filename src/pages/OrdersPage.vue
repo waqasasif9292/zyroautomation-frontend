@@ -78,8 +78,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import OrderDetailPanel from '../components/orders/OrderDetailPanel.vue';
 import OrderEmptyState from '../components/orders/OrderEmptyState.vue';
@@ -93,6 +93,7 @@ import { useOrderStore } from '../stores/orderStore';
 const orderStore = useOrderStore();
 const brandStore = useBrandStore();
 const router = useRouter();
+const route = useRoute();
 const tableRef = ref(null);
 const toast = ref('');
 const showDeleteDialog = ref(false);
@@ -100,7 +101,7 @@ const deleteLoading = ref(false);
 const selectedOrder = ref(null);
 
 const hasActiveFilters = computed(() => Boolean(
-  orderStore.filters.brand_id || orderStore.filters.search
+  orderStore.filters.brand_id || orderStore.filters.search || orderStore.filters.customer_id
 ));
 
 const serialStart = computed(() => {
@@ -165,7 +166,18 @@ const handleNewOrder = () => {
   router.push('/orders/create');
 };
 
+const applyRouteCustomerFilter = () => {
+  orderStore.filters.customer_id = route.query.customer_id || null;
+  orderStore.filters.page = 1;
+};
+
+watch(() => route.query.customer_id, async () => {
+  applyRouteCustomerFilter();
+  await orderStore.fetchOrders();
+});
+
 onMounted(async () => {
+  applyRouteCustomerFilter();
   await Promise.all([
     orderStore.fetchOrders(),
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),

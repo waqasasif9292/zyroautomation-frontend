@@ -133,7 +133,7 @@
               </select>
               <span v-if="errors.leopard_pickup_address_id" class="field-error">{{ errors.leopard_pickup_address_id }}</span>
             </div>
-            <div v-else class="field">
+            <div v-else-if="!isArgoSelected" class="field">
               <label>Origin City</label>
               <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }">
                 <option value=""></option>
@@ -148,7 +148,7 @@
               <select
                 v-model="destinationCitySelection"
                 :class="{ invalid: errors.destination_city }"
-                :disabled="(isPostexSelected && postexCityLoading) || (isLeopardSelected && leopardCityLoading) || (isDastaqSelected && dastaqCityLoading)"
+                :disabled="(isPostexSelected && postexCityLoading) || (isLeopardSelected && leopardCityLoading) || (isDastaqSelected && dastaqCityLoading) || (isArgoSelected && argoCityLoading)"
                 @focus="ensureDestinationCities"
               >
                 <option value="">
@@ -165,17 +165,18 @@
               <span v-if="postexCityLoading" class="helper-text">Fetching delivery cities from PostEx...</span>
               <span v-if="leopardCityLoading" class="helper-text">Loading Leopard cities...</span>
               <span v-if="dastaqCityLoading" class="helper-text">Fetching allowed cities from Dastaq...</span>
+              <span v-if="argoCityLoading" class="helper-text">Fetching cities from Argo...</span>
               <span v-if="errors.destination_city" class="field-error">{{ errors.destination_city }}</span>
             </div>
           </div>
 
           <div class="grid two compact">
             <div class="field">
-              <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight' }}</label>
+              <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight (kg)' }}</label>
               <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'">
               <span v-if="errors.packet_weight" class="field-error">{{ errors.packet_weight }}</span>
             </div>
-            <div class="field">
+            <div v-if="!isArgoSelected" class="field">
               <label>{{ isDastaqSelected ? 'Payment Type' : 'Shipment Type' }}</label>
               <select v-model="form.shipment_type" :class="{ invalid: errors.shipment_type }">
                 <option value="">{{ isDastaqSelected ? 'Select Payment Type' : 'Select Shipment Type' }}</option>
@@ -236,6 +237,11 @@
             {{ errors.items || 'Add at least one product before saving.' }}
           </span>
 
+          <div v-if="submitError" class="submit-error">
+            <strong>{{ submitError.title }}</strong>
+            <pre v-if="submitError.details">{{ submitError.details }}</pre>
+          </div>
+
           <div v-if="items.length" class="selected-items">
             <div v-for="(row, index) in items" :key="row.product_id" class="selected-item">
               <img class="item-image" :src="row.picture_url" :alt="row.name">
@@ -287,6 +293,7 @@ const errors = reactive({});
 const saving = ref(false);
 const creatingShipment = ref(false);
 const hydratingOrder = ref(false);
+const submitError = ref(null);
 const postexPickupAddresses = ref([]);
 const postexPickupLoading = ref(false);
 const postexPickupError = ref('');
@@ -304,6 +311,9 @@ const dastaqPickupError = ref('');
 const dastaqCities = ref([]);
 const dastaqCityLoading = ref(false);
 const dastaqCityError = ref('');
+const argoCities = ref([]);
+const argoCityLoading = ref(false);
+const argoCityError = ref('');
 
 const form = reactive({
   brand_id: '',
@@ -338,6 +348,7 @@ const selectedIntegration = computed(() => integrationStore.integrations.find((i
 const isPostexSelected = computed(() => selectedIntegration.value?.courier_slug === 'postex');
 const isLeopardSelected = computed(() => selectedIntegration.value?.courier_slug === 'leopard');
 const isDastaqSelected = computed(() => selectedIntegration.value?.courier_slug === 'dastaq');
+const isArgoSelected = computed(() => selectedIntegration.value?.courier_slug === 'argo');
 const isGramWeightSelected = computed(() => isLeopardSelected.value || isDastaqSelected.value);
 const destinationCitySelection = computed({
   get() {
@@ -379,13 +390,20 @@ const destinationCityOptions = computed(() => {
     }));
   }
 
+  if (isArgoSelected.value) {
+    return argoCities.value.map((city) => ({
+      value: city.code || city.name || city,
+      label: city.code ? `${city.name} - ${city.code}` : city.name || city,
+    }));
+  }
+
   return ['Lahore', 'Karachi', 'Islamabad'].map((city) => ({
     value: city,
     label: city,
   }));
 });
 const citySelectPlaceholder = computed(() => {
-  if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value) return 'Fetching cities...';
+  if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value || argoCityLoading.value) return 'Fetching cities...';
   return 'Select Destination City';
 });
 const shipmentTypeOptions = computed(() => {
@@ -439,6 +457,8 @@ const resetCourierDependentFields = () => {
   dastaqPickupError.value = '';
   dastaqCities.value = [];
   dastaqCityError.value = '';
+  argoCities.value = [];
+  argoCityError.value = '';
   delete errors.courier_integration_id;
   delete errors.pickup_address_code;
   delete errors.leopard_pickup_address_id;
@@ -456,6 +476,8 @@ const loadPostexRuntimeData = async () => {
     await loadLeopardRuntimeData();
   } else if (isDastaqSelected.value) {
     await loadDastaqRuntimeData();
+  } else if (isArgoSelected.value) {
+    await loadArgoRuntimeData();
   }
 };
 
@@ -556,6 +578,9 @@ const loadOrderForEdit = async (id) => {
     if (!['cod', 'non-cod'].includes(form.shipment_type)) {
       form.shipment_type = Number(form.cod || 0) > 0 ? 'cod' : 'non-cod';
     }
+  } else if (savedCourierSlug === 'argo') {
+    await loadArgoRuntimeData();
+    form.packet_weight = manual.packet_weight ?? '0.2';
   }
 };
 
@@ -662,6 +687,11 @@ const getDastaqCredentials = () => ({
   api_secret: selectedIntegration.value?.courier_options?.api_secret,
 });
 
+const getArgoCredentials = () => ({
+  api_key: selectedIntegration.value?.courier_options?.api_key,
+  api_secret: selectedIntegration.value?.courier_options?.api_secret,
+});
+
 const loadDastaqRuntimeData = async () => {
   await Promise.all([
     fetchDastaqPickupAddresses(),
@@ -726,6 +756,37 @@ const fetchDastaqCities = async () => {
 const ensureDastaqPickupAddresses = () => {
   if (!isDastaqSelected.value || dastaqPickupLoading.value || dastaqPickupAddresses.value.length > 0) return;
   fetchDastaqPickupAddresses();
+};
+
+const loadArgoRuntimeData = async () => {
+  await fetchArgoCities();
+};
+
+const fetchArgoCities = async () => {
+  const credentials = getArgoCredentials();
+
+  if (!credentials.api_key || !credentials.api_secret) {
+    argoCityError.value = 'Argo credentials are missing. Update the Argo integration first.';
+    errors.destination_city = argoCityError.value;
+    return;
+  }
+
+  argoCityLoading.value = true;
+  argoCityError.value = '';
+
+  try {
+    const res = await IntegrationService.fetchArgoCities(credentials);
+    argoCities.value = res.data.data.cities;
+    if (argoCities.value.length === 0) {
+      argoCityError.value = 'No destination cities found for this Argo account.';
+      errors.destination_city = argoCityError.value;
+    }
+  } catch (error) {
+    argoCityError.value = apiErrorMessage(error, 'Unable to fetch Argo cities.');
+    errors.destination_city = argoCityError.value;
+  } finally {
+    argoCityLoading.value = false;
+  }
 };
 
 const fetchPostexPickupAddresses = async () => {
@@ -810,6 +871,8 @@ const ensureDestinationCities = () => {
     ensurePostexDeliveryCities();
   } else if (isDastaqSelected.value && !dastaqCityLoading.value && dastaqCities.value.length === 0) {
     fetchDastaqCities();
+  } else if (isArgoSelected.value && !argoCityLoading.value && argoCities.value.length === 0) {
+    fetchArgoCities();
   }
 };
 
@@ -849,6 +912,7 @@ const buildPayload = () => ({
 
 const handleSave = async (mode) => {
   Object.keys(errors).forEach(key => delete errors[key]);
+  submitError.value = null;
 
   if (!form.brand_id) {
     errors.brand_id = 'Brand is required.';
@@ -865,11 +929,14 @@ const handleSave = async (mode) => {
     courier_integration_id: 'Courier is required.',
     destination_city: 'Destination city is required.',
     packet_weight: 'Packet weight is required.',
-    shipment_type: 'Shipment type is required.',
     cod: 'Cash on delivery is required.',
     special_instructions: 'Special instructions are required.',
     internal_notes: 'Internal notes are required.',
   };
+
+  if (!isArgoSelected.value) {
+    requiredFields.shipment_type = 'Shipment type is required.';
+  }
 
   Object.entries(requiredFields).forEach(([key, message]) => {
     if (form[key] === null || form[key] === undefined || String(form[key]).trim() === '') {
@@ -935,6 +1002,19 @@ const handleSave = async (mode) => {
     } else if (!form.destination_city) {
       errors.destination_city = 'Destination city is required.';
     }
+  } else if (isArgoSelected.value) {
+    const argoWeight = Number(form.packet_weight);
+    if (Number.isNaN(argoWeight) || argoWeight <= 0) {
+      errors.packet_weight = 'Weight must be greater than zero.';
+    }
+
+    if (argoCityLoading.value) {
+      errors.destination_city = 'Argo cities are still loading.';
+    } else if (argoCityError.value) {
+      errors.destination_city = argoCityError.value;
+    } else if (!form.destination_city) {
+      errors.destination_city = 'Destination city is required.';
+    }
   } else if (!form.origin_city) {
     errors.origin_city = 'Origin city is required.';
   }
@@ -955,8 +1035,8 @@ const handleSave = async (mode) => {
     }
 
     if (mode === 'create') {
-      if (!isPostexSelected.value && !isLeopardSelected.value && !isDastaqSelected.value) {
-        window.alert('Shipment booking is only available for PostEx, Leopard, and Dastaq right now.');
+      if (!isPostexSelected.value && !isLeopardSelected.value && !isDastaqSelected.value && !isArgoSelected.value) {
+        window.alert('Shipment booking is only available for PostEx, Leopard, Dastaq, and Argo right now.');
         router.push('/orders');
         return;
       }
@@ -967,7 +1047,9 @@ const handleSave = async (mode) => {
         ? await orderStore.createLeopardShipment(order.id)
         : isDastaqSelected.value
           ? await orderStore.createDastaqShipment(order.id)
-          : await orderStore.createPostexShipment(order.id);
+          : isArgoSelected.value
+            ? await orderStore.createArgoShipment(order.id)
+            : await orderStore.createPostexShipment(order.id);
       const tracking = result.tracking_number || 'created';
       window.alert(`Shipment created! Tracking: ${tracking}`);
     }
@@ -979,7 +1061,7 @@ const handleSave = async (mode) => {
       ? 'Order was saved, but shipment booking failed.'
       : 'Unable to save order.';
     const message = error.response?.data?.message || fallback;
-    const dastaqDetails = formatApiErrorDetails(error.response?.data?.dastaq_response);
+    const courierDetails = formatApiErrorDetails(error.response?.data?.argo_response || error.response?.data?.dastaq_response);
     const errorDetails = formatApiErrorDetails(error.response?.data?.errors);
 
     if (responseErrors && typeof responseErrors === 'object' && !Array.isArray(responseErrors)) {
@@ -988,7 +1070,11 @@ const handleSave = async (mode) => {
       ));
     }
 
-    window.alert([message, dastaqDetails || errorDetails].filter(Boolean).join('\n\n'));
+    submitError.value = {
+      title: message,
+      details: courierDetails || errorDetails,
+    };
+    window.alert([message, submitError.value.details].filter(Boolean).join('\n\n'));
   } finally {
     saving.value = false;
     creatingShipment.value = false;
@@ -1166,6 +1252,29 @@ select:disabled {
 
 .items-error {
   margin-top: -8px;
+}
+
+.submit-error {
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px 14px;
+}
+
+.submit-error strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.submit-error pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .section-title {

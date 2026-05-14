@@ -4,6 +4,7 @@ import OrderService from '../services/OrderService';
 
 const defaultFilters = () => ({
   brand_id: null,
+  customer_id: null,
   financial_status: null,
   search: '',
   sort: 'created_id_desc',
@@ -93,6 +94,11 @@ export const useOrderStore = defineStore('order', () => {
     return res.data.data;
   };
 
+  const createArgoShipment = async (id) => {
+    const res = await OrderService.createArgoShipment(id);
+    return res.data.data;
+  };
+
   const deleteOrder = async (id) => {
     await OrderService.deleteOrder(id);
     if (selectedOrder.value?.id === id) closePanel();
@@ -118,6 +124,7 @@ export const useOrderStore = defineStore('order', () => {
     createPostexShipment,
     createLeopardShipment,
     createDastaqShipment,
+    createArgoShipment,
     deleteOrder,
   };
 });

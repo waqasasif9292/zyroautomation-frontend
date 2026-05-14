@@ -25,6 +25,9 @@ const OrderService = {
   createDastaqShipment(id) {
     return axiosInstance.post(`/orders/${id}/dastaq/create-shipment`);
   },
+  createArgoShipment(id) {
+    return axiosInstance.post(`/orders/${id}/argo/create-shipment`);
+  },
   getTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/track-history`);
   },

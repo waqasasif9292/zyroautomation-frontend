@@ -11,6 +11,7 @@ const routes = [
   { path: '/settings', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/security', component: () => import('../pages/settings/SecurityPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders', component: () => import('../pages/OrdersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/customers', component: () => import('../pages/CustomersPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/create', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/:id/edit', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/:id/tracking', component: () => import('../pages/orders/OrderTrackingPage.vue'), meta: { requiresAuth: true } },
@@ -23,6 +24,9 @@ const routes = [
   { path: '/integrations', component: () => import('../pages/integrations/IntegrationsListPage.vue'), meta: { requiresAuth: true } },
   { path: '/integrations/create', component: () => import('../pages/integrations/IntegrationCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/integrations/:id/edit', component: () => import('../pages/integrations/IntegrationEditPage.vue'), meta: { requiresAuth: true } },
+  { path: '/leopard-pickup-addresses', component: () => import('../pages/leopard/LeopardPickupAddressesListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/leopard-pickup-addresses/create', component: () => import('../pages/leopard/LeopardPickupAddressCreatePage.vue'), meta: { requiresAuth: true } },
+  { path: '/leopard-pickup-addresses/:id/edit', component: () => import('../pages/leopard/LeopardPickupAddressEditPage.vue'), meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({

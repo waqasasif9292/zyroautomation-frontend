@@ -31,6 +31,9 @@ export default {
   fetchLeopardPickupAddresses() {
     return axiosInstance.get('/settings/leopard-pickup-addresses');
   },
+  fetchArgoCities(params) {
+    return axiosInstance.get('/integrations/argo/cities', { params });
+  },
   fetchDastaqAllowedCities(params) {
     return axiosInstance.get('/integrations/dastaq/allowed-cities', { params });
   },
