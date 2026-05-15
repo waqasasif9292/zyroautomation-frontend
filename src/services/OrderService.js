@@ -37,6 +37,9 @@ const OrderService = {
   getDastaqTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/dastaq/track-history`);
   },
+  getArgoTrackingHistory(id) {
+    return axiosInstance.get(`/orders/${id}/argo/track-history`);
+  },
   deleteOrder(id) {
     return axiosInstance.delete(`/orders/${id}`);
   },

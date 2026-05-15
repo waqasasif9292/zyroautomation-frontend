@@ -113,7 +113,15 @@ defineEmits(['view', 'edit', 'delete', 'track']);
 
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
-const canEdit = (order) => ['pending confirmation', 'hold'].includes((order.status || '').toLowerCase());
+const statusText = (status) => {
+  if (typeof status === 'string') return status;
+  if (typeof status === 'number') return String(status);
+  if (status && typeof status === 'object') {
+    return status.name || status.label || status.title || status.status || status.message || status.text || '';
+  }
+  return '';
+};
+const canEdit = (order) => ['pending confirmation', 'hold'].includes(statusText(order.status).toLowerCase());
 const formatDate = (value) => {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));

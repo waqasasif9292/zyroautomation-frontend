@@ -7,7 +7,7 @@ import { computed } from 'vue';
 
 const props = defineProps({
   status: {
-    type: String,
+    type: [String, Number, Object],
     default: null,
   },
 });
@@ -24,8 +24,16 @@ const labels = {
   partially_refunded: 'Partially refunded',
 };
 
-const label = computed(() => labels[props.status] || props.status || '—');
-const statusClass = computed(() => `status-${(props.status || 'unknown').toLowerCase().replace(/\s+/g, '-')}`);
+const statusText = computed(() => {
+  if (typeof props.status === 'string') return props.status;
+  if (typeof props.status === 'number') return String(props.status);
+  if (props.status && typeof props.status === 'object') {
+    return props.status.name || props.status.label || props.status.title || props.status.status || props.status.message || props.status.text || '';
+  }
+  return '';
+});
+const label = computed(() => labels[statusText.value] || statusText.value || '—');
+const statusClass = computed(() => `status-${(statusText.value || 'unknown').toLowerCase().replace(/\s+/g, '-')}`);
 </script>
 
 <style scoped>
