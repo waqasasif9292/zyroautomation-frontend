@@ -10,23 +10,17 @@ const OrderService = {
   getStats() {
     return axiosInstance.get('/orders/stats/summary');
   },
-  createHold(payload) {
-    return axiosInstance.post('/orders/hold', payload);
+  saveDraft(payload) {
+    return axiosInstance.post('/orders/draft', payload);
   },
-  updateHold(id, payload) {
-    return axiosInstance.put(`/orders/${id}/hold`, payload);
+  updateDraft(id, payload) {
+    return axiosInstance.put(`/orders/${id}/draft`, payload);
   },
-  createPostexShipment(id) {
-    return axiosInstance.post(`/orders/${id}/postex/create-shipment`);
+  createBooking(payload) {
+    return axiosInstance.post('/orders/create-booking', payload);
   },
-  createLeopardShipment(id) {
-    return axiosInstance.post(`/orders/${id}/leopard/create-shipment`);
-  },
-  createDastaqShipment(id) {
-    return axiosInstance.post(`/orders/${id}/dastaq/create-shipment`);
-  },
-  createArgoShipment(id) {
-    return axiosInstance.post(`/orders/${id}/argo/create-shipment`);
+  updateBooking(id, payload) {
+    return axiosInstance.put(`/orders/${id}/create-booking`, payload);
   },
   getTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/track-history`);

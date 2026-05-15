@@ -4,9 +4,13 @@ import OrderService from '../services/OrderService';
 
 const defaultFilters = () => ({
   brand_id: null,
+  courier_integration_id: null,
   customer_id: null,
+  date_from: null,
+  date_to: null,
   financial_status: null,
   search: '',
+  source: null,
   sort: 'created_id_desc',
   page: 1,
 });
@@ -59,6 +63,15 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const applyFilters = async (values) => {
+    Object.assign(filters, {
+      ...values,
+      customer_id: filters.customer_id,
+      page: 1,
+    });
+    await fetchOrders();
+  };
+
   const setPage = async (page) => {
     filters.page = page;
     await fetchOrders();
@@ -69,33 +82,23 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
-  const createHold = async (payload) => {
-    const res = await OrderService.createHold(payload);
+  const saveDraft = async (payload) => {
+    const res = await OrderService.saveDraft(payload);
     return res.data.data.order;
   };
 
-  const updateHold = async (id, payload) => {
-    const res = await OrderService.updateHold(id, payload);
+  const updateDraft = async (id, payload) => {
+    const res = await OrderService.updateDraft(id, payload);
     return res.data.data.order;
   };
 
-  const createPostexShipment = async (id) => {
-    const res = await OrderService.createPostexShipment(id);
+  const createBooking = async (payload) => {
+    const res = await OrderService.createBooking(payload);
     return res.data.data;
   };
 
-  const createLeopardShipment = async (id) => {
-    const res = await OrderService.createLeopardShipment(id);
-    return res.data.data;
-  };
-
-  const createDastaqShipment = async (id) => {
-    const res = await OrderService.createDastaqShipment(id);
-    return res.data.data;
-  };
-
-  const createArgoShipment = async (id) => {
-    const res = await OrderService.createArgoShipment(id);
+  const updateBooking = async (id, payload) => {
+    const res = await OrderService.updateBooking(id, payload);
     return res.data.data;
   };
 
@@ -117,14 +120,13 @@ export const useOrderStore = defineStore('order', () => {
     fetchOrder,
     closePanel,
     setFilter,
+    applyFilters,
     setPage,
     resetFilters,
-    createHold,
-    updateHold,
-    createPostexShipment,
-    createLeopardShipment,
-    createDastaqShipment,
-    createArgoShipment,
+    saveDraft,
+    updateDraft,
+    createBooking,
+    updateBooking,
     deleteOrder,
   };
 });

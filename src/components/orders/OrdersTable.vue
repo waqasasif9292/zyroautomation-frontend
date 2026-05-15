@@ -7,13 +7,13 @@
           <th class="col-order">Order</th>
           <th class="col-brand">Brand</th>
           <th class="col-source">Source</th>
+          <th class="col-tracking">Tracking</th>
           <th class="col-customer">Customer</th>
           <th class="col-city">City</th>
-          <th class="col-products">Product(s)</th>
+          <th class="col-status">Status</th>
           <th class="col-total">Total</th>
           <th class="col-payment">Payment</th>
-          <th class="col-tracking">Tracking</th>
-          <th class="col-status">Status</th>
+          <th class="col-products">Product(s)</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -27,26 +27,11 @@
           <td class="serial">{{ serialStart + index }}</td>
           <td>
             <div class="strong">{{ order.order_name || '—' }}</div>
-            <div class="muted">{{ formatDate(order.shopify_created_at) }}</div>
+            <div class="muted order-time">{{ formatDate(order.shopify_created_at) }}</div>
           </td>
           <td>{{ order.brand_name || '—' }}</td>
           <td>
             <span class="source-badge">{{ order.source || '—' }}</span>
-          </td>
-          <td>
-            <div class="strong">{{ order.customer?.name || '—' }}</div>
-            <div class="muted">{{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}</div>
-          </td>
-          <td>{{ order.customer?.city || '—' }}</td>
-          <td>
-            <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
-          </td>
-          <td class="total">{{ formatMoney(order.currency, order.total_price) }}</td>
-          <td>
-            <div class="payment-cell">
-              <span class="truncate" :title="order.payment_method">{{ order.payment_method || '—' }}</span>
-              <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
-            </div>
           </td>
           <td>
             <button
@@ -59,29 +44,32 @@
             </button>
             <span v-else class="tracking-empty">—</span>
           </td>
+          <td>
+            <div class="strong">{{ order.customer?.name || '—' }}</div>
+            <div class="muted">{{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}</div>
+          </td>
+          <td>{{ order.customer?.city || '—' }}</td>
           <td><OrderStatusBadge :status="order.status" /></td>
+          <td class="total">{{ formatMoney(order.currency, order.total_price) }}</td>
+          <td>
+            <div class="payment-cell">
+              <span class="truncate" :title="order.payment_method">{{ order.payment_method || '—' }}</span>
+              <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
+            </div>
+          </td>
+          <td>
+            <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
+          </td>
           <td>
             <div class="action-buttons">
-              <button class="icon-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+              <button class="action-btn" type="button" @click.stop="$emit('view', order.id)">
+                View
               </button>
-              <button v-if="canEdit(order)" class="icon-btn" type="button" aria-label="Edit order" title="Edit order" @click.stop="$emit('edit', order.id)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                </svg>
+              <button v-if="canEdit(order)" class="action-btn" type="button" @click.stop="$emit('edit', order.id)">
+                Edit
               </button>
-              <button class="icon-btn danger" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M19 6l-1 14H6L5 6" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                </svg>
+              <button class="action-btn" type="button" @click.stop="$emit('delete', order.id)">
+                Delete
               </button>
             </div>
           </td>
@@ -124,7 +112,14 @@ const statusText = (status) => {
 const canEdit = (order) => ['pending confirmation', 'hold'].includes(statusText(order.status).toLowerCase());
 const formatDate = (value) => {
   if (!value) return '—';
-  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(new Date(value));
 };
 </script>
 
@@ -132,10 +127,12 @@ const formatDate = (value) => {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  scrollbar-gutter: stable;
 }
 
 .orders-table {
-  width: 100%;
+  width: 1540px;
+  min-width: 1540px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -166,18 +163,18 @@ td {
   background: #f9fafb;
 }
 
-.col-serial { width: 5%; }
-.col-order { width: 10%; }
-.col-brand { width: 10%; }
-.col-source { width: 8%; }
-.col-customer { width: 14%; }
-.col-city { width: 8%; }
-.col-products { width: 13%; }
-.col-total { width: 8%; }
-.col-payment { width: 9%; }
-.col-tracking { width: 9%; }
-.col-status { width: 8%; }
-.col-actions { width: 6%; }
+.col-serial { width: 56px; }
+.col-order { width: 170px; }
+.col-brand { width: 140px; }
+.col-source { width: 120px; }
+.col-tracking { width: 150px; }
+.col-customer { width: 190px; }
+.col-city { width: 120px; }
+.col-products { width: 190px; }
+.col-total { width: 110px; }
+.col-payment { width: 130px; }
+.col-status { width: 120px; }
+.col-actions { width: 144px; }
 
 .serial,
 .strong {
@@ -189,6 +186,10 @@ td {
   margin-top: 3px;
   color: #9ca3af;
   font-size: 12px;
+}
+
+.order-time {
+  white-space: nowrap;
 }
 
 .truncate {
@@ -263,30 +264,32 @@ td {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 10px;
+  white-space: nowrap;
 }
 
-.icon-btn {
+.action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  min-height: 29px;
+  border: 1px solid #edf2f7;
+  border-radius: 4px;
   background: #fff;
-  color: #64748b;
+  color: #4169e1;
+  padding: 0 10px;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.13);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
-.icon-btn:hover {
-  color: #3b82f6;
-  border-color: #bfdbfe;
-}
-
-.icon-btn.danger:hover {
-  color: #ef4444;
-  border-color: #fecaca;
+.action-btn:hover {
+  border-color: #dbe4ff;
+  background: #f8fbff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
 }
 
 .skeleton {

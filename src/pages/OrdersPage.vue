@@ -24,9 +24,10 @@
           <OrderFiltersBar
             :filters="orderStore.filters"
             :brands="brandStore.brands"
+            :integrations="integrationStore.integrations"
             :total="orderStore.pagination?.total || 0"
-            @brand-change="orderStore.setFilter('brand_id', $event)"
-            @search-change="orderStore.setFilter('search', $event)"
+            @apply="orderStore.applyFilters"
+            @clear="orderStore.resetFilters"
           />
 
           <OrderEmptyState
@@ -35,6 +36,11 @@
             @clear="orderStore.resetFilters"
           />
           <template v-else>
+            <OrderPagination
+              class="pagination-top"
+              :pagination="orderStore.pagination"
+              @page-change="changePage"
+            />
             <OrdersTable
               ref="tableRef"
               :orders="orderStore.orders"
@@ -88,10 +94,12 @@ import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrdersTable from '../components/orders/OrdersTable.vue';
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
 import { useBrandStore } from '../stores/brandStore';
+import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
 
 const orderStore = useOrderStore();
 const brandStore = useBrandStore();
+const integrationStore = useIntegrationStore();
 const router = useRouter();
 const route = useRoute();
 const tableRef = ref(null);
@@ -101,7 +109,13 @@ const deleteLoading = ref(false);
 const selectedOrder = ref(null);
 
 const hasActiveFilters = computed(() => Boolean(
-  orderStore.filters.brand_id || orderStore.filters.search || orderStore.filters.customer_id
+  orderStore.filters.brand_id ||
+  orderStore.filters.courier_integration_id ||
+  orderStore.filters.customer_id ||
+  orderStore.filters.date_from ||
+  orderStore.filters.date_to ||
+  orderStore.filters.search ||
+  orderStore.filters.source
 ));
 
 const serialStart = computed(() => {
@@ -181,6 +195,7 @@ onMounted(async () => {
   await Promise.all([
     orderStore.fetchOrders(),
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
+    integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
   ]);
 });
 </script>
@@ -242,6 +257,13 @@ onMounted(async () => {
 
 .card-body {
   padding: 22px 28px 26px;
+}
+
+.pagination-top {
+  padding: 0 0 14px;
+  border-top: none;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 10px;
 }
 
 .toast {

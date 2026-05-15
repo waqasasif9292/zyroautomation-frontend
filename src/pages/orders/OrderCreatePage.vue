@@ -237,11 +237,6 @@
             {{ errors.items || 'Add at least one product before saving.' }}
           </span>
 
-          <div v-if="submitError" class="submit-error">
-            <strong>{{ submitError.title }}</strong>
-            <pre v-if="submitError.details">{{ submitError.details }}</pre>
-          </div>
-
           <div v-if="items.length" class="selected-items">
             <div v-for="(row, index) in items" :key="row.product_id" class="selected-item">
               <img class="item-image" :src="row.picture_url" :alt="row.name">
@@ -259,8 +254,8 @@
 
           <div class="actions">
             <button type="button" class="cancel-btn" @click="router.push('/orders')">Cancel</button>
-            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('hold')">
-              {{ saving ? 'Saving...' : 'Save as Hold' }}
+            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('draft')">
+              {{ saving ? 'Saving...' : 'Save Draft' }}
             </button>
             <button type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
               {{ creatingShipment ? 'Creating...' : 'Create Order' }}
@@ -269,6 +264,20 @@
         </form>
       </section>
     </main>
+
+    <Teleport to="body">
+      <transition name="modal-fade">
+        <div v-if="errorPopup" class="error-backdrop" @click.self="closeErrorPopup">
+          <section class="error-modal" role="dialog" aria-modal="true" aria-labelledby="order-error-title">
+            <h2 id="order-error-title">{{ errorPopup.title }}</h2>
+            <pre v-if="errorPopup.details">{{ errorPopup.details }}</pre>
+            <div class="error-actions">
+              <button type="button" class="error-ok-btn" @click="closeErrorPopup">OK</button>
+            </div>
+          </section>
+        </div>
+      </transition>
+    </Teleport>
   </AppLayout>
 </template>
 
@@ -279,6 +288,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import IntegrationService from '../../services/IntegrationService';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
+import { useNotificationStore } from '../../stores/notificationStore';
 import { useOrderStore } from '../../stores/orderStore';
 import { useProductStore } from '../../stores/productStore';
 
@@ -286,6 +296,7 @@ const router = useRouter();
 const route = useRoute();
 const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
+const notificationStore = useNotificationStore();
 const orderStore = useOrderStore();
 const productStore = useProductStore();
 const items = ref([]);
@@ -294,6 +305,7 @@ const saving = ref(false);
 const creatingShipment = ref(false);
 const hydratingOrder = ref(false);
 const submitError = ref(null);
+const errorPopup = ref(null);
 const postexPickupAddresses = ref([]);
 const postexPickupLoading = ref(false);
 const postexPickupError = ref('');
@@ -339,6 +351,15 @@ const item = reactive({
   product_id: '',
   quantity: 0,
 });
+
+const showErrorPopup = (title, details = '') => {
+  submitError.value = { title, details };
+  errorPopup.value = { title, details };
+};
+
+const closeErrorPopup = () => {
+  errorPopup.value = null;
+};
 
 const isEditMode = computed(() => Boolean(route.params.id));
 const hasOrderProducts = computed(() => items.value.length > 0);
@@ -527,7 +548,7 @@ onMounted(async () => {
       const message = error.response?.status === 404
         ? 'This order no longer exists or you do not have access to it.'
         : apiErrorMessage(error, 'Unable to load order for editing.');
-      window.alert(message);
+      showErrorPopup(message);
       router.push('/orders');
     }
   }
@@ -913,6 +934,7 @@ const buildPayload = () => ({
 const handleSave = async (mode) => {
   Object.keys(errors).forEach(key => delete errors[key]);
   submitError.value = null;
+  errorPopup.value = null;
 
   if (!form.brand_id) {
     errors.brand_id = 'Brand is required.';
@@ -1027,40 +1049,49 @@ const handleSave = async (mode) => {
 
   saving.value = true;
   try {
-    let order;
-    if (isEditMode.value) {
-      order = await orderStore.updateHold(route.params.id, buildPayload());
+    const supportsShipmentBooking = isPostexSelected.value || isLeopardSelected.value || isDastaqSelected.value || isArgoSelected.value;
+    const shouldBookShipment = mode === 'create' && supportsShipmentBooking;
+    const payload = buildPayload();
+
+    if (shouldBookShipment) {
+      creatingShipment.value = true;
+    }
+
+    let result;
+    if (isEditMode.value && shouldBookShipment) {
+      result = await orderStore.updateBooking(route.params.id, payload);
+    } else if (isEditMode.value) {
+      result = await orderStore.updateDraft(route.params.id, payload);
+    } else if (shouldBookShipment) {
+      result = await orderStore.createBooking(payload);
     } else {
-      order = await orderStore.createHold(buildPayload());
+      result = await orderStore.saveDraft(payload);
     }
 
     if (mode === 'create') {
-      if (!isPostexSelected.value && !isLeopardSelected.value && !isDastaqSelected.value && !isArgoSelected.value) {
-        window.alert('Shipment booking is only available for PostEx, Leopard, Dastaq, and Argo right now.');
-        router.push('/orders');
+      if (!supportsShipmentBooking) {
+        showErrorPopup('Shipment booking is only available for PostEx, Leopard, Dastaq, and Argo right now.');
         return;
       }
 
-      saving.value = false;
-      creatingShipment.value = true;
-      const result = isLeopardSelected.value
-        ? await orderStore.createLeopardShipment(order.id)
-        : isDastaqSelected.value
-          ? await orderStore.createDastaqShipment(order.id)
-          : isArgoSelected.value
-            ? await orderStore.createArgoShipment(order.id)
-            : await orderStore.createPostexShipment(order.id);
-      const tracking = result.tracking_number || 'created';
-      window.alert(`Shipment created! Tracking: ${tracking}`);
+      const order = result.order || result;
+      const tracking = result.tracking_number || order.tracking_number || 'created';
+      notificationStore.show(`Order has been created. Tracking: ${tracking}`);
+      router.push('/orders');
+      return;
     }
 
+    notificationStore.show(isEditMode.value ? 'Order draft has been updated.' : 'Order has been saved as draft.');
     router.push('/orders');
   } catch (error) {
     const responseErrors = error.response?.data?.errors;
     const fallback = mode === 'create' && creatingShipment.value
       ? 'Order was saved, but shipment booking failed.'
       : 'Unable to save order.';
-    const message = error.response?.data?.message || fallback;
+    const networkMessage = !error.response && error.message
+      ? `${fallback} (${error.message})`
+      : fallback;
+    const message = error.response?.data?.message || networkMessage;
     const courierDetails = formatApiErrorDetails(error.response?.data?.argo_response || error.response?.data?.dastaq_response);
     const errorDetails = formatApiErrorDetails(error.response?.data?.errors);
 
@@ -1074,7 +1105,7 @@ const handleSave = async (mode) => {
       title: message,
       details: courierDetails || errorDetails,
     };
-    window.alert([message, submitError.value.details].filter(Boolean).join('\n\n'));
+    showErrorPopup(message, submitError.value.details);
   } finally {
     saving.value = false;
     creatingShipment.value = false;
@@ -1252,29 +1283,6 @@ select:disabled {
 
 .items-error {
   margin-top: -8px;
-}
-
-.submit-error {
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  background: #fef2f2;
-  color: #991b1b;
-  padding: 12px 14px;
-}
-
-.submit-error strong {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.submit-error pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .section-title {
@@ -1478,6 +1486,83 @@ select:disabled {
 .create-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.error-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.48);
+  padding: 44px 18px 18px;
+}
+
+.error-modal {
+  width: min(450px, 100%);
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  padding: 22px;
+}
+
+.error-modal h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.error-modal pre {
+  max-height: 240px;
+  overflow: auto;
+  margin: 12px 0 0;
+  border: 1px solid #fee2e2;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.error-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.error-ok-btn {
+  min-width: 74px;
+  border: 1px solid #991b1b;
+  border-radius: 999px;
+  background: #991b1b;
+  color: #fff;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-from .error-modal,
+.modal-fade-leave-to .error-modal {
+  transform: translateY(-8px);
 }
 
 @media (max-width: 900px) {

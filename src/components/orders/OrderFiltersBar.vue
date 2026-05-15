@@ -1,32 +1,67 @@
 <template>
   <div class="filters-bar">
-    <div class="filters-left">
-      <select class="filter-control" :value="filters.brand_id || ''" @change="$emit('brand-change', $event.target.value || null)">
-        <option value="">All Brands</option>
+    <div class="filters-grid">
+      <input
+        v-model="draft.search"
+        class="filter-control"
+        type="text"
+        placeholder="Search by id, name, contact"
+        @keydown.enter="applyFilters"
+      >
+
+      <input
+        v-model="draft.date_from"
+        class="filter-control"
+        type="date"
+      >
+
+      <input
+        v-model="draft.date_to"
+        class="filter-control"
+        type="date"
+      >
+
+      <select v-model="draft.status" class="filter-control">
+        <option value="">Select Status</option>
+        <option value="hold">Hold</option>
+        <option value="pending_confirmation">Pending Confirmation</option>
+        <option value="booked">Booked</option>
+      </select>
+
+      <select v-model="draft.brand_id" class="filter-control">
+        <option value="">Select Shipper</option>
         <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
       </select>
 
-      <div class="search-wrap">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
-        </svg>
-        <input
-          v-model="localSearch"
-          class="search-input"
-          type="text"
-          placeholder="Search by order #, name, or phone..."
-        >
-        <button v-if="localSearch" class="clear-search" type="button" @click="clearSearch">×</button>
+      <select v-model="draft.source" class="filter-control">
+        <option value="">Select Source</option>
+        <option v-for="source in sourceOptions" :key="source" :value="source">{{ source }}</option>
+      </select>
+
+      <select v-model="draft.courier_integration_id" class="filter-control">
+        <option value="">Select Ship Through Op</option>
+        <option v-for="integration in integrations" :key="integration.id" :value="integration.id">
+          {{ integration.name }}
+        </option>
+      </select>
+
+      <select v-model="draft.sort" class="filter-control">
+        <option value="created_id_desc">DESC</option>
+        <option value="created_id_asc">ASC</option>
+        <option value="shopify_created_at_desc">Date DESC</option>
+        <option value="shopify_created_at_asc">Date ASC</option>
+      </select>
+
+      <div class="filter-actions">
+        <button class="btn-search" type="button" @click="applyFilters">Search</button>
+        <button class="btn-clear" type="button" @click="clearFilters">Clear</button>
       </div>
     </div>
-
-    <span class="results-count">{{ total }} {{ total === 1 ? 'order' : 'orders' }}</span>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 
 const props = defineProps({
   filters: {
@@ -37,117 +72,137 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  integrations: {
+    type: Array,
+    default: () => [],
+  },
   total: {
     type: Number,
     default: 0,
   },
 });
 
-const emit = defineEmits(['brand-change', 'search-change']);
-const localSearch = ref(props.filters.search || '');
-let searchTimer = null;
+const emit = defineEmits(['apply', 'clear']);
 
-watch(() => props.filters.search, (value) => {
-  if ((value || '') !== localSearch.value) {
-    localSearch.value = value || '';
-  }
+const filterSnapshot = () => ({
+  brand_id: props.filters.brand_id || '',
+  courier_integration_id: props.filters.courier_integration_id || '',
+  date_from: props.filters.date_from || '',
+  date_to: props.filters.date_to || '',
+  search: props.filters.search || '',
+  sort: props.filters.sort || 'created_id_desc',
+  source: props.filters.source || '',
+  status: '',
 });
 
-watch(localSearch, (value) => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => emit('search-change', value), 400);
+const draft = reactive(filterSnapshot());
+
+const sourceOptions = computed(() => {
+  const defaults = ['Website', 'WhatsApp', 'Abandoned', 'Social'];
+  const brandSources = props.brands.flatMap(brand => brand.sources || []);
+  return [...new Set([...defaults, ...brandSources].filter(Boolean))];
 });
 
-const clearSearch = () => {
-  localSearch.value = '';
+watch(() => props.filters, () => {
+  Object.assign(draft, filterSnapshot());
+}, { deep: true });
+
+const appliedPayload = () => ({
+  brand_id: draft.brand_id || null,
+  courier_integration_id: draft.courier_integration_id || null,
+  date_from: draft.date_from || null,
+  date_to: draft.date_to || null,
+  search: draft.search.trim(),
+  sort: draft.sort || 'created_id_desc',
+  source: draft.source || null,
+});
+
+const applyFilters = () => {
+  emit('apply', appliedPayload());
+};
+
+const clearFilters = () => {
+  Object.assign(draft, {
+    brand_id: '',
+    courier_integration_id: '',
+    date_from: '',
+    date_to: '',
+    search: '',
+    sort: 'created_id_desc',
+    source: '',
+    status: '',
+  });
+  emit('clear');
 };
 </script>
 
 <style scoped>
 .filters-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
 }
 
-.filters-left {
-  display: flex;
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
+  gap: 10px 30px;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.filter-control,
-.search-input {
-  height: 38px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  color: #1e293b;
-  font-size: 14px;
-  outline: none;
 }
 
 .filter-control {
-  min-width: 150px;
-  padding: 0 32px 0 10px;
+  width: 100%;
+  height: 46px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  outline: none;
+  padding: 0 12px;
 }
 
 .filter-control:focus,
-.search-input:focus {
-  border-color: #1e293b;
+.filter-control:hover {
+  border-color: #94a3b8;
 }
 
-.search-wrap {
-  position: relative;
-  width: 280px;
+.filter-control::placeholder {
+  color: #94a3b8;
 }
 
-.search-icon {
-  position: absolute;
-  left: 10px;
-  top: 11px;
-  color: #9ca3af;
-  pointer-events: none;
+select.filter-control {
+  appearance: auto;
+  color: #8393aa;
 }
 
-.search-input {
-  width: 100%;
-  padding: 0 32px 0 34px;
+.filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.clear-search {
-  position: absolute;
-  right: 8px;
-  top: 7px;
-  width: 24px;
-  height: 24px;
+.btn-search,
+.btn-clear {
+  height: 28px;
   border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 20px;
-  line-height: 1;
+  border-radius: 4px;
+  background: #5865db;
+  color: #fff;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 10px rgba(88, 101, 219, 0.28);
 }
 
-.results-count {
-  color: #64748b;
-  font-size: 14px;
-  white-space: nowrap;
+.btn-search:hover,
+.btn-clear:hover {
+  background: #4f5bd5;
 }
 
 @media (max-width: 760px) {
-  .filters-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .filters-left,
-  .filter-control,
-  .search-wrap {
-    width: 100%;
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 }
 </style>
