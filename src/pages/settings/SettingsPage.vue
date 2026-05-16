@@ -222,6 +222,121 @@
           </div>
         </div>
 
+        <!-- Statuses Tab -->
+        <div v-else-if="activeTab === 'statuses'" class="content-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Statuses</h2>
+            <p class="panel-subtitle">Map each courier raw status into the fixed system categories used across operations.</p>
+          </div>
+
+          <div class="panel-body">
+            <div v-if="statusSuccessMsg" class="alert alert-success">{{ statusSuccessMsg }}</div>
+            <div v-if="statusErrorMsg" class="alert alert-error">{{ statusErrorMsg }}</div>
+
+            <div v-if="statusesLoading" class="empty-state">Loading statuses...</div>
+            <template v-else>
+              <div class="status-tabs" role="tablist" aria-label="Courier status filters">
+                <button
+                  v-for="tab in statusTabs"
+                  :key="tab.key"
+                  :class="['status-tab', { active: activeStatusTab === tab.key }]"
+                  type="button"
+                  @click="activeStatusTab = tab.key"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+
+              <div v-if="activeStatusTab === 'all'" class="status-groups">
+                <section v-for="group in groupedStatusOverview" :key="group.key" class="status-group">
+                  <div class="status-group-head">
+                    <div>
+                      <h3>{{ group.label }}</h3>
+                      <span>{{ group.mappings.length }} {{ group.mappings.length === 1 ? 'status' : 'statuses' }}</span>
+                    </div>
+                  </div>
+
+                  <div class="status-tags">
+                    <span
+                      v-for="mapping in group.mappings"
+                      :key="mappingKey(mapping)"
+                      :class="['status-tag', { unmapped: !mapping.main_category }]"
+                    >
+                      <strong>{{ courierLabel(mapping.courier) }}:</strong> {{ mapping.raw_status }}
+                    </span>
+                    <span v-if="!group.mappings.length" class="status-empty-chip">No statuses mapped</span>
+                  </div>
+                </section>
+              </div>
+
+              <div v-else class="courier-mapping-panel">
+                <form class="mapping-add-row" @submit.prevent="addCourierStatus">
+                  <input
+                    v-model="newStatusForm.raw_status"
+                    class="form-input"
+                    type="text"
+                    placeholder="Courier raw status"
+                  />
+                  <select v-model="newStatusForm.main_category" class="form-input">
+                    <option value="">Select main category</option>
+                    <option v-for="category in statusCategories" :key="category.key" :value="category.key">
+                      {{ category.label }}
+                    </option>
+                  </select>
+                  <button class="btn-save" type="submit">Add</button>
+                </form>
+
+                <div class="mapping-table">
+                  <div class="mapping-table-head">
+                    <span>Courier Status</span>
+                    <span>Main Category</span>
+                    <span></span>
+                  </div>
+
+                  <div
+                    v-for="mapping in currentCourierMappings"
+                    :key="mappingKey(mapping)"
+                    :class="['mapping-row', { unmapped: !mapping.main_category }]"
+                  >
+                    <div>
+                      <strong>{{ mapping.raw_status }}</strong>
+                      <span v-if="mapping.is_predefined">Predefined</span>
+                      <span v-else>Custom</span>
+                    </div>
+                    <select v-model="mapping.main_category" class="form-input">
+                      <option value="">Unmapped</option>
+                      <option v-for="category in statusCategories" :key="category.key" :value="category.key">
+                        {{ category.label }}
+                      </option>
+                    </select>
+                    <button
+                      class="icon-danger"
+                      type="button"
+                      :aria-label="`Remove ${mapping.raw_status}`"
+                      @click="openStatusDelete(mapping)"
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <div v-if="!currentCourierMappings.length" class="empty-state compact">
+                    No statuses added for {{ activeCourierLabel }} yet.
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div class="panel-actions">
+              <button class="btn-cancel" type="button" @click="resetStatuses" :disabled="statusesSaving || statusesLoading">
+                Reset
+              </button>
+              <button class="btn-save" type="button" @click="saveStatuses" :disabled="statusesSaving || statusesLoading">
+                {{ statusesSaving ? 'Saving...' : 'Save statuses' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Billing Tab -->
         <div v-else-if="activeTab === 'billing'" class="content-panel">
           <div class="panel-header">
@@ -272,6 +387,19 @@
     @cancel="closeLeopardDeleteDialog"
     @confirm="confirmLeopardDelete"
   />
+
+  <ConfirmDialog
+    :show="statusDeleteDialogOpen"
+    title="Remove status mapping?"
+    message="This courier status will no longer resolve into a main category until it is added again."
+    :details="statusDeleteTarget ? `${courierLabel(statusDeleteTarget.courier)}: ${statusDeleteTarget.raw_status}` : ''"
+    eyebrow="Status mapping"
+    confirmText="Remove status"
+    cancelText="Keep status"
+    variant="danger"
+    @cancel="closeStatusDelete"
+    @confirm="confirmStatusDelete"
+  />
   </AppLayout>
 </template>
 
@@ -283,6 +411,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
 import LeopardService from '../../services/LeopardService';
+import SettingsService from '../../services/SettingsService';
 
 const router    = useRouter();
 const route     = useRoute();
@@ -309,6 +438,21 @@ const leopardErrors = reactive({});
 const leopardDeleteDialogOpen = ref(false);
 const leopardDeleteLoading = ref(false);
 const leopardDeleteTarget = ref(null);
+const statusesLoading = ref(false);
+const statusesSaving = ref(false);
+const statusSuccessMsg = ref('');
+const statusErrorMsg = ref('');
+const activeStatusTab = ref('all');
+const statusCategories = ref([]);
+const statusCouriers = ref([]);
+const statusMappings = ref([]);
+const savedStatusMappings = ref([]);
+const statusDeleteDialogOpen = ref(false);
+const statusDeleteTarget = ref(null);
+const newStatusForm = reactive({
+  raw_status: '',
+  main_category: '',
+});
 const visibleLeopardAddresses = computed(() => {
   if (!leopardEditingId.value) return leopardAddresses.value;
 
@@ -334,6 +478,41 @@ const emptyLeopardForm = () => ({
 
 const leopardForm = reactive(emptyLeopardForm());
 
+const fallbackStatusCategories = [
+  { key: 'hold', label: 'Hold' },
+  { key: 'pending_confirmation', label: 'Pending Confirmation' },
+  { key: 'error', label: 'Error' },
+  { key: 'merchant_warehouse', label: 'Merchant Warehouse' },
+  { key: 'dispatched', label: 'Dispatched' },
+  { key: 'delivered', label: 'Delivered' },
+  { key: 'ready_for_return', label: 'Ready For Return' },
+  { key: 'returned_to_shipper', label: 'Returned to Shipper' },
+];
+
+const fallbackCouriers = [
+  { key: 'postex', label: 'PostEx' },
+  { key: 'leopard', label: 'Leopard Courier' },
+  { key: 'dastaq', label: 'Dastaq' },
+  { key: 'argo', label: 'Argo Courier' },
+];
+
+const statusTabs = computed(() => [
+  { key: 'all', label: 'All' },
+  ...statusCouriers.value,
+]);
+
+const activeCourierLabel = computed(() => courierLabel(activeStatusTab.value));
+
+const currentCourierMappings = computed(() => statusMappings.value
+  .filter(mapping => mapping.courier === activeStatusTab.value && mapping.is_active !== false)
+  .sort((a, b) => a.raw_status.localeCompare(b.raw_status)));
+
+const groupedStatusOverview = computed(() => statusCategories.value.map(category => ({
+  ...category,
+  mappings: statusMappings.value
+    .filter(mapping => mapping.main_category === category.key && mapping.is_active !== false)
+    .sort((a, b) => courierLabel(a.courier).localeCompare(courierLabel(b.courier)) || a.raw_status.localeCompare(b.raw_status)),
+})));
 
 const loadFromStore = () => {
   const u = authStore.user;
@@ -349,7 +528,7 @@ loadFromStore();
 watch(() => authStore.user, loadFromStore);
 
 onMounted(async () => {
-  await loadLeopardData();
+  await Promise.all([loadLeopardData(), loadParcelStatuses()]);
   hydrateLeopardEditorFromQuery();
 });
 
@@ -526,6 +705,145 @@ const confirmLeopardDelete = async () => {
     leopardErrorMsg.value = error.response?.data?.message || 'Unable to delete Leopard pickup address.';
   } finally {
     leopardDeleteLoading.value = false;
+  }
+};
+
+const cloneStatusMappings = (mappings) => mappings.map(mapping => ({ ...mapping }));
+
+const normalizeStatusMappings = (mappings = []) => mappings
+  .map(mapping => ({
+    courier: mapping.courier || '',
+    raw_status: String(mapping.raw_status || '').trim(),
+    main_category: mapping.main_category || '',
+    is_predefined: Boolean(mapping.is_predefined),
+    is_active: mapping.is_active !== false,
+  }))
+  .filter(mapping => mapping.courier && mapping.raw_status);
+
+const mappingKey = (mapping) => `${mapping.courier}:${mapping.raw_status.toLowerCase()}`;
+
+const courierLabel = (key) => statusCouriers.value.find(courier => courier.key === key)?.label || key;
+
+const loadParcelStatuses = async () => {
+  statusesLoading.value = true;
+  statusErrorMsg.value = '';
+  try {
+    const res = await SettingsService.fetchParcelStatuses();
+    statusCategories.value = res.data.data.categories?.length ? res.data.data.categories : fallbackStatusCategories;
+    statusCouriers.value = res.data.data.couriers?.length ? res.data.data.couriers : fallbackCouriers;
+    statusMappings.value = normalizeStatusMappings(res.data.data.mappings);
+    savedStatusMappings.value = cloneStatusMappings(statusMappings.value);
+  } catch (error) {
+    statusCategories.value = fallbackStatusCategories;
+    statusCouriers.value = fallbackCouriers;
+    statusMappings.value = [];
+    savedStatusMappings.value = [];
+    statusErrorMsg.value = error.response?.data?.message || 'Unable to load parcel statuses.';
+  } finally {
+    statusesLoading.value = false;
+  }
+};
+
+const addCourierStatus = () => {
+  const rawStatus = newStatusForm.raw_status.trim();
+  const courier = activeStatusTab.value;
+  statusErrorMsg.value = '';
+  statusSuccessMsg.value = '';
+
+  if (!rawStatus || !courier || courier === 'all') return;
+
+  const exists = statusMappings.value.some(mapping =>
+    mapping.courier === courier && mapping.raw_status.toLowerCase() === rawStatus.toLowerCase()
+  );
+  if (exists) {
+    statusErrorMsg.value = `"${rawStatus}" already exists for ${courierLabel(courier)}.`;
+    return;
+  }
+
+  statusMappings.value.push({
+    courier,
+    raw_status: rawStatus,
+    main_category: newStatusForm.main_category,
+    is_predefined: false,
+    is_active: true,
+  });
+  newStatusForm.raw_status = '';
+  newStatusForm.main_category = '';
+};
+
+const openStatusDelete = (mapping) => {
+  statusDeleteTarget.value = mapping;
+  statusDeleteDialogOpen.value = true;
+};
+
+const closeStatusDelete = () => {
+  statusDeleteDialogOpen.value = false;
+  statusDeleteTarget.value = null;
+};
+
+const confirmStatusDelete = () => {
+  if (!statusDeleteTarget.value) return;
+
+  const targetKey = mappingKey(statusDeleteTarget.value);
+  statusMappings.value = statusMappings.value.filter(mapping => mappingKey(mapping) !== targetKey);
+  closeStatusDelete();
+};
+
+const resetStatuses = () => {
+  statusMappings.value = cloneStatusMappings(savedStatusMappings.value);
+  statusErrorMsg.value = '';
+  statusSuccessMsg.value = '';
+  newStatusForm.raw_status = '';
+  newStatusForm.main_category = '';
+};
+
+const saveStatuses = async () => {
+  statusesSaving.value = true;
+  statusErrorMsg.value = '';
+  statusSuccessMsg.value = '';
+
+  try {
+    const unmapped = statusMappings.value.find(mapping => !mapping.main_category);
+    if (unmapped) {
+      statusErrorMsg.value = `${courierLabel(unmapped.courier)}: ${unmapped.raw_status} is unmapped. Select a main category before saving.`;
+      return;
+    }
+
+    const duplicates = new Set();
+    const hasDuplicate = statusMappings.value.some(mapping => {
+      const key = mappingKey(mapping);
+      if (duplicates.has(key)) return true;
+      duplicates.add(key);
+      return false;
+    });
+    if (hasDuplicate) {
+      statusErrorMsg.value = 'Duplicate statuses are not allowed within the same courier.';
+      return;
+    }
+
+    const payload = statusMappings.value.map(mapping => ({
+      courier: mapping.courier,
+      raw_status: mapping.raw_status,
+      main_category: mapping.main_category,
+      is_predefined: mapping.is_predefined,
+      is_active: mapping.is_active,
+    }));
+    const res = await SettingsService.updateParcelStatuses(payload);
+    statusCategories.value = res.data.data.categories?.length ? res.data.data.categories : statusCategories.value;
+    statusCouriers.value = res.data.data.couriers?.length ? res.data.data.couriers : statusCouriers.value;
+    statusMappings.value = normalizeStatusMappings(res.data.data.mappings);
+    savedStatusMappings.value = cloneStatusMappings(statusMappings.value);
+    statusSuccessMsg.value = 'Parcel status mappings saved successfully.';
+    setTimeout(() => { statusSuccessMsg.value = ''; }, 3000);
+  } catch (error) {
+    const responseErrors = error.response?.data?.errors;
+    if (responseErrors) {
+      statusErrorMsg.value = Object.values(responseErrors).flat()[0] || 'Unable to save parcel statuses.';
+    } else {
+      statusErrorMsg.value = error.response?.data?.message || 'Unable to save parcel statuses.';
+    }
+  } finally {
+    statusesSaving.value = false;
   }
 };
 
@@ -836,6 +1154,197 @@ const confirmLeopardDelete = async () => {
   flex-shrink: 0;
 }
 
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 12px;
+}
+
+.status-tab {
+  min-height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: #fff;
+  color: #475569;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.status-tab:hover {
+  background: #f8fafc;
+}
+
+.status-tab.active {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.status-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 16px;
+}
+
+.status-group-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.status-group-head h3 {
+  margin: 0 0 4px;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.status-group-head span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.status-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 5px 7px 5px 10px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.status-tag.unmapped {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-empty-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.courier-mapping-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.mapping-add-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(190px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+  padding: 14px;
+}
+
+.mapping-table {
+  display: grid;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.mapping-table-head,
+.mapping-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 44px;
+  gap: 12px;
+  align-items: center;
+}
+
+.mapping-table-head {
+  background: #f8fafc;
+  color: #64748b;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mapping-row {
+  min-height: 58px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+  padding: 10px 14px;
+}
+
+.mapping-row.unmapped {
+  background: #fff7ed;
+}
+
+.mapping-row strong {
+  display: block;
+  color: #111827;
+  font-size: 13.5px;
+  margin-bottom: 3px;
+}
+
+.mapping-row span {
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.icon-danger {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.icon-danger:hover {
+  background: #fef2f2;
+}
+
+.empty-state.compact {
+  min-height: 86px;
+  border-top: 1px solid #e5e7eb;
+}
+
 .alert {
   padding: 10px 14px;
   border-radius: 7px;
@@ -863,5 +1372,31 @@ const confirmLeopardDelete = async () => {
   font-size: 11.5px;
   color: #dc2626;
   margin-top: 2px;
+}
+
+@media (max-width: 860px) {
+  .settings-body,
+  .form-row,
+  .status-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-body {
+    display: grid;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+  }
+
+  .mapping-add-row,
+  .mapping-table-head,
+  .mapping-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-table-head span:last-child {
+    display: none;
+  }
 }
 </style>
