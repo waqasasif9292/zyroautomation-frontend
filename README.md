@@ -21,7 +21,7 @@ docker build --build-arg DOPPLER_TOKEN="$DOPPLER_TOKEN" -t zyroautomation-fronte
 Run the built image:
 
 ```sh
-docker run --rm -p 8080:80 zyroautomation-frontend
+docker run --rm --name zyroautomation-frontend-app -p 8080:80 zyroautomation-frontend
 ```
 
 Vite reads `VITE_*` values at build time, so keep `VITE_API_URL` and any other frontend environment values in the Doppler config used by the service token. Build args can appear in Docker build metadata, so use your CI/CD platform's secret handling wherever possible.
