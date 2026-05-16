@@ -9,7 +9,7 @@ Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://
 Build the production image with a Doppler service token:
 
 ```sh
-docker build --build-arg DOPPER_SECRET="$DOPPER_SECRET" -t zyroautomation-frontend .
+docker build --build-arg DOPPLER_SECRET="$DOPPLER_SECRET" -t zyroautomation-frontend .
 ```
 
 The Dockerfile also accepts the official Doppler variable name:

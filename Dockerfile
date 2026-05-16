@@ -21,11 +21,11 @@ RUN npm ci
 
 COPY . .
 
-ARG DOPPER_SECRET
+ARG DOPPLER_SECRET
 ARG DOPPLER_TOKEN
 
-RUN TOKEN="${DOPPLER_TOKEN:-$DOPPER_SECRET}" \
-    && if [ -z "$TOKEN" ]; then echo "DOPPER_SECRET or DOPPLER_TOKEN build arg is required" >&2; exit 1; fi \
+RUN TOKEN="${DOPPLER_TOKEN:-$DOPPLER_SECRET}" \
+    && if [ -z "$TOKEN" ]; then echo "DOPPLER_SECRET or DOPPLER_TOKEN build arg is required" >&2; exit 1; fi \
     && DOPPLER_TOKEN="$TOKEN" doppler run -- npm run build
 
 FROM nginx:1.27-alpine AS runtime
