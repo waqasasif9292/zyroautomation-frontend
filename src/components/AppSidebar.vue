@@ -8,15 +8,26 @@
 
     <!-- Nav -->
     <nav class="sidebar-nav">
-      <button
-        v-for="item in navItems"
-        :key="item.key"
-        :class="['nav-item', { active: isActive(item) }]"
-        @click="router.push(item.to)"
-      >
-        <span class="nav-icon" v-html="item.icon"></span>
-        <span>{{ item.label }}</span>
-      </button>
+      <div v-for="item in navItems" :key="item.key" class="nav-group">
+        <button
+          :class="['nav-item', { active: isActive(item) }]"
+          @click="router.push(item.to)"
+        >
+          <span class="nav-icon" v-html="item.icon"></span>
+          <span>{{ item.label }}</span>
+        </button>
+        <div v-if="item.children && isActive(item)" class="nav-submenu">
+          <button
+            v-for="child in item.children"
+            :key="child.key"
+            :class="['nav-subitem', { active: isChildActive(child) }]"
+            @click="router.push(child.to)"
+          >
+            <span class="nav-subicon" v-html="child.icon"></span>
+            {{ child.label }}
+          </button>
+        </div>
+      </div>
     </nav>
 
     <!-- Footer -->
@@ -60,6 +71,8 @@ const isActive = (item) => {
     : route.path.startsWith(item.to);
 };
 
+const isChildActive = (item) => route.path === item.to;
+
 const handleLogout = async () => {
   await authStore.logout();
 };
@@ -82,6 +95,27 @@ const navItems = [
     label: 'Customers',
     to: '/customers',
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  },
+  {
+    key: 'packing-logs',
+    label: 'Packing Logs',
+    to: '/packing-logs/pending',
+    activePaths: ['/packing-logs'],
+    children: [
+      {
+        key: 'packing-pending',
+        label: 'Pending',
+        to: '/packing-logs/pending',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+      },
+      {
+        key: 'packing-packed',
+        label: 'Packed',
+        to: '/packing-logs/packed',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+      },
+    ],
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7.5 12 3 4 7.5l8 4.5 8-4.5Z"/><path d="M4 7.5v9L12 21l8-4.5v-9"/><path d="M12 12v9"/><path d="m8 5.25 8 4.5"/></svg>`,
   },
   {
     key: 'products',
@@ -193,6 +227,71 @@ const navItems = [
 
 .nav-item.active .nav-icon {
   color: #93c5fd;
+}
+
+.nav-submenu {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 5px 0 7px 21px;
+  padding: 4px 0 4px 12px;
+}
+
+.nav-submenu::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.24);
+}
+
+.nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.nav-subitem:hover {
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+}
+
+.nav-subitem.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #dbeafe;
+  box-shadow: inset 2px 0 0 #60a5fa;
+}
+
+.nav-subitem.active .nav-subicon {
+  background: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
+}
+
+.nav-subicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  color: #7dd3fc;
+  background: rgba(15, 23, 42, 0.42);
 }
 
 .nav-icon {

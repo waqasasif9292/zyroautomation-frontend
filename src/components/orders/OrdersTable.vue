@@ -109,7 +109,7 @@ const statusText = (status) => {
   }
   return '';
 };
-const canEdit = (order) => ['pending confirmation', 'hold'].includes(statusText(order.status).toLowerCase());
+const canEdit = (order) => ['pending confirmation', 'hold', 'on hold'].includes(statusText(order.status).toLowerCase());
 const formatDate = (value) => {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-GB', {

@@ -222,10 +222,10 @@
           </div>
         </div>
 
-        <!-- Statuses Tab -->
+        <!-- Courier Statuses Tab -->
         <div v-else-if="activeTab === 'statuses'" class="content-panel">
           <div class="panel-header">
-            <h2 class="panel-title">Statuses</h2>
+            <h2 class="panel-title">Courier Statuses</h2>
             <p class="panel-subtitle">Map each courier raw status into the fixed system categories used across operations.</p>
           </div>
 
@@ -310,6 +310,7 @@
                       </option>
                     </select>
                     <button
+                      v-if="!mapping.is_predefined"
                       class="icon-danger"
                       type="button"
                       :aria-label="`Remove ${mapping.raw_status}`"
@@ -317,6 +318,7 @@
                     >
                       &times;
                     </button>
+                    <span v-else></span>
                   </div>
 
                   <div v-if="!currentCourierMappings.length" class="empty-state compact">
@@ -479,7 +481,7 @@ const emptyLeopardForm = () => ({
 const leopardForm = reactive(emptyLeopardForm());
 
 const fallbackStatusCategories = [
-  { key: 'hold', label: 'Hold' },
+  { key: 'hold', label: 'On Hold' },
   { key: 'pending_confirmation', label: 'Pending Confirmation' },
   { key: 'error', label: 'Error' },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse' },

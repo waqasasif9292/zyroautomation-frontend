@@ -9,8 +9,12 @@ const routes = [
   { path: '/reset-password', component: () => import('../pages/ResetPasswordPage.vue'), meta: { requiresGuest: true } },
   { path: '/dashboard', component: () => import('../pages/DashboardPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/billing', component: () => import('../pages/settings/BillingPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/security', component: () => import('../pages/settings/SecurityPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders', component: () => import('../pages/OrdersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/packing-logs', redirect: '/packing-logs/pending' },
+  { path: '/packing-logs/pending', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'pending' } },
+  { path: '/packing-logs/packed', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'packed' } },
   { path: '/customers', component: () => import('../pages/CustomersPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/create', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/:id/edit', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
@@ -36,6 +40,10 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
+
+  if (!authStore.isAuthenticated) {
+    authStore.hydrateTokenFromStorage();
+  }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return next('/login');
