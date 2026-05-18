@@ -25,9 +25,11 @@
         <option value="">Select Status</option>
         <option value="hold">On Hold</option>
         <option value="pending_confirmation">Pending Confirmation</option>
+        <option value="cancel_by_shipper">Cancel by Shipper</option>
         <option value="error">Error</option>
         <option value="merchant_warehouse">Merchant Warehouse</option>
         <option value="dispatched">Dispatched</option>
+        <option value="out_for_delivery">Out For Delivery</option>
         <option value="delivered">Delivered</option>
         <option value="ready_for_return">Ready For Return</option>
         <option value="returned_to_shipper">Returned to Shipper</option>

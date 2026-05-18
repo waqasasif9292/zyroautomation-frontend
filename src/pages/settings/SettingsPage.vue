@@ -486,6 +486,7 @@ const fallbackStatusCategories = [
   { key: 'error', label: 'Error' },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse' },
   { key: 'dispatched', label: 'Dispatched' },
+  { key: 'out_for_delivery', label: 'Out For Delivery' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'ready_for_return', label: 'Ready For Return' },
   { key: 'returned_to_shipper', label: 'Returned to Shipper' },

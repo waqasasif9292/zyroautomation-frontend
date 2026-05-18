@@ -14,6 +14,7 @@ const props = defineProps({
 
 const labels = {
   'Pending Confirmation': 'Pending Confirmation',
+  'cancel by shipper': 'Cancel by Shipper',
   HOLD: 'On Hold',
   Hold: 'On Hold',
   'On Hold': 'On Hold',
@@ -50,6 +51,7 @@ const statusClass = computed(() => `status-${(statusText.value || 'unknown').toL
 
 .status-pending-confirmation,
 .status-pending { background: #fef3c7; color: #92400e; }
+.status-cancel-by-shipper { background: #fee2e2; color: #991b1b; }
 .status-hold,
 .status-on-hold { background: #f1f5f9; color: #475569; }
 .status-paid { background: #dcfce7; color: #166534; }

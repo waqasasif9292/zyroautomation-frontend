@@ -50,6 +50,7 @@
               :serial-start="serialStart"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
+              @cancel="handleCancel"
               @delete="handleDelete"
               @track="handleTrack"
             />
@@ -82,6 +83,20 @@
       @cancel="closeDeleteDialog"
       @confirm="confirmDelete"
     />
+
+    <ConfirmDialog
+      :show="showCancelDialog"
+      title="Cancel Order?"
+      message="This will change the order status to cancel by shipper."
+      :details="selectedCancelOrderLabel"
+      eyebrow="Order cancellation"
+      confirmText="Cancel Order"
+      cancelText="Keep Order"
+      variant="danger"
+      :loading="cancelLoading"
+      @cancel="closeCancelDialog"
+      @confirm="confirmCancel"
+    />
   </AppLayout>
 </template>
 
@@ -95,11 +110,13 @@ import OrderFiltersBar from '../components/orders/OrderFiltersBar.vue';
 import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrdersTable from '../components/orders/OrdersTable.vue';
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
+import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
 
 const orderStore = useOrderStore();
+const authStore = useAuthStore();
 const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const router = useRouter();
@@ -109,6 +126,9 @@ const toast = ref('');
 const showDeleteDialog = ref(false);
 const deleteLoading = ref(false);
 const selectedOrder = ref(null);
+const showCancelDialog = ref(false);
+const cancelLoading = ref(false);
+const selectedCancelOrder = ref(null);
 
 const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_id ||
@@ -145,9 +165,19 @@ const handleDelete = (id) => {
   showDeleteDialog.value = true;
 };
 
+const handleCancel = (id) => {
+  selectedCancelOrder.value = orderStore.orders.find(order => order.id === id) || { id };
+  showCancelDialog.value = true;
+};
+
 const selectedOrderLabel = computed(() => {
   if (!selectedOrder.value) return '';
   return selectedOrder.value.order_name || selectedOrder.value.customer?.name || selectedOrder.value.id;
+});
+
+const selectedCancelOrderLabel = computed(() => {
+  if (!selectedCancelOrder.value) return '';
+  return selectedCancelOrder.value.order_name || selectedCancelOrder.value.customer?.name || selectedCancelOrder.value.id;
 });
 
 const showToast = (message) => {
@@ -176,6 +206,28 @@ const confirmDelete = async () => {
     showToast(error.response?.data?.message || 'Failed to delete order.');
   } finally {
     deleteLoading.value = false;
+  }
+};
+
+const closeCancelDialog = () => {
+  if (cancelLoading.value) return;
+  showCancelDialog.value = false;
+  selectedCancelOrder.value = null;
+};
+
+const confirmCancel = async () => {
+  if (!selectedCancelOrder.value) return;
+  cancelLoading.value = true;
+  try {
+    await orderStore.cancelByShipper(selectedCancelOrder.value.id);
+    showToast('Order cancelled by shipper.');
+    showCancelDialog.value = false;
+    selectedCancelOrder.value = null;
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to cancel order.');
+  } finally {
+    cancelLoading.value = false;
   }
 };
 

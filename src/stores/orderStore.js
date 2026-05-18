@@ -113,6 +113,12 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const cancelByShipper = async (id) => {
+    await OrderService.cancelByShipper(id);
+    if (selectedOrder.value?.id === id) closePanel();
+    await fetchOrders();
+  };
+
   return {
     orders,
     pagination,
@@ -132,6 +138,7 @@ export const useOrderStore = defineStore('order', () => {
     updateDraft,
     createBooking,
     updateBooking,
+    cancelByShipper,
     deleteOrder,
   };
 });
