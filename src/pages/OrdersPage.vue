@@ -12,15 +12,6 @@
             <p>Incoming orders from your Shopify stores.</p>
           </div>
           <div class="header-actions">
-            <button :class="['credit-pill', creditTone]" type="button" @click="router.push('/settings/billing')">
-              <span class="credit-pill-row">
-                <span>Available Credits</span>
-                <strong>{{ creditSummary.remaining }} of {{ creditSummary.total }}</strong>
-              </span>
-              <span class="credit-mini-track">
-                <span class="credit-mini-fill" :style="{ width: `${creditSummary.percentage}%` }"></span>
-              </span>
-            </button>
             <button class="new-order-btn" type="button" @click="handleNewOrder">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14" />
@@ -104,13 +95,11 @@ import OrderFiltersBar from '../components/orders/OrderFiltersBar.vue';
 import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrdersTable from '../components/orders/OrdersTable.vue';
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
-import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
 
 const orderStore = useOrderStore();
-const authStore = useAuthStore();
 const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const router = useRouter();
@@ -136,29 +125,6 @@ const serialStart = computed(() => {
   const pagination = orderStore.pagination;
   if (!pagination) return 1;
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
-});
-
-const creditSummary = computed(() => {
-  const user = authStore.user || {};
-  const total = Number(user.total_credits || 0);
-  const used = Number(user.used_credits || 0);
-  const remaining = Number(user.remaining_credits ?? Math.max(total - used, 0));
-  const percentage = Math.max(0, Math.min(Number(user.remaining_percentage || 0), 100));
-
-  return {
-    total,
-    used,
-    remaining,
-    percentage,
-    is_low: Boolean(user.is_low),
-    is_exhausted: Boolean(user.is_exhausted),
-  };
-});
-
-const creditTone = computed(() => {
-  if (creditSummary.value.is_exhausted) return 'danger';
-  if (creditSummary.value.is_low) return 'warning';
-  return 'healthy';
 });
 
 const changePage = async (page) => {
@@ -279,85 +245,6 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
-}
-
-.credit-pill {
-  display: inline-flex;
-  align-items: stretch;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 41px;
-  min-width: 138px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  color: #1e293b;
-  cursor: pointer;
-  padding: 8px 11px;
-  white-space: nowrap;
-}
-
-.credit-pill-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.credit-pill:hover {
-  border-color: #94a3b8;
-}
-
-.credit-pill-row span {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.credit-pill strong {
-  color: #1e293b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.credit-pill.warning {
-  border-color: #f59e0b;
-}
-
-.credit-pill.danger {
-  border-color: #ef4444;
-}
-
-.credit-pill.warning strong {
-  color: #b45309;
-}
-
-.credit-pill.danger strong {
-  color: #dc2626;
-}
-
-.credit-mini-track {
-  display: block;
-  overflow: hidden;
-  width: 100%;
-  height: 4px;
-  border-radius: 999px;
-  background: #e2e8f0;
-}
-
-.credit-mini-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #22c55e;
-}
-
-.credit-pill.warning .credit-mini-fill {
-  background: #f59e0b;
-}
-
-.credit-pill.danger .credit-mini-fill {
-  background: #ef4444;
 }
 
 .new-order-btn {
