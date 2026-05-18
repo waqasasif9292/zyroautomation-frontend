@@ -3,6 +3,9 @@ import { ref, computed } from 'vue';
 import router from '../router';
 import axiosInstance from '../services/AuthService';
 
+const TAB_HANDOFF_KEY = 'zyro_token_tab_handoff';
+const TAB_HANDOFF_TTL_MS = 30000;
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null);
   const token = ref(null);
@@ -22,6 +25,48 @@ export const useAuthStore = defineStore('auth', () => {
 
   const setUser = (userData) => {
     user.value = userData;
+  };
+
+  const consumeTabHandoffToken = () => {
+    const rawHandoff = localStorage.getItem(TAB_HANDOFF_KEY);
+    if (!rawHandoff) return null;
+
+    try {
+      const handoff = JSON.parse(rawHandoff);
+      const isFresh = Date.now() - Number(handoff.created_at || 0) <= TAB_HANDOFF_TTL_MS;
+      localStorage.removeItem(TAB_HANDOFF_KEY);
+
+      if (isFresh && handoff.token) {
+        sessionStorage.setItem('zyro_token', handoff.token);
+        return handoff.token;
+      }
+    } catch (error) {
+      localStorage.removeItem(TAB_HANDOFF_KEY);
+    }
+
+    return null;
+  };
+
+  const tokenFromStorage = () => localStorage.getItem('zyro_token') || sessionStorage.getItem('zyro_token') || consumeTabHandoffToken();
+
+  const hydrateTokenFromStorage = () => {
+    const storedToken = tokenFromStorage();
+    if (storedToken) {
+      token.value = storedToken;
+      return true;
+    }
+
+    return false;
+  };
+
+  const prepareTabHandoff = () => {
+    const currentToken = token.value || tokenFromStorage();
+    if (!currentToken) return;
+
+    localStorage.setItem(TAB_HANDOFF_KEY, JSON.stringify({
+      token: currentToken,
+      created_at: Date.now(),
+    }));
   };
 
   const register = async (userData) => {
@@ -96,9 +141,7 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   const initializeAuth = async () => {
-    const storedToken = localStorage.getItem('zyro_token') || sessionStorage.getItem('zyro_token');
-    if (storedToken) {
-      token.value = storedToken;
+    if (hydrateTokenFromStorage()) {
       try {
         await fetchUser();
       } catch (error) {
@@ -113,6 +156,8 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     setToken,
     setUser,
+    hydrateTokenFromStorage,
+    prepareTabHandoff,
     register,
     login,
     fetchUser,

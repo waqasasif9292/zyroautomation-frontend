@@ -68,7 +68,7 @@ const cardConfig = [
   { key: 'this_month', label: 'This Month', tone: 'tone-amber', icon: 'chart' },
   { key: 'last_month', label: 'Last Month', tone: 'tone-teal', icon: 'chart' },
   { key: 'total', label: 'Total', tone: 'tone-slate', icon: 'box' },
-  { key: 'hold', label: 'Total Hold', tone: 'tone-indigo', icon: 'clock' },
+  { key: 'hold', label: 'Total On Hold', tone: 'tone-indigo', icon: 'clock' },
   { key: 'pending_confirmation', label: 'Pending Confirmation', tone: 'tone-blue', icon: 'calendar' },
 ];
 

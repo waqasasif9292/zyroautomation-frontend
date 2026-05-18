@@ -23,9 +23,14 @@
 
       <select v-model="draft.status" class="filter-control">
         <option value="">Select Status</option>
-        <option value="hold">Hold</option>
+        <option value="hold">On Hold</option>
         <option value="pending_confirmation">Pending Confirmation</option>
-        <option value="booked">Booked</option>
+        <option value="error">Error</option>
+        <option value="merchant_warehouse">Merchant Warehouse</option>
+        <option value="dispatched">Dispatched</option>
+        <option value="delivered">Delivered</option>
+        <option value="ready_for_return">Ready For Return</option>
+        <option value="returned_to_shipper">Returned to Shipper</option>
       </select>
 
       <select v-model="draft.brand_id" class="filter-control">
@@ -39,7 +44,7 @@
       </select>
 
       <select v-model="draft.courier_integration_id" class="filter-control">
-        <option value="">Select Ship Through Op</option>
+        <option value="">Select Courier</option>
         <option v-for="integration in integrations" :key="integration.id" :value="integration.id">
           {{ integration.name }}
         </option>
@@ -92,7 +97,7 @@ const filterSnapshot = () => ({
   search: props.filters.search || '',
   sort: props.filters.sort || 'created_id_desc',
   source: props.filters.source || '',
-  status: '',
+  status: props.filters.status || '',
 });
 
 const draft = reactive(filterSnapshot());
@@ -115,6 +120,7 @@ const appliedPayload = () => ({
   search: draft.search.trim(),
   sort: draft.sort || 'created_id_desc',
   source: draft.source || null,
+  status: draft.status || null,
 });
 
 const applyFilters = () => {

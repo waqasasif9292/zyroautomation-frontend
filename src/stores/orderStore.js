@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { reactive, ref } from 'vue';
 import OrderService from '../services/OrderService';
+import { useAuthStore } from './authStore';
 
 const defaultFilters = () => ({
   brand_id: null,
@@ -12,10 +13,12 @@ const defaultFilters = () => ({
   search: '',
   source: null,
   sort: 'created_id_desc',
+  status: null,
   page: 1,
 });
 
 export const useOrderStore = defineStore('order', () => {
+  const authStore = useAuthStore();
   const orders = ref([]);
   const pagination = ref(null);
   const filters = reactive(defaultFilters());
@@ -84,6 +87,7 @@ export const useOrderStore = defineStore('order', () => {
 
   const saveDraft = async (payload) => {
     const res = await OrderService.saveDraft(payload);
+    await authStore.fetchUser();
     return res.data.data.order;
   };
 
@@ -94,6 +98,7 @@ export const useOrderStore = defineStore('order', () => {
 
   const createBooking = async (payload) => {
     const res = await OrderService.createBooking(payload);
+    await authStore.fetchUser();
     return res.data.data;
   };
 

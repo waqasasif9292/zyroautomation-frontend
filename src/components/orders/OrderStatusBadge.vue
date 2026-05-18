@@ -14,8 +14,9 @@ const props = defineProps({
 
 const labels = {
   'Pending Confirmation': 'Pending Confirmation',
-  HOLD: 'HOLD',
-  Hold: 'HOLD',
+  HOLD: 'On Hold',
+  Hold: 'On Hold',
+  'On Hold': 'On Hold',
   pending: 'Pending',
   paid: 'Paid',
   refunded: 'Refunded',
@@ -49,7 +50,8 @@ const statusClass = computed(() => `status-${(statusText.value || 'unknown').toL
 
 .status-pending-confirmation,
 .status-pending { background: #fef3c7; color: #92400e; }
-.status-hold { background: #f1f5f9; color: #475569; }
+.status-hold,
+.status-on-hold { background: #f1f5f9; color: #475569; }
 .status-paid { background: #dcfce7; color: #166534; }
 .status-refunded,
 .status-partially_refunded { background: #fee2e2; color: #991b1b; }
