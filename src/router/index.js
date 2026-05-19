@@ -19,6 +19,7 @@ const routes = [
   { path: '/returns', redirect: '/returns/pending' },
   { path: '/returns/pending', component: () => import('../pages/ReturnManagementPage.vue'), meta: { requiresAuth: true, returnView: 'pending' } },
   { path: '/returns/received', component: () => import('../pages/ReturnManagementPage.vue'), meta: { requiresAuth: true, returnView: 'received' } },
+  { path: '/postex-webhooks', component: () => import('../pages/PostexWebhookEventsPage.vue'), meta: { requiresAuth: true } },
   { path: '/customers', component: () => import('../pages/CustomersPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/create', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/:id/edit', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
