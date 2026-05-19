@@ -62,17 +62,33 @@
           </td>
           <td>
             <div class="action-buttons">
-              <button class="action-btn" type="button" @click.stop="$emit('view', order.id)">
-                View
+              <button class="action-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                  <circle cx="12" cy="12" r="2.5" />
+                </svg>
               </button>
-              <button v-if="canEdit(order)" class="action-btn" type="button" @click.stop="$emit('edit', order.id)">
-                Edit
+              <button v-if="canEdit(order)" class="action-btn" type="button" aria-label="Edit order" title="Edit order" @click.stop="$emit('edit', order.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m14.5 5.5 4 4" />
+                  <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
+                </svg>
               </button>
-              <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" @click.stop="$emit('cancel', order.id)">
-                Cancel
+              <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" aria-label="Cancel order" title="Cancel order" @click.stop="$emit('cancel', order.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m9 9 6 6" />
+                  <path d="m15 9-6 6" />
+                </svg>
               </button>
-              <button class="action-btn" type="button" @click.stop="$emit('delete', order.id)">
-                Delete
+              <button class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7h16" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                  <path d="M6 7l1 13h10l1-13" />
+                  <path d="M9 7V4h6v3" />
+                </svg>
               </button>
             </div>
           </td>
@@ -137,31 +153,37 @@ const formatDate = (value) => {
   width: 100%;
   overflow-x: auto;
   scrollbar-gutter: stable;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
 }
 
 .orders-table {
-  width: 1540px;
-  min-width: 1540px;
+  width: 100%;
+  min-width: 1570px;
   border-collapse: collapse;
   table-layout: fixed;
 }
 
 th {
-  padding: 12px 10px;
+  padding: 14px 12px;
+  background: #f8fafc;
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
   text-align: left;
   text-transform: uppercase;
   border-bottom: 1px solid #e2e8f0;
 }
 
 td {
-  padding: 14px 10px;
+  padding: 16px 12px;
   color: #374151;
   font-size: 14px;
+  line-height: 1.35;
   vertical-align: middle;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #eaf0f6;
 }
 
 .order-row {
@@ -169,21 +191,21 @@ td {
 }
 
 .order-row:hover {
-  background: #f9fafb;
+  background: #fbfdff;
 }
 
-.col-serial { width: 56px; }
-.col-order { width: 170px; }
-.col-brand { width: 140px; }
-.col-source { width: 120px; }
-.col-tracking { width: 150px; }
-.col-customer { width: 190px; }
-.col-city { width: 120px; }
-.col-products { width: 190px; }
-.col-total { width: 110px; }
-.col-payment { width: 130px; }
-.col-status { width: 120px; }
-.col-actions { width: 144px; }
+.col-serial { width: 2.9%; }
+.col-order { width: 9.9%; }
+.col-brand { width: 8%; }
+.col-source { width: 6.4%; }
+.col-tracking { width: 5.5%; }
+.col-customer { width: 11.8%; }
+.col-city { width: 6.9%; }
+.col-status { width: 10.6%; }
+.col-total { width: 6.5%; }
+.col-payment { width: 8.3%; }
+.col-products { width: 12.1%; }
+.col-actions { width: 11.1%; }
 
 .serial,
 .strong {
@@ -194,7 +216,8 @@ td {
 .muted {
   margin-top: 3px;
   color: #9ca3af;
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1.25;
 }
 
 .order-time {
@@ -211,6 +234,7 @@ td {
 .total {
   color: #1e293b;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .payment-cell {
@@ -225,9 +249,10 @@ td {
   border-radius: 999px;
   background: #f1f5f9;
   color: #475569;
-  padding: 2px 6px;
+  padding: 3px 7px;
   font-size: 11px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .tracking-code,
@@ -264,16 +289,17 @@ td {
   border-radius: 999px;
   background: #eff6ff;
   color: #1e40af;
-  padding: 3px 8px;
+  padding: 5px 9px;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .action-buttons {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -281,24 +307,31 @@ td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 29px;
-  border: 1px solid #edf2f7;
-  border-radius: 4px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
   background: #fff;
-  color: #4169e1;
-  padding: 0 10px;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.13);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  color: #2563eb;
+  padding: 0;
+  box-shadow: none;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .action-btn:hover {
-  border-color: #dbe4ff;
-  background: #f8fbff;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
+  border-color: #bfdbfe;
+  background: #eff6ff;
 }
 
 .cancel-btn {
@@ -306,6 +339,15 @@ td {
 }
 
 .cancel-btn:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.danger-btn {
+  color: #dc2626;
+}
+
+.danger-btn:hover {
   border-color: #fecaca;
   background: #fef2f2;
 }
