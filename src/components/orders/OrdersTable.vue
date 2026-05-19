@@ -68,6 +68,9 @@
               <button v-if="canEdit(order)" class="action-btn" type="button" @click.stop="$emit('edit', order.id)">
                 Edit
               </button>
+              <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" @click.stop="$emit('cancel', order.id)">
+                Cancel
+              </button>
               <button class="action-btn" type="button" @click.stop="$emit('delete', order.id)">
                 Delete
               </button>
@@ -97,7 +100,7 @@ defineProps({
   },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel']);
 
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
@@ -109,7 +112,13 @@ const statusText = (status) => {
   }
   return '';
 };
-const canEdit = (order) => ['pending confirmation', 'hold', 'on hold'].includes(statusText(order.status).toLowerCase());
+const canEdit = (order) => ['pending confirmation', 'hold', 'on hold', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
+const canCancel = (order) => {
+  const hasTrackingNumber = String(order.tracking_number || '').trim() !== '';
+  const isCancelledByShipper = statusText(order.status).toLowerCase() === 'cancel by shipper';
+
+  return !hasTrackingNumber && !isCancelledByShipper;
+};
 const formatDate = (value) => {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-GB', {
@@ -290,6 +299,15 @@ td {
   border-color: #dbe4ff;
   background: #f8fbff;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
+}
+
+.cancel-btn {
+  color: #dc2626;
+}
+
+.cancel-btn:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .skeleton {

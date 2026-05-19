@@ -42,6 +42,7 @@ const effectiveActive = computed(() => {
   if (route.path.startsWith('/integrations')) return 'integrations';
   if (route.path.startsWith('/leopard-pickup-addresses')) return 'leopard';
   if (route.path.startsWith('/brands')) return 'brands';
+  if (route.path.startsWith('/settings/whatsapp')) return 'whatsapp';
   if (route.path.startsWith('/settings/billing')) return 'billing';
   if (route.path.startsWith('/settings/security')) return 'security';
   return 'profile';
@@ -79,6 +80,10 @@ const navItems = [
   {
     key: 'notifications', label: 'Notifications',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+  },
+  {
+    key: 'whatsapp', label: 'WhatsApp Automation', to: '/settings/whatsapp',
+    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.36 7.57L3 21l1.93-5.55A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.5c.3 3.1 3 5.8 6.1 6.1l1.4-1.4-2.2-1.1-.8.8c-1.1-.5-2-1.4-2.5-2.5l.8-.8-1.1-2.2-1.7 1.1Z"/></svg>`,
   },
   {
     key: 'statuses', label: 'Courier Statuses',

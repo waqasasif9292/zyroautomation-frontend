@@ -34,6 +34,9 @@ const OrderService = {
   getArgoTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/argo/track-history`);
   },
+  cancelByShipper(id) {
+    return axiosInstance.put(`/orders/${id}/cancel-by-shipper`);
+  },
   deleteOrder(id) {
     return axiosInstance.delete(`/orders/${id}`);
   },

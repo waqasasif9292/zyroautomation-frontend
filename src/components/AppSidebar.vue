@@ -118,10 +118,37 @@ const navItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7.5 12 3 4 7.5l8 4.5 8-4.5Z"/><path d="M4 7.5v9L12 21l8-4.5v-9"/><path d="M12 12v9"/><path d="m8 5.25 8 4.5"/></svg>`,
   },
   {
+    key: 'returns',
+    label: 'Return Management',
+    to: '/returns/pending',
+    activePaths: ['/returns'],
+    children: [
+      {
+        key: 'returns-pending',
+        label: 'Return Pending',
+        to: '/returns/pending',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="m8 12-5-5 5-5"/></svg>`,
+      },
+      {
+        key: 'returns-received',
+        label: 'Return Received',
+        to: '/returns/received',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+      },
+    ],
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="m8 12-5-5 5-5"/><path d="M21 17v4h-4"/></svg>`,
+  },
+  {
     key: 'products',
     label: 'Products',
     to: '/products',
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>`,
+  },
+  {
+    key: 'projections',
+    label: 'Projections',
+    to: '/projections',
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/><path d="M19 9h-5"/><path d="M19 9v5"/></svg>`,
   },
   {
     key: 'settings',
