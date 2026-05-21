@@ -34,6 +34,11 @@ export const useCustomerStore = defineStore('customer', () => {
     await fetchCustomers();
   };
 
+  const hydrateFilters = (values) => {
+    Object.assign(filters, defaultFilters(), values);
+    filters.page = Number.parseInt(filters.page, 10) || 1;
+  };
+
   const setPage = async (page) => {
     filters.page = page;
     await fetchCustomers();
@@ -46,6 +51,7 @@ export const useCustomerStore = defineStore('customer', () => {
     loading,
     fetchCustomers,
     setFilter,
+    hydrateFilters,
     setPage,
   };
 });

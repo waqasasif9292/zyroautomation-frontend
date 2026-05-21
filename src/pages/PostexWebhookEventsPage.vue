@@ -119,11 +119,13 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import PostexWebhookService from '../services/PostexWebhookService';
+import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
+const route = useRoute();
 const loading = ref(false);
 const events = ref([]);
 const webhookUrls = ref([]);
@@ -133,6 +135,13 @@ const search = ref('');
 const appliedSearch = ref('');
 const page = ref(1);
 let searchTimer = null;
+let syncingQuery = false;
+let hydratingFilters = false;
+
+const queryDefaults = {
+  search: '',
+  page: 1,
+};
 
 const selectedPayload = computed(() => {
   if (!selectedEvent.value) {
@@ -142,7 +151,29 @@ const selectedPayload = computed(() => {
   return JSON.stringify(selectedEvent.value.payload || {}, null, 2);
 });
 
-watch(search, () => {
+const hydrateFiltersFromRoute = () => {
+  hydratingFilters = true;
+  const values = readFilterQuery(route.query, queryDefaults);
+  search.value = values.search || '';
+  appliedSearch.value = values.search || '';
+  page.value = values.page;
+  hydratingFilters = false;
+};
+
+const replaceFilterQuery = async () => {
+  syncingQuery = true;
+  try {
+    await router.replace({
+      query: buildFilterQuery({ search: appliedSearch.value, page: page.value }, queryDefaults),
+    });
+  } finally {
+    syncingQuery = false;
+  }
+};
+
+watch(search, (value) => {
+  if (hydratingFilters) return;
+  if (value === appliedSearch.value) return;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(applySearch, 450);
 });
@@ -166,15 +197,17 @@ const fetchEvents = async () => {
   }
 };
 
-const applySearch = () => {
+const applySearch = async () => {
   appliedSearch.value = search.value.trim();
   page.value = 1;
-  fetchEvents();
+  await replaceFilterQuery();
+  await fetchEvents();
 };
 
-const changePage = (nextPage) => {
+const changePage = async (nextPage) => {
   page.value = nextPage;
-  fetchEvents();
+  await replaceFilterQuery();
+  await fetchEvents();
 };
 
 const copyUrl = async (url) => {
@@ -195,7 +228,16 @@ const formatDateTime = (value) => {
   }).format(date);
 };
 
-onMounted(fetchEvents);
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
+  await fetchEvents();
+});
+
+onMounted(() => {
+  hydrateFiltersFromRoute();
+  fetchEvents();
+});
 </script>
 
 <style scoped>

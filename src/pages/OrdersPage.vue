@@ -28,14 +28,14 @@
             :brands="brandStore.brands"
             :integrations="integrationStore.integrations"
             :total="orderStore.pagination?.total || 0"
-            @apply="orderStore.applyFilters"
-            @clear="orderStore.resetFilters"
+            @apply="applyFilters"
+            @clear="clearFilters"
           />
 
           <OrderEmptyState
             v-if="!orderStore.loading && orderStore.orders.length === 0"
             :variant="hasActiveFilters ? 'filtered' : 'empty'"
-            @clear="orderStore.resetFilters"
+            @clear="clearFilters"
           />
           <template v-else>
             <OrderPagination
@@ -114,6 +114,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
+import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const orderStore = useOrderStore();
 const authStore = useAuthStore();
@@ -129,6 +130,21 @@ const selectedOrder = ref(null);
 const showCancelDialog = ref(false);
 const cancelLoading = ref(false);
 const selectedCancelOrder = ref(null);
+let syncingQuery = false;
+
+const orderQueryDefaults = {
+  brand_id: null,
+  courier_integration_id: null,
+  customer_id: null,
+  date_from: null,
+  date_to: null,
+  financial_status: null,
+  search: '',
+  source: null,
+  sort: 'created_id_desc',
+  status: null,
+  page: 1,
+};
 
 const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_id ||
@@ -149,7 +165,34 @@ const serialStart = computed(() => {
 
 const changePage = async (page) => {
   await orderStore.setPage(page);
+  await replaceFilterQuery();
   tableRef.value?.$el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+const hydrateFiltersFromRoute = () => {
+  orderStore.hydrateFilters(readFilterQuery(route.query, orderQueryDefaults));
+};
+
+const replaceFilterQuery = async () => {
+  syncingQuery = true;
+  try {
+    await router.replace({
+      query: buildFilterQuery(orderStore.filters, orderQueryDefaults),
+    });
+  } finally {
+    syncingQuery = false;
+  }
+};
+
+const applyFilters = async (values) => {
+  await orderStore.applyFilters(values);
+  await replaceFilterQuery();
+};
+
+const clearFilters = async () => {
+  orderStore.hydrateFilters(orderQueryDefaults);
+  await replaceFilterQuery();
+  await orderStore.fetchOrders();
 };
 
 const handleEdit = (id) => {
@@ -235,18 +278,14 @@ const handleNewOrder = () => {
   router.push('/orders/create');
 };
 
-const applyRouteCustomerFilter = () => {
-  orderStore.filters.customer_id = route.query.customer_id || null;
-  orderStore.filters.page = 1;
-};
-
-watch(() => route.query.customer_id, async () => {
-  applyRouteCustomerFilter();
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
   await orderStore.fetchOrders();
 });
 
 onMounted(async () => {
-  applyRouteCustomerFilter();
+  hydrateFiltersFromRoute();
   await Promise.all([
     orderStore.fetchOrders(),
     authStore.fetchUser(),

@@ -66,6 +66,11 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const hydrateFilters = (values) => {
+    Object.assign(filters, defaultFilters(), values);
+    filters.page = Number.parseInt(filters.page, 10) || 1;
+  };
+
   const applyFilters = async (values) => {
     Object.assign(filters, {
       ...values,
@@ -131,6 +136,7 @@ export const useOrderStore = defineStore('order', () => {
     fetchOrder,
     closePanel,
     setFilter,
+    hydrateFilters,
     applyFilters,
     setPage,
     resetFilters,

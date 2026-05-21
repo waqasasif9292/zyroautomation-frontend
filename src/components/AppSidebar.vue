@@ -103,6 +103,12 @@ const navItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`,
   },
   {
+    key: 'delivery-charges',
+    label: 'Delivery Charges',
+    to: '/delivery-charges',
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h4"/><path d="M15 12h2"/><path d="M7 16h4"/><path d="M15 16h2"/></svg>`,
+  },
+  {
     key: 'packing-logs',
     label: 'Packing Logs',
     to: '/packing-logs/pending',
