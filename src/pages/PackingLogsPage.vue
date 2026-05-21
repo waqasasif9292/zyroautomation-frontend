@@ -198,6 +198,7 @@ import PackingLogService from '../services/PackingLogService';
 import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
+import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
 const route = useRoute();
@@ -211,6 +212,7 @@ const statsLoading = ref(false);
 const markingId = ref(null);
 const toast = ref('');
 const page = ref(1);
+let syncingQuery = false;
 const packingStats = ref({
   total_pending: 0,
   today_packed: 0,
@@ -229,6 +231,11 @@ const defaultFilters = () => ({
 
 const draftFilters = reactive(defaultFilters());
 const appliedFilters = reactive(defaultFilters());
+
+const queryDefaults = () => ({
+  ...defaultFilters(),
+  page: 1,
+});
 
 const isPackedView = computed(() => route.meta.packingView === 'packed');
 const totalShipments = computed(() => pagination.value?.total || orders.value.length);
@@ -302,12 +309,33 @@ const requestParams = () => Object.fromEntries(
   }).filter(([, value]) => value !== null && value !== '')
 );
 
+const hydrateFiltersFromRoute = () => {
+  const values = readFilterQuery(route.query, queryDefaults());
+  const nextFilters = { ...values };
+  delete nextFilters.page;
+  Object.assign(draftFilters, nextFilters);
+  Object.assign(appliedFilters, nextFilters);
+  page.value = values.page;
+};
+
+const replaceFilterQuery = async () => {
+  syncingQuery = true;
+  try {
+    await router.replace({
+      query: buildFilterQuery({ ...appliedFilters, page: page.value }, queryDefaults()),
+    });
+  } finally {
+    syncingQuery = false;
+  }
+};
+
 const applyFilters = async () => {
   Object.assign(appliedFilters, {
     ...draftFilters,
     search: draftFilters.search.trim(),
   });
   page.value = 1;
+  await replaceFilterQuery();
   await fetchShipments();
 };
 
@@ -315,6 +343,7 @@ const clearFilters = async () => {
   Object.assign(draftFilters, defaultFilters());
   Object.assign(appliedFilters, defaultFilters());
   page.value = 1;
+  await replaceFilterQuery();
   await fetchShipments();
 };
 
@@ -336,6 +365,7 @@ const applyStatsFilter = async (courierId) => {
   Object.assign(draftFilters, nextFilters);
   Object.assign(appliedFilters, nextFilters);
   page.value = 1;
+  await replaceFilterQuery();
   await fetchShipments();
 };
 
@@ -366,6 +396,7 @@ const togglePackingStatus = async (order) => {
 
 const changePage = async (nextPage) => {
   page.value = nextPage;
+  await replaceFilterQuery();
   await fetchShipments();
 };
 
@@ -381,7 +412,7 @@ const formatDateTime = (value) => {
 };
 
 watch(() => route.meta.packingView, async () => {
-  page.value = 1;
+  hydrateFiltersFromRoute();
   orders.value = [];
   pagination.value = null;
   await Promise.all([
@@ -390,7 +421,14 @@ watch(() => route.meta.packingView, async () => {
   ]);
 });
 
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
+  await fetchShipments();
+});
+
 onMounted(async () => {
+  hydrateFiltersFromRoute();
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),

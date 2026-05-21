@@ -192,6 +192,7 @@ import ReturnManagementService from '../services/ReturnManagementService';
 import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
+import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
 const route = useRoute();
@@ -205,6 +206,7 @@ const statsLoading = ref(false);
 const markingId = ref(null);
 const toast = ref('');
 const page = ref(1);
+let syncingQuery = false;
 const returnStats = ref({
   total_pending: 0,
   total_received: 0,
@@ -223,6 +225,11 @@ const defaultFilters = () => ({
 
 const draftFilters = reactive(defaultFilters());
 const appliedFilters = reactive(defaultFilters());
+
+const queryDefaults = () => ({
+  ...defaultFilters(),
+  page: 1,
+});
 
 const isReceivedView = computed(() => route.meta.returnView === 'received');
 const totalReturns = computed(() => pagination.value?.total || orders.value.length);
@@ -307,12 +314,33 @@ const statsParams = () => Object.fromEntries(
   }).filter(([, value]) => value !== null && value !== '')
 );
 
+const hydrateFiltersFromRoute = () => {
+  const values = readFilterQuery(route.query, queryDefaults());
+  const nextFilters = { ...values };
+  delete nextFilters.page;
+  Object.assign(draftFilters, nextFilters);
+  Object.assign(appliedFilters, nextFilters);
+  page.value = values.page;
+};
+
+const replaceFilterQuery = async () => {
+  syncingQuery = true;
+  try {
+    await router.replace({
+      query: buildFilterQuery({ ...appliedFilters, page: page.value }, queryDefaults()),
+    });
+  } finally {
+    syncingQuery = false;
+  }
+};
+
 const applyFilters = async () => {
   Object.assign(appliedFilters, {
     ...draftFilters,
     search: draftFilters.search.trim(),
   });
   page.value = 1;
+  await replaceFilterQuery();
   await Promise.all([
     fetchReturns(),
     fetchReturnStats(),
@@ -323,6 +351,7 @@ const clearFilters = async () => {
   Object.assign(draftFilters, defaultFilters());
   Object.assign(appliedFilters, defaultFilters());
   page.value = 1;
+  await replaceFilterQuery();
   await Promise.all([
     fetchReturns(),
     fetchReturnStats(),
@@ -338,6 +367,7 @@ const applyStatsFilter = async (courierId) => {
   Object.assign(draftFilters, nextFilters);
   Object.assign(appliedFilters, nextFilters);
   page.value = 1;
+  await replaceFilterQuery();
   await fetchReturns();
 };
 
@@ -368,6 +398,7 @@ const toggleReturnStatus = async (order) => {
 
 const changePage = async (nextPage) => {
   page.value = nextPage;
+  await replaceFilterQuery();
   await fetchReturns();
 };
 
@@ -383,7 +414,7 @@ const formatDateTime = (value) => {
 };
 
 watch(() => route.meta.returnView, async () => {
-  page.value = 1;
+  hydrateFiltersFromRoute();
   orders.value = [];
   pagination.value = null;
   await Promise.all([
@@ -392,7 +423,17 @@ watch(() => route.meta.returnView, async () => {
   ]);
 });
 
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
+  await Promise.all([
+    fetchReturns(),
+    fetchReturnStats(),
+  ]);
+});
+
 onMounted(async () => {
+  hydrateFiltersFromRoute();
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),

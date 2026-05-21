@@ -1,12 +1,12 @@
 <template>
   <AppLayout>
-    <main class="status-page">
-      <section class="status-panel">
-        <header class="status-header">
+    <main class="charges-page">
+      <section class="charges-panel">
+        <header class="charges-header">
           <div>
-            <p class="eyebrow">Update Statuses</p>
-            <h1>Orders Not Updated In The Last 2 Hours ({{ dueCount }})</h1>
-            <p>Showing orders with tracking IDs whose courier status update time has passed 2 hours.</p>
+            <p class="eyebrow">Delivery Charges Management</p>
+            <h1>Orders With Tracking IDs ({{ totalCount }})</h1>
+            <p>Review parcel COD, delivery charges, fuel charges, GST, and totals. Total zero: {{ zeroTotalCount }}</p>
           </div>
           <div class="header-actions">
             <button class="secondary-btn" type="button" :disabled="loading" @click="fetchOrders">
@@ -19,11 +19,11 @@
               Reload
             </button>
             <a
-              v-for="courier in courierButtons"
+              v-for="courier in chargeButtons"
               :key="courier.slug"
               class="primary-btn"
-              :class="{ disabled: loading || courier.count === 0 }"
-              :href="statusFetchHref(courier)"
+              :class="{ disabled: !supportedDeliveryChargeCouriers.includes(courier.slug) }"
+              :href="deliveryChargeFetchHref(courier)"
               target="_blank"
               rel="noopener"
               @click="authStore.prepareTabHandoff"
@@ -34,7 +34,7 @@
                 <path d="M3 22v-6h6" />
                 <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
               </svg>
-              {{ `Fetch ${courier.name} Latest Statuses (${courier.count})` }}
+              {{ `Fetch ${courier.name} Delivery Charges (${courier.count})` }}
             </a>
           </div>
         </header>
@@ -45,7 +45,7 @@
               v-model="draftFilters.search"
               class="filter-control"
               type="text"
-              placeholder="Search by id, name, contact"
+              placeholder="Search by id, tracking, name, contact"
               @keydown.enter="applyFilters"
             >
 
@@ -86,7 +86,7 @@
         </div>
 
         <div class="table-wrap">
-          <table class="status-table">
+          <table class="charges-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -95,30 +95,35 @@
                 <th>Courier</th>
                 <th>Tracking ID</th>
                 <th>Status</th>
-                <th>Last Updated Date Time</th>
+                <th>COD</th>
+                <th>Delivery Charges</th>
+                <th>Fuel Charges</th>
+                <th>GST</th>
+                <th>Total</th>
+                <th>Updated Date/Time</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
               <template v-if="loading">
                 <tr v-for="row in 7" :key="row">
-                  <td v-for="col in 8" :key="col"><span class="skeleton"></span></td>
+                  <td v-for="col in 13" :key="col"><span class="skeleton"></span></td>
                 </tr>
               </template>
               <tr v-else-if="orders.length === 0">
-                <td colspan="8" class="empty-cell">No orders need a status update right now.</td>
+                <td colspan="13" class="empty-cell">No tracked orders found.</td>
               </tr>
               <tr v-else v-for="(order, index) in orders" :key="order.id">
                 <td class="serial-cell">{{ serialStart + index }}</td>
                 <td>
-                  <div class="strong-cell">{{ order.order_name || order.order_number || '—' }}</div>
+                  <div class="strong-cell">{{ order.order_name || order.order_number || '-' }}</div>
                   <div v-if="order.brand_name" class="subtext">{{ order.brand_name }}</div>
                 </td>
                 <td>
-                  <div>{{ order.customer_name || '—' }}</div>
+                  <div>{{ order.customer_name || '-' }}</div>
                   <div v-if="order.contact" class="subtext">{{ order.contact }}</div>
                 </td>
-                <td>{{ order.courier_name || '—' }}</td>
+                <td>{{ order.courier_name || '-' }}</td>
                 <td>
                   <a
                     class="tracking-link"
@@ -130,16 +135,21 @@
                     {{ order.tracking_number }}
                   </a>
                 </td>
-                <td><span class="status-pill">{{ order.status || '—' }}</span></td>
-                <td>{{ formatDateTime(order.status_updated_at) }}</td>
+                <td><span class="status-pill">{{ order.status || '-' }}</span></td>
+                <td>{{ formatMoney(order.cod) }}</td>
+                <td>{{ formatMoney(order.delivery_charges) }}</td>
+                <td>{{ formatMoney(order.fuel_charges) }}</td>
+                <td>{{ formatMoney(order.gst) }}</td>
+                <td>{{ formatMoney(order.total_charges) }}</td>
+                <td>{{ formatDateTime(order.charges_updated_at) }}</td>
                 <td>
                   <button
                     class="sync-btn"
                     type="button"
-                    :disabled="syncingOrderId === order.id"
-                    @click="syncOrder(order)"
+                    :disabled="!supportedDeliveryChargeCouriers.includes(order.courier_slug) || syncingOrderId === order.id"
+                    @click="syncDeliveryCharges(order)"
                   >
-                    {{ syncingOrderId === order.id ? 'Syncing...' : 'Sync' }}
+                    {{ syncingOrderId === order.id ? 'Syncing...' : 'Sync delivery charges' }}
                   </button>
                 </td>
               </tr>
@@ -165,8 +175,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
-import OrderService from '../services/OrderService';
-import StatusUpdateService from '../services/StatusUpdateService';
+import DeliveryChargeService from '../services/DeliveryChargeService';
 import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
@@ -179,11 +188,12 @@ const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const orders = ref([]);
 const pagination = ref(null);
-const summary = ref({ due_count: 0, threshold_hours: 2, couriers: [] });
+const summary = ref({ total: 0, zero_total_count: 0, couriers: [] });
 const page = ref(1);
 const loading = ref(false);
 const syncingOrderId = ref('');
 let syncingQuery = false;
+const supportedDeliveryChargeCouriers = ['postex', 'leopard', 'dastaq', 'argo'];
 
 const defaultFilters = () => ({
   brand_id: '',
@@ -203,8 +213,9 @@ const queryDefaults = () => ({
   page: 1,
 });
 
-const dueCount = computed(() => pagination.value?.total ?? summary.value.due_count ?? 0);
-const courierButtons = computed(() => summary.value.couriers || []);
+const totalCount = computed(() => pagination.value?.total ?? summary.value.total ?? 0);
+const zeroTotalCount = computed(() => summary.value.zero_total_count ?? 0);
+const chargeButtons = computed(() => summary.value.couriers || []);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
   return ((pagination.value.current_page - 1) * pagination.value.per_page) + 1;
@@ -215,33 +226,7 @@ const sourceOptions = computed(() => {
   return [...new Set([...defaults, ...brandSources].filter(Boolean))];
 });
 
-const statusFetchHref = (courier) => `/status-updates/fetch/${encodeURIComponent(courier.slug)}`;
-
-const formatDateTime = (value) => {
-  if (!value) return 'Never';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
-};
-
-const fetchOrders = async () => {
-  loading.value = true;
-  try {
-    const res = await StatusUpdateService.getDue(requestParams());
-    orders.value = res.data.data.orders || [];
-    pagination.value = res.data.data.pagination;
-    summary.value = res.data.data.summary || summary.value;
-  } finally {
-    loading.value = false;
-  }
-};
+const deliveryChargeFetchHref = (courier) => `/delivery-charges/fetch/${encodeURIComponent(courier.slug)}`;
 
 const requestParams = () => Object.fromEntries(
   Object.entries({
@@ -271,6 +256,18 @@ const replaceFilterQuery = async () => {
   }
 };
 
+const fetchOrders = async () => {
+  loading.value = true;
+  try {
+    const res = await DeliveryChargeService.getOrders(requestParams());
+    orders.value = res.data.data.orders || [];
+    pagination.value = res.data.data.pagination;
+    summary.value = res.data.data.summary || summary.value;
+  } finally {
+    loading.value = false;
+  }
+};
+
 const applyFilters = async () => {
   Object.assign(appliedFilters, {
     ...draftFilters,
@@ -289,27 +286,51 @@ const clearFilters = async () => {
   await fetchOrders();
 };
 
-const syncOrder = async (order) => {
-  syncingOrderId.value = order.id;
-  try {
-    await OrderService.getTrackingHistory(order.id);
-    await fetchOrders();
-  } finally {
-    syncingOrderId.value = '';
-  }
-};
-
 const changePage = async (nextPage) => {
   page.value = nextPage;
   await replaceFilterQuery();
   await fetchOrders();
 };
 
-watch(() => ({ ...route.query }), async () => {
-  if (syncingQuery) return;
-  hydrateFiltersFromRoute();
-  await fetchOrders();
-});
+const syncDeliveryCharges = async (order) => {
+  if (!supportedDeliveryChargeCouriers.includes(order.courier_slug)) return;
+
+  syncingOrderId.value = order.id;
+  try {
+    const res = await DeliveryChargeService.syncOrder(order.id);
+    const updatedOrder = res.data.data?.order;
+    if (updatedOrder) {
+      const index = orders.value.findIndex(item => item.id === updatedOrder.id);
+      if (index !== -1) {
+        orders.value[index] = updatedOrder;
+      }
+    }
+    await fetchOrders();
+  } finally {
+    syncingOrderId.value = '';
+  }
+};
+
+const formatMoney = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return value;
+  return amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
+};
+
+const formatDateTime = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+};
 
 onMounted(async () => {
   hydrateFiltersFromRoute();
@@ -319,21 +340,27 @@ onMounted(async () => {
     fetchOrders(),
   ]);
 });
+
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
+  await fetchOrders();
+});
 </script>
 
 <style scoped>
-.status-page {
+.charges-page {
   min-height: 100vh;
   padding: 30px;
   background: #f1f5f9;
 }
 
-.status-panel {
+.charges-panel {
   display: grid;
   gap: 18px;
 }
 
-.status-header {
+.charges-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -348,14 +375,14 @@ onMounted(async () => {
   text-transform: uppercase;
 }
 
-.status-header h1 {
+.charges-header h1 {
   margin: 0;
   color: #111827;
   font-size: 25px;
   font-weight: 900;
 }
 
-.status-header p {
+.charges-header p {
   margin: 6px 0 0;
   color: #64748b;
   font-size: 14px;
@@ -374,18 +401,18 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 0;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 850;
   cursor: pointer;
-  text-decoration: none;
 }
 
 .primary-btn {
+  border: 0;
   background: #2563eb;
   color: #fff;
+  text-decoration: none;
 }
 
 .secondary-btn {
@@ -396,15 +423,19 @@ onMounted(async () => {
 
 .primary-btn.disabled,
 .secondary-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-.filters-bar {
+.filters-bar,
+.table-wrap {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #fff;
+}
+
+.filters-bar {
   padding: 16px;
 }
 
@@ -432,10 +463,6 @@ onMounted(async () => {
   border-color: #94a3b8;
 }
 
-.filter-control::placeholder {
-  color: #94a3b8;
-}
-
 select.filter-control {
   appearance: auto;
   color: #8393aa;
@@ -461,25 +488,17 @@ select.filter-control {
   box-shadow: 0 4px 10px rgba(88, 101, 219, 0.28);
 }
 
-.btn-search:hover,
-.btn-clear:hover {
-  background: #4f5bd5;
-}
-
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
 }
 
-.status-table {
+.charges-table {
   width: 100%;
-  min-width: 980px;
+  min-width: 1320px;
   border-collapse: collapse;
 }
 
-.status-table th {
+.charges-table th {
   padding: 13px 14px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
@@ -490,17 +509,13 @@ select.filter-control {
   text-transform: uppercase;
 }
 
-.status-table td {
+.charges-table td {
   padding: 13px 14px;
   border-bottom: 1px solid #f1f5f9;
   color: #334155;
   font-size: 13px;
   font-weight: 650;
   vertical-align: top;
-}
-
-.status-table tr:last-child td {
-  border-bottom: 0;
 }
 
 .serial-cell,
@@ -540,11 +555,11 @@ select.filter-control {
   padding: 7px 12px;
   font-size: 12px;
   font-weight: 850;
-  cursor: pointer;
+  white-space: nowrap;
 }
 
 .sync-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
@@ -595,13 +610,15 @@ select.filter-control {
 }
 
 @media (max-width: 860px) {
-  .status-page {
+  .charges-page {
     padding: 18px;
   }
 
-  .status-header,
-  .header-actions {
+  .charges-header {
     display: grid;
+  }
+
+  .header-actions {
     justify-content: stretch;
   }
 

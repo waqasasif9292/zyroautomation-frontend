@@ -78,14 +78,23 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import { useCustomerStore } from '../stores/customerStore';
+import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
+const route = useRoute();
 const customerStore = useCustomerStore();
 const localSearch = ref(customerStore.filters.search || '');
 let searchTimer = null;
+let syncingQuery = false;
+let hydratingFilters = false;
+
+const customerQueryDefaults = {
+  search: '',
+  page: 1,
+};
 
 const serialStart = computed(() => {
   const pagination = customerStore.pagination;
@@ -93,13 +102,37 @@ const serialStart = computed(() => {
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
 });
 
+const hydrateFiltersFromRoute = () => {
+  hydratingFilters = true;
+  customerStore.hydrateFilters(readFilterQuery(route.query, customerQueryDefaults));
+  localSearch.value = customerStore.filters.search || '';
+  hydratingFilters = false;
+};
+
+const replaceFilterQuery = async () => {
+  syncingQuery = true;
+  try {
+    await router.replace({
+      query: buildFilterQuery(customerStore.filters, customerQueryDefaults),
+    });
+  } finally {
+    syncingQuery = false;
+  }
+};
+
 watch(localSearch, (value) => {
+  if (hydratingFilters) return;
+  if (value === customerStore.filters.search) return;
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => customerStore.setFilter('search', value), 400);
+  searchTimer = setTimeout(async () => {
+    await customerStore.setFilter('search', value);
+    await replaceFilterQuery();
+  }, 400);
 });
 
 const changePage = async (page) => {
   await customerStore.setPage(page);
+  await replaceFilterQuery();
 };
 
 const viewOrders = (customer) => {
@@ -109,7 +142,14 @@ const viewOrders = (customer) => {
   });
 };
 
+watch(() => ({ ...route.query }), async () => {
+  if (syncingQuery) return;
+  hydrateFiltersFromRoute();
+  await customerStore.fetchCustomers();
+});
+
 onMounted(() => {
+  hydrateFiltersFromRoute();
   customerStore.fetchCustomers();
 });
 </script>

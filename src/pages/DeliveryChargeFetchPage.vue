@@ -29,14 +29,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import StatusUpdateService from '../services/StatusUpdateService';
+import DeliveryChargeService from '../services/DeliveryChargeService';
 
 const route = useRoute();
 const state = ref('loading');
 const summary = ref(null);
 const errorMessage = ref('');
+let syncController = null;
 
 const courierName = computed(() => {
   const slug = String(route.params.courierSlug || '');
@@ -46,24 +47,28 @@ const courierName = computed(() => {
 });
 
 const title = computed(() => {
-  if (state.value === 'success') return 'Statuses fetch completed';
-  if (state.value === 'error') return 'Statuses fetch failed';
+  if (state.value === 'success') return 'Delivery charges fetch completed';
+  if (state.value === 'error') return 'Delivery charges fetch failed';
 
-  return 'Fetching latest statuses';
+  return 'Fetching delivery charges';
 });
 
 const message = computed(() => {
-  if (state.value === 'success') return 'Latest courier statuses have been fetched and updated.';
-  if (state.value === 'error') return errorMessage.value || 'Unable to fetch latest statuses right now.';
+  if (state.value === 'success') return 'Latest delivery charges have been fetched and saved.';
+  if (state.value === 'error') return errorMessage.value || 'Unable to fetch delivery charges right now.';
 
-  return 'We are fetching latest status updates. Please keep this tab open.';
+  return 'We are fetching delivery charges. Please keep this tab open.';
 });
 
 onMounted(async () => {
+  syncController = new AbortController();
+
   try {
-    const res = await StatusUpdateService.refreshDueByGet({
+    const res = await DeliveryChargeService.syncCourier({
       courier_slug: route.params.courierSlug,
       all: 1,
+    }, {
+      signal: syncController.signal,
     });
 
     const data = res.data.data || {};
@@ -74,9 +79,28 @@ onMounted(async () => {
     };
     state.value = 'success';
   } catch (error) {
+    if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+      return;
+    }
+
     errorMessage.value = error.response?.data?.message || error.message || '';
     state.value = 'error';
   }
+});
+
+const abortSync = () => {
+  if (state.value === 'loading' && syncController) {
+    syncController.abort();
+  }
+};
+
+window.addEventListener('pagehide', abortSync);
+window.addEventListener('beforeunload', abortSync);
+
+onBeforeUnmount(() => {
+  abortSync();
+  window.removeEventListener('pagehide', abortSync);
+  window.removeEventListener('beforeunload', abortSync);
 });
 </script>
 
