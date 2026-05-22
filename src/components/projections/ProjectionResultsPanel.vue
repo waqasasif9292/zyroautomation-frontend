@@ -65,11 +65,35 @@ const groups = computed(() => [
       { label: 'Total Bulity Cost', value: props.calculations.total_bulity_cost, money: true },
       { label: 'Total Packing Cost', value: props.calculations.total_packing_cost, money: true },
       { label: 'Total DC Cost', value: props.calculations.total_delivery_cost, money: true },
+      ...extraExpenseItems.value,
+      { label: 'Total Extra Expenses', value: props.calculations.total_extra_expenses, money: true },
+      ...oneTimeExpenseItems.value,
+      { label: 'Total One Time Expenses', value: props.calculations.total_one_time_expenses, money: true },
       { label: 'Total Ad Cost', value: props.calculations.total_ad_cost, money: true },
       { label: 'Tax Amount', value: props.calculations.tax_amount, money: true },
     ],
   },
 ]);
+
+const extraExpenseItems = computed(() => {
+  const expenses = Array.isArray(props.calculations.extra_expenses) ? props.calculations.extra_expenses : [];
+
+  return expenses.map(expense => ({
+    label: expense.label,
+    value: expense.total,
+    money: true,
+  }));
+});
+
+const oneTimeExpenseItems = computed(() => {
+  const expenses = Array.isArray(props.calculations.one_time_expenses) ? props.calculations.one_time_expenses : [];
+
+  return expenses.map(expense => ({
+    label: expense.label,
+    value: expense.total,
+    money: true,
+  }));
+});
 
 const rounded = (value) => Math.round(Number(value || 0));
 const formatNumber = (value) => rounded(value).toLocaleString();

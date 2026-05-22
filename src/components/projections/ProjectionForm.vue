@@ -11,7 +11,7 @@
       <div class="panel-body">
         <div v-if="loading" class="loading-block"></div>
         <template v-else>
-          <section class="form-section">
+          <section class="form-section expense-section">
             <h2>Product</h2>
             <div class="form-group">
               <label class="form-label">Product Name</label>
@@ -30,22 +30,94 @@
             </div>
           </section>
 
-          <section class="form-section">
+          <section class="form-section expense-section">
             <h2>Pricing & Costs</h2>
             <div class="form-grid">
               <NumberField v-model="form.sale_price" label="Sale Price" :error="errors.sale_price" />
               <NumberField v-model="form.product_cost" label="Product Cost" :error="errors.product_cost" />
-              <NumberField v-model="form.bulity_cost" label="Bulity Cost" :error="errors.bulity_cost" />
-              <NumberField v-model="form.packing_cost" label="Packing Cost" :error="errors.packing_cost" />
-              <NumberField v-model="form.delivery_charges" label="Delivery Charges (DC)" :error="errors.delivery_charges" />
-              <NumberField v-model="form.tax_percentage" label="Tax %" :error="errors.tax_percentage" />
+              <NumberField v-model="form.bulity_cost" label="Bulity Cost Per Order" :error="errors.bulity_cost" />
+              <NumberField v-model="form.packing_cost" label="Packing Cost Per Order" :error="errors.packing_cost" />
+              <NumberField v-model="form.delivery_charges" label="Delivery Charges (DC) Per Order" :error="errors.delivery_charges" />
+              <NumberField v-model="form.tax_percentage" label="Courier Withholding Tax %" :error="errors.tax_percentage" />
               <NumberField v-model="form.ads_cost_per_day" label="Ads Cost Per Day" :error="errors.ads_cost_per_day" />
               <NumberField v-model="form.ads_tax_percentage" label="Ads Tax %" :error="errors.ads_tax_percentage" />
-              <NumberField v-model="form.cpc" label="CPC (Cost Per Click)" :error="errors.cpc" />
+              <NumberField v-model="form.cpc" label="Ad Cost Per Order (CPC)" :error="errors.cpc" />
             </div>
           </section>
 
-          <section class="form-section">
+          <section class="form-section expense-section">
+            <div class="section-header">
+              <h2>Extra Expenses Per Order</h2>
+              <button class="btn-secondary compact" type="button" @click="addExtraExpense">Add Expense</button>
+            </div>
+
+            <div v-if="form.extra_expenses.length" class="extra-expenses">
+              <div v-for="(expense, index) in form.extra_expenses" :key="expense.key" class="extra-expense-row">
+                <div class="form-group">
+                  <label class="form-label">Expense Label <span class="required-mark">*</span></label>
+                  <input
+                    v-model="expense.label"
+                    class="form-input"
+                    :class="{ 'input-error': expenseError(index, 'label') }"
+                    type="text"
+                    placeholder="e.g. Staff handling"
+                  >
+                  <span v-if="expenseError(index, 'label')" class="field-error">{{ expenseError(index, 'label') }}</span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Cost Per Order <span class="required-mark">*</span></label>
+                  <input
+                    v-model.number="expense.value"
+                    class="form-input"
+                    :class="{ 'input-error': expenseError(index, 'value') }"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                  >
+                  <span v-if="expenseError(index, 'value')" class="field-error">{{ expenseError(index, 'value') }}</span>
+                </div>
+                <button class="btn-secondary icon-action" type="button" aria-label="Remove expense" @click="removeExtraExpense(index)">Remove</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section expense-section">
+            <div class="section-header">
+              <h2>One Time Expenses</h2>
+              <button class="btn-secondary compact" type="button" @click="addOneTimeExpense">Add Expense</button>
+            </div>
+
+            <div v-if="form.one_time_expenses.length" class="extra-expenses">
+              <div v-for="(expense, index) in form.one_time_expenses" :key="expense.key" class="extra-expense-row">
+                <div class="form-group">
+                  <label class="form-label">Expense Label <span class="required-mark">*</span></label>
+                  <input
+                    v-model="expense.label"
+                    class="form-input"
+                    :class="{ 'input-error': oneTimeExpenseError(index, 'label') }"
+                    type="text"
+                    placeholder="e.g. Rent"
+                  >
+                  <span v-if="oneTimeExpenseError(index, 'label')" class="field-error">{{ oneTimeExpenseError(index, 'label') }}</span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">One Time Cost <span class="required-mark">*</span></label>
+                  <input
+                    v-model.number="expense.value"
+                    class="form-input"
+                    :class="{ 'input-error': oneTimeExpenseError(index, 'value') }"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                  >
+                  <span v-if="oneTimeExpenseError(index, 'value')" class="field-error">{{ oneTimeExpenseError(index, 'value') }}</span>
+                </div>
+                <button class="btn-secondary icon-action" type="button" aria-label="Remove expense" @click="removeOneTimeExpense(index)">Remove</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section expense-section">
             <h2>Order Assumptions</h2>
             <div class="form-grid">
               <NumberField v-model="form.cancel_rate" label="Cancel Rate %" :error="errors.cancel_rate" max="100" />
@@ -149,11 +221,21 @@ const form = reactive({
   cpc: 0,
   cancel_rate: 0,
   return_rate: 0,
+  extra_expenses: [],
+  one_time_expenses: [],
 });
 
 const fillForm = (projection) => {
   if (!projection) return;
   Object.keys(form).forEach((key) => {
+    if (key === 'extra_expenses') {
+      form.extra_expenses = normalizeExpenses(projection.extra_expenses);
+      return;
+    }
+    if (key === 'one_time_expenses') {
+      form.one_time_expenses = normalizeExpenses(projection.one_time_expenses);
+      return;
+    }
     form[key] = key === 'product_name' ? (projection[key] || '') : Number(projection[key] || 0);
   });
   currentImage.value = projection.product_image_url || '';
@@ -176,9 +258,21 @@ const calculations = computed(() => {
   const totalBulityCost = form.bulity_cost * dispatchedOrders;
   const totalPackingCost = form.packing_cost * dispatchedOrders;
   const totalDeliveryCost = form.delivery_charges * dispatchedOrders;
+  const extraExpenseBreakdown = activeExtraExpenses.value.map(expense => ({
+    label: expense.label,
+    value: expense.value,
+    total: expense.value * dispatchedOrders,
+  }));
+  const totalExtraExpenses = extraExpenseBreakdown.reduce((sum, expense) => sum + expense.total, 0);
+  const oneTimeExpenseBreakdown = activeOneTimeExpenses.value.map(expense => ({
+    label: expense.label,
+    value: expense.value,
+    total: expense.value,
+  }));
+  const totalOneTimeExpenses = oneTimeExpenseBreakdown.reduce((sum, expense) => sum + expense.total, 0);
   const totalAdCost = adSpendAfterTax;
   const taxAmount = deliveredSales * (form.tax_percentage / 100);
-  const profit = deliveredSales - totalProductCost - totalBulityCost - totalPackingCost - totalDeliveryCost - totalAdCost - taxAmount;
+  const profit = deliveredSales - totalProductCost - totalBulityCost - totalPackingCost - totalDeliveryCost - totalExtraExpenses - totalOneTimeExpenses - totalAdCost - taxAmount;
 
   return {
     monthly_ad_spend: monthlyAdSpend,
@@ -195,11 +289,70 @@ const calculations = computed(() => {
     total_bulity_cost: totalBulityCost,
     total_packing_cost: totalPackingCost,
     total_delivery_cost: totalDeliveryCost,
+    extra_expenses: extraExpenseBreakdown,
+    total_extra_expenses: totalExtraExpenses,
+    one_time_expenses: oneTimeExpenseBreakdown,
+    total_one_time_expenses: totalOneTimeExpenses,
     total_ad_cost: totalAdCost,
     tax_amount: taxAmount,
     profit,
   };
 });
+
+const normalizeExpenses = (expenses = []) => (
+  Array.isArray(expenses) ? expenses : []
+).map((expense) => ({
+  key: createExpenseKey(),
+  label: String(expense.label || ''),
+  value: Number(expense.value || 0),
+}));
+
+function createExpenseKey() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
+}
+
+const activeExtraExpenses = computed(() => form.extra_expenses
+  .map(expense => ({
+    label: String(expense.label || '').trim(),
+    value: Number(expense.value || 0),
+  }))
+  .filter(expense => expense.label || expense.value > 0));
+
+const activeOneTimeExpenses = computed(() => form.one_time_expenses
+  .map(expense => ({
+    label: String(expense.label || '').trim(),
+    value: Number(expense.value || 0),
+  }))
+  .filter(expense => expense.label || expense.value > 0));
+
+const addExtraExpense = () => {
+  form.extra_expenses.push({
+    key: createExpenseKey(),
+    label: '',
+    value: 0,
+  });
+};
+
+const removeExtraExpense = (index) => {
+  form.extra_expenses.splice(index, 1);
+};
+
+const addOneTimeExpense = () => {
+  form.one_time_expenses.push({
+    key: createExpenseKey(),
+    label: '',
+    value: 0,
+  });
+};
+
+const removeOneTimeExpense = (index) => {
+  form.one_time_expenses.splice(index, 1);
+};
+
+const expenseError = (index, field) => props.errors[`extra_expenses.${index}.${field}`] || '';
+const oneTimeExpenseError = (index, field) => props.errors[`one_time_expenses.${index}.${field}`] || '';
 
 const setImage = (event) => {
   image.value = event.target.files?.[0] || null;
@@ -208,7 +361,16 @@ const setImage = (event) => {
 const submit = () => {
   const payload = new FormData();
   Object.entries(form).forEach(([key, value]) => {
+    if (['extra_expenses', 'one_time_expenses'].includes(key)) return;
     payload.append(key, key === 'product_name' ? String(value).trim() : value);
+  });
+  activeExtraExpenses.value.forEach((expense, index) => {
+    payload.append(`extra_expenses[${index}][label]`, expense.label);
+    payload.append(`extra_expenses[${index}][value]`, expense.value);
+  });
+  activeOneTimeExpenses.value.forEach((expense, index) => {
+    payload.append(`one_time_expenses[${index}][label]`, expense.label);
+    payload.append(`one_time_expenses[${index}][value]`, expense.value);
   });
   if (image.value) payload.append('product_image', image.value);
   emit('submit', payload);
@@ -259,6 +421,13 @@ const submit = () => {
   gap: 14px;
 }
 
+.expense-section {
+  padding: 16px;
+  border: 1.5px dashed #b6c6dc;
+  border-radius: 8px;
+  background: #f3f8ff;
+}
+
 .form-section h2 {
   margin: 0;
   color: #0f172a;
@@ -266,11 +435,39 @@ const submit = () => {
   font-weight: 800;
 }
 
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 30px;
   row-gap: 28px;
+}
+
+.extra-expenses {
+  display: grid;
+  gap: 14px;
+}
+
+.extra-expense-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 14px;
+  border: 1px solid #d5e0ee;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.extra-expense-row:hover {
+  border-color: #aebfd4;
+  background: #fbfdff;
 }
 
 :deep(.form-group),
@@ -365,6 +562,18 @@ const submit = () => {
   color: #374151;
 }
 
+.btn-secondary.compact,
+.icon-action {
+  min-height: 36px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.icon-action {
+  align-self: end;
+  min-height: 46px;
+}
+
 .btn-primary {
   min-width: 136px;
   border: 1px solid #1e293b;
@@ -407,6 +616,16 @@ const submit = () => {
 @media (max-width: 760px) {
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .section-header,
+  .extra-expense-row {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

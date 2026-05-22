@@ -33,6 +33,7 @@
             @view="id => router.push(`/projections/${id}`)"
             @edit="id => router.push(`/projections/${id}/edit`)"
             @delete="confirmDelete"
+            @ai-suggestions="getAiSuggestions"
           />
         </div>
       </section>
@@ -51,6 +52,37 @@
       @cancel="closeDeleteDialog"
       @confirm="handleDelete"
     />
+
+    <div v-if="showAiModal" class="modal-backdrop" @click.self="closeAiModal">
+      <section class="ai-modal">
+        <div class="modal-header">
+          <div>
+            <h2>AI Improvement Suggestions</h2>
+            <p>{{ selectedAiProjection?.product_name || 'Projection' }}</p>
+          </div>
+          <button class="modal-close" type="button" aria-label="Close modal" @click="closeAiModal">x</button>
+        </div>
+
+        <div class="modal-body">
+          <p v-if="aiError" class="ai-error">{{ aiError }}</p>
+          <p v-else-if="aiLoading" class="ai-loading">Reviewing projection data and preparing suggestions...</p>
+          <template v-else>
+            <p v-if="aiInsights.summary" class="ai-summary">{{ aiInsights.summary }}</p>
+            <div v-if="aiInsights.suggestions?.length" class="suggestions-list">
+              <article v-for="suggestion in aiInsights.suggestions" :key="suggestion.title" class="suggestion-card">
+                <div class="suggestion-title-row">
+                  <h3>{{ suggestion.title }}</h3>
+                  <span>{{ suggestion.impact || 'medium' }}</span>
+                </div>
+                <p>{{ suggestion.recommendation }}</p>
+                <small>{{ suggestion.reason }}</small>
+              </article>
+            </div>
+            <p v-else class="ai-empty">No structured suggestions were returned.</p>
+          </template>
+        </div>
+      </section>
+    </div>
   </AppLayout>
 </template>
 
@@ -71,6 +103,14 @@ const toast = ref('');
 const showDeleteDialog = ref(false);
 const deleteLoading = ref(false);
 const selectedProjection = ref(null);
+const showAiModal = ref(false);
+const aiLoading = ref(false);
+const aiError = ref('');
+const selectedAiProjection = ref(null);
+const aiInsights = ref({
+  summary: '',
+  suggestions: [],
+});
 
 const showToast = (message) => {
   toast.value = message;
@@ -102,6 +142,28 @@ const handleDelete = async () => {
   } finally {
     deleteLoading.value = false;
   }
+};
+
+const getAiSuggestions = async (projection) => {
+  selectedAiProjection.value = projection;
+  showAiModal.value = true;
+  aiLoading.value = true;
+  aiError.value = '';
+  aiInsights.value = { summary: '', suggestions: [] };
+
+  try {
+    aiInsights.value = await projectionStore.fetchAiSuggestions(projection.id);
+  } catch (error) {
+    aiError.value = error.response?.data?.message || 'Failed to get AI suggestions.';
+  } finally {
+    aiLoading.value = false;
+  }
+};
+
+const closeAiModal = () => {
+  if (aiLoading.value) return;
+  showAiModal.value = false;
+  selectedAiProjection.value = null;
 };
 
 onMounted(async () => {
@@ -216,5 +278,145 @@ onMounted(async () => {
 .toast-fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.ai-modal {
+  width: min(760px, 100%);
+  max-height: min(760px, 90vh);
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.modal-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-body {
+  display: grid;
+  gap: 14px;
+  max-height: 620px;
+  overflow: auto;
+  padding: 20px 22px;
+}
+
+.ai-summary {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed #b6c6dc;
+  border-radius: 8px;
+  background: #f3f8ff;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.suggestions-list {
+  display: grid;
+  gap: 12px;
+}
+
+.suggestion-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.suggestion-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.suggestion-title-row h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.suggestion-title-row span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.suggestion-card p {
+  margin: 0;
+  color: #1e293b;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.suggestion-card small {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ai-error,
+.ai-loading,
+.ai-empty {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ai-error {
+  color: #dc2626;
+}
+
+.ai-loading,
+.ai-empty {
+  color: #475569;
 }
 </style>
