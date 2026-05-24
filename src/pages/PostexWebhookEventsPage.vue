@@ -122,10 +122,12 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import PostexWebhookService from '../services/PostexWebhookService';
+import { useAuthStore } from '../stores/authStore';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 const loading = ref(false);
 const events = ref([]);
 const webhookUrls = ref([]);
@@ -215,7 +217,8 @@ const copyUrl = async (url) => {
 };
 
 const openOrder = (id) => {
-  router.push(`/orders/${id}/tracking`);
+  authStore.prepareTabHandoff();
+  window.open(router.resolve(`/orders/${id}/tracking`).href, '_blank', 'noopener');
 };
 
 const formatDateTime = (value) => {

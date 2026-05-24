@@ -200,7 +200,8 @@ const handleEdit = (id) => {
 };
 
 const handleTrack = (id) => {
-  router.push(`/orders/${id}/tracking`);
+  authStore.prepareTabHandoff();
+  window.open(router.resolve(`/orders/${id}/tracking`).href, '_blank', 'noopener');
 };
 
 const handleDelete = (id) => {

@@ -151,6 +151,33 @@ const navItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="m8 12-5-5 5-5"/><path d="M21 17v4h-4"/></svg>`,
   },
   {
+    key: 'reports',
+    label: 'Reports',
+    to: '/reports/overview',
+    activePaths: ['/reports', '/cancelled', '/return-performance'],
+    children: [
+      {
+        key: 'reports-overview',
+        label: 'Overview',
+        to: '/reports/overview',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 2 5-6"/></svg>`,
+      },
+      {
+        key: 'cancel-report',
+        label: 'Cancel Report',
+        to: '/reports/cancel',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
+      },
+      {
+        key: 'return-report',
+        label: 'Return Report',
+        to: '/reports/returns',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="m8 12-5-5 5-5"/></svg>`,
+      },
+    ],
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v2"/><path d="M12 11v6"/><path d="M17 7v10"/></svg>`,
+  },
+  {
     key: 'products',
     label: 'Products',
     to: '/products',

@@ -29,7 +29,7 @@
                     <button
                       class="tracking-button"
                       type="button"
-                      @click="router.push(`/orders/${props.order.id}/tracking`)"
+                      @click="openTracking"
                     >
                       {{ trackingNumber }}
                     </button>
@@ -68,8 +68,10 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import OrderDetailSection from './OrderDetailSection.vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
+import { useAuthStore } from '../../stores/authStore';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const props = defineProps({
   open: {
@@ -123,6 +125,12 @@ const hasUtm = computed(() => Object.values(props.order?.utm || {}).some(Boolean
 
 const trackingNumber = computed(() => props.order?.tracking_number || '');
 const hasTrackingNumber = computed(() => Boolean(trackingNumber.value));
+
+const openTracking = () => {
+  if (!props.order?.id) return;
+  authStore.prepareTabHandoff();
+  window.open(router.resolve(`/orders/${props.order.id}/tracking`).href, '_blank', 'noopener');
+};
 
 const utmRows = computed(() => [
   { label: 'Source', value: props.order.utm?.source },
