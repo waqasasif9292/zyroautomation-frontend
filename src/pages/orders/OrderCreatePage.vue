@@ -224,7 +224,7 @@
               <select v-model="item.product_id" :class="{ invalid: errors.items }">
                 <option value="">Select Product</option>
                 <option v-for="product in productStore.products" :key="product.id" :value="product.id">
-                  {{ product.name }}
+                  {{ product.name }} (Available: {{ Number(product.available_stock ?? product.total_inventory ?? 0).toLocaleString() }})
                 </option>
               </select>
             </div>
@@ -538,7 +538,7 @@ onMounted(async () => {
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
-    productStore.products.length ? Promise.resolve() : productStore.fetchProducts(),
+    productStore.fetchProducts(),
   ]);
 
   if (isEditMode.value) {

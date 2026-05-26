@@ -12,12 +12,12 @@
         </button>
       </section>
 
-      <section v-if="isReturnReport" class="report-toolbar">
+      <section class="report-toolbar">
         <div class="toolbar-copy">
           <strong>Report scope</strong>
-          <span>Filter all return insights by brand and date range.</span>
+          <span>{{ toolbarCopy }}</span>
         </div>
-        <form class="toolbar-controls" @submit.prevent="applyGlobalFilters">
+        <form class="toolbar-controls" :class="{ cancel: !isReturnReport }" @submit.prevent="applyGlobalFilters">
           <label>
             <span>Brand</span>
             <select v-model="globalDraft.brand_id">
@@ -32,6 +32,20 @@
           <label>
             <span>To</span>
             <input v-model="globalDraft.report_end_date" type="date">
+          </label>
+          <label v-if="isReturnReport">
+            <span>Courier</span>
+            <select v-model="globalDraft.courier_integration_id">
+              <option value="">All couriers</option>
+              <option v-for="courier in data.filters.couriers" :key="courier.id" :value="courier.id">{{ courier.name }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Source</span>
+            <select v-model="globalDraft.source">
+              <option value="">All sources</option>
+              <option v-for="source in data.filters.sources" :key="source" :value="source">{{ source }}</option>
+            </select>
           </label>
           <div class="toolbar-actions">
             <button class="primary-btn" type="submit">Apply</button>
@@ -50,15 +64,8 @@
         <div class="panel-head">
           <div>
             <h2>{{ copy.dashboardTitle }}</h2>
-            <p>Filter a date range to identify product-level risk.</p>
+            <p>Identify product-level risk within the selected report scope.</p>
           </div>
-          <DateRangeControls
-            v-if="!isReturnReport"
-            :from="filters.dash_start_date"
-            :to="filters.dash_end_date"
-            @apply="applyDashboardDates"
-            @clear="clearDashboardDates"
-          />
         </div>
 
         <div class="metric-grid">
@@ -76,10 +83,16 @@
           </article>
         </div>
 
+        <div class="report-table-head">
+          <h3>Products <span class="muted-count">({{ formatNumber(productRows.length) }})</span></h3>
+          <button class="secondary-btn export-btn" type="button" @click="exportProductCsv">Export CSV</button>
+        </div>
+
         <DataTable
           :columns="productColumns"
           :rows="productRows"
           :export-name="`${copy.title} products`"
+          :show-export="false"
           @row-click="drilldownProduct"
           :empty-text="`No product data found for this ${copy.shortLabel.toLowerCase()} date range.`"
         />
@@ -88,39 +101,42 @@
       <section v-else-if="activeTab === 'city'" class="panel">
         <div class="panel-head">
           <div>
-            <h2>{{ copy.cityTitle }}</h2>
-            <p>Find destinations with high {{ copy.rateNoun.toLowerCase() }} rates.</p>
+            <h2>{{ copy.cityTitle }} <span class="muted-count">({{ formatNumber(filteredCityRows.length) }})</span></h2>
+            <p>Find destinations with high {{ copy.rateNoun.toLowerCase() }} rates within the selected scope.</p>
+            <p v-if="citySearch.trim()">Filtered from {{ formatNumber(cityRows.length) }} cities</p>
           </div>
-          <DateRangeControls
-            v-if="!isReturnReport"
-            :from="filters.city_start_date"
-            :to="filters.city_end_date"
-            @apply="applyCityDates"
-            @clear="clearCityDates"
-          />
+          <button class="secondary-btn export-btn" type="button" @click="exportCityCsv">Export CSV</button>
         </div>
 
-        <div class="metric-grid">
-          <article class="metric-card">
-            <span>Total orders</span>
-            <strong>{{ formatNumber(data.city.total_orders) }}</strong>
-          </article>
-          <article class="metric-card danger">
-            <span>{{ copy.targetOrdersLabel }}</span>
-            <strong>{{ formatNumber(data.city.target_orders) }}</strong>
-          </article>
-          <article class="metric-card warn">
-            <span>{{ copy.percentageLabel }}</span>
-            <strong>{{ formatPercent(data.city.percentage) }}</strong>
-          </article>
-        </div>
+        <form class="filter-grid compact" @submit.prevent="applyCitySearch">
+          <input v-model="citySearchDraft" type="search" placeholder="Search cities">
+          <div class="filter-actions">
+            <button class="primary-btn" type="submit">Search</button>
+            <button class="secondary-btn" type="button" @click="clearCitySearch">Clear</button>
+          </div>
+        </form>
+
+        <OrderPagination
+          class="report-pagination-top"
+          :pagination="cityPagination"
+          item-label="cities"
+          @page-change="setCityPage"
+        />
 
         <DataTable
           :columns="cityColumns"
-          :rows="cityRows"
+          :rows="paginatedCityRows"
           :export-name="`${copy.title} cities`"
+          :show-export="false"
           @row-click="drilldownCity"
           empty-text="No city data found for this date range."
+        />
+
+        <OrderPagination
+          class="report-pagination-bottom"
+          :pagination="cityPagination"
+          item-label="cities"
+          @page-change="setCityPage"
         />
       </section>
 
@@ -147,10 +163,16 @@
           </article>
         </div>
 
+        <div class="report-table-head">
+          <h3>Couriers <span class="muted-count">({{ formatNumber(courierRows.length) }})</span></h3>
+          <button class="secondary-btn export-btn" type="button" @click="exportCourierCsv">Export CSV</button>
+        </div>
+
         <DataTable
           :columns="courierColumns"
           :rows="courierRows"
           export-name="Return Report couriers"
+          :show-export="false"
           @row-click="drilldownCourier"
           empty-text="No courier data found for this date range."
         />
@@ -159,43 +181,40 @@
       <section v-else class="panel">
         <div class="panel-head">
           <div>
-            <h2>{{ copy.ordersTitle }}</h2>
+            <h2>{{ copy.ordersTitle }} <span class="muted-count">({{ formatNumber(data.orders.pagination.total) }})</span></h2>
             <p>Search by order, customer, contact, or tracking number.</p>
           </div>
+          <button class="secondary-btn export-btn" type="button" @click="exportOrdersCsv">Export CSV</button>
         </div>
 
-        <form class="filter-grid" :class="{ compact: isReturnReport }" @submit.prevent="applyOrderFilters">
+        <form class="filter-grid compact" @submit.prevent="applyOrderFilters">
           <input v-model="orderDraft.keyword" type="search" placeholder="Search orders">
-          <input v-if="!isReturnReport" v-model="orderDraft.date_from" type="date">
-          <input v-if="!isReturnReport" v-model="orderDraft.date_to" type="date">
-          <select v-model="orderDraft.courier_integration_id">
-            <option value="">All couriers</option>
-            <option v-for="courier in data.filters.couriers" :key="courier.id" :value="courier.id">{{ courier.name }}</option>
-          </select>
-          <select v-model="orderDraft.source">
-            <option value="">All sources</option>
-            <option v-for="source in data.filters.sources" :key="source" :value="source">{{ source }}</option>
-          </select>
           <div class="filter-actions">
             <button class="primary-btn" type="submit">Search</button>
             <button class="secondary-btn" type="button" @click="clearOrderFilters">Clear</button>
           </div>
         </form>
 
-        <div class="table-title">
-          <h3>{{ copy.ordersTitle }} ({{ formatNumber(data.orders.pagination.total) }})</h3>
-          <div class="pager">
-            <button type="button" :disabled="!data.orders.pagination.has_prev" @click="setPage(data.orders.pagination.current_page - 1)">Prev</button>
-            <span>Page {{ data.orders.pagination.current_page || 1 }} of {{ data.orders.pagination.total_pages || 1 }}</span>
-            <button type="button" :disabled="!data.orders.pagination.has_next" @click="setPage(data.orders.pagination.current_page + 1)">Next</button>
-          </div>
-        </div>
+        <OrderPagination
+          class="report-pagination-top"
+          :pagination="data.orders.pagination"
+          item-label="orders"
+          @page-change="setPage"
+        />
 
         <DataTable
           :columns="orderColumns"
           :rows="orderRows"
           :export-name="`${copy.title} orders`"
+          :show-export="false"
           empty-text="No matching orders found."
+        />
+
+        <OrderPagination
+          class="report-pagination-bottom"
+          :pagination="data.orders.pagination"
+          item-label="orders"
+          @page-change="setPage"
         />
       </section>
     </main>
@@ -206,6 +225,7 @@
 import { computed, defineComponent, h, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
+import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrderPerformanceService from '../services/OrderPerformanceService';
 import { useAuthStore } from '../stores/authStore';
 
@@ -241,6 +261,7 @@ const DataTable = defineComponent({
     rows: { type: Array, required: true },
     emptyText: { type: String, default: 'No records found.' },
     exportName: { type: String, default: 'report' },
+    showExport: { type: Boolean, default: true },
   },
   emits: ['row-click'],
   setup(props, { emit }) {
@@ -284,9 +305,9 @@ const DataTable = defineComponent({
     };
 
     return () => h('div', { class: 'table-wrap' }, [
-      h('div', { class: 'table-actions' }, [
+      props.showExport ? h('div', { class: 'table-actions' }, [
         h('button', { type: 'button', class: 'secondary-btn', onClick: exportCsv }, 'Export CSV'),
-      ]),
+      ]) : null,
       h('table', { class: 'data-table' }, [
         h('thead', [
           h('tr', props.columns.map(column => h('th', { key: column.key }, [
@@ -314,10 +335,28 @@ const csvEscape = (value) => {
   return /[",\n]/.test(stringValue) ? `"${stringValue.replace(/"/g, '""')}"` : stringValue;
 };
 
+const exportCsv = (columns, rows, exportName) => {
+  const plainColumns = columns.filter(column => column.export !== false);
+  const csvRows = [
+    plainColumns.map(column => csvEscape(column.label)).join(','),
+    ...rows.map(row => plainColumns.map(column => csvEscape(row[column.key] ?? '')).join(',')),
+  ];
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${exportName.replace(/\s+/g, '-').toLowerCase()}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+};
+
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const loading = ref(false);
+const citySearch = ref('');
+const citySearchDraft = ref('');
+const cityPage = ref(1);
+const cityPerPage = 100;
 
 const defaultData = () => ({
   summary: { today: 0, yesterday: 0, seven_days: 0, this_month: 0, last_month: 0, total: 0 },
@@ -330,11 +369,14 @@ const defaultData = () => ({
 
 const data = ref(defaultData());
 const orderDraft = reactive({ keyword: '', date_from: '', date_to: '', courier_integration_id: '', source: '' });
-const globalDraft = reactive({ brand_id: '', report_start_date: '', report_end_date: '' });
+const globalDraft = reactive({ brand_id: '', report_start_date: '', report_end_date: '', courier_integration_id: '', source: '' });
 
 const type = computed(() => route.meta.performanceType || 'cancelled');
 const isReturnReport = computed(() => type.value === 'returns');
 const activeTab = computed(() => route.query.tab || 'dashboard');
+const toolbarCopy = computed(() => isReturnReport.value
+  ? 'Filter all return insights by brand, courier, source, and date range.'
+  : 'Filter all cancellation insights by brand, source, and date range.');
 const copy = computed(() => type.value === 'returns'
   ? {
       title: 'Return Report',
@@ -412,7 +454,7 @@ const courierColumns = computed(() => [
 const orderColumns = computed(() => [
   { key: 'index', label: 'Sr.' },
   { key: 'created_at', label: 'Created at' },
-  { key: 'status', label: 'Status' },
+  { key: 'status', label: 'Status', render: row => statusCell(row) },
   { key: 'brand_name', label: 'Brand' },
   { key: 'courier_name', label: 'Courier' },
   { key: 'source', label: 'Source' },
@@ -460,9 +502,39 @@ const cityRows = computed(() => (data.value.city.cities || []).map((item, index)
   target_orders: formatNumber(item.target_orders),
   percentage: formatPercent(item.percentage),
 })));
+const filteredCityRows = computed(() => {
+  const keyword = citySearch.value.trim().toLowerCase();
+  if (!keyword) return cityRows.value;
+
+  return cityRows.value.filter(row => String(row.city || '').toLowerCase().includes(keyword));
+});
+const cityPagination = computed(() => {
+  const total = filteredCityRows.value.length;
+  const totalPages = Math.max(1, Math.ceil(total / cityPerPage));
+  const currentPage = Math.min(cityPage.value, totalPages);
+
+  return {
+    current_page: currentPage,
+    per_page: cityPerPage,
+    total,
+    total_pages: totalPages,
+    has_next: currentPage < totalPages,
+    has_prev: currentPage > 1,
+  };
+});
+const paginatedCityRows = computed(() => {
+  const start = (cityPagination.value.current_page - 1) * cityPerPage;
+
+  return filteredCityRows.value.slice(start, start + cityPerPage).map((row, index) => ({
+    ...row,
+    index: start + index + 1,
+    raw_index: start + index + 1,
+  }));
+});
 const courierRows = computed(() => (data.value.courier.couriers || []).map((item, index) => ({
   ...item,
   index: index + 1,
+  courier_name: titleCase(item.courier_name || ''),
   raw_index: index + 1,
   raw_total_orders: Number(item.total_orders || 0),
   raw_target_orders: Number(item.target_orders || 0),
@@ -482,6 +554,10 @@ const orderRows = computed(() => {
     ...item,
     index: offset + index + 1,
     created_at: formatDate(item.created_at || item.shopify_created_at),
+    raw_status: item.status || '',
+    status: titleCase(item.status || ''),
+    brand_name: item.brand_name || 'Unassigned',
+    courier_name: titleCase(item.courier_name || ''),
     cash_on_delivery: money(item.cash_on_delivery),
     raw_tracking_number: item.tracking_number || '',
     tracking_number: item.tracking_number || item.address || '-',
@@ -492,6 +568,11 @@ const formatNumber = value => Number(value || 0).toLocaleString();
 const formatPercent = value => `${Number(value || 0).toFixed(2)}%`;
 const money = value => `Rs ${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const formatDate = value => value ? new Date(value).toLocaleString() : '-';
+const titleCase = value => String(value || '')
+  .replace(/[_-]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/\b\w/g, letter => letter.toUpperCase());
 const riskLabel = (item) => {
   const total = Number(item.total_orders || 0);
   const percentage = Number(item.percentage || 0);
@@ -515,6 +596,21 @@ const riskCell = row => h('div', { class: 'risk-cell' }, [
     h('i', { style: { width: `${Math.min(100, row.raw_percentage)}%` }, class: riskTone(row) }),
   ]),
 ]);
+const statusCell = row => h('span', { class: 'status-badge' }, titleCase(row.raw_status || row.status));
+const exportProductCsv = () => exportCsv(productColumns.value, productRows.value, `${copy.value.title} products`);
+const exportCityCsv = () => exportCsv(cityColumns.value, filteredCityRows.value, `${copy.value.title} cities`);
+const exportCourierCsv = () => exportCsv(courierColumns.value, courierRows.value, 'Return Report couriers');
+const exportOrdersCsv = () => exportCsv(orderColumns.value, orderRows.value, `${copy.value.title} orders`);
+const setCityPage = page => {
+  cityPage.value = Math.min(Math.max(Number(page) || 1, 1), cityPagination.value.total_pages);
+};
+const applyCitySearch = () => {
+  citySearch.value = citySearchDraft.value.trim();
+};
+const clearCitySearch = () => {
+  citySearchDraft.value = '';
+  citySearch.value = '';
+};
 
 const syncDraftFromQuery = () => {
   Object.assign(orderDraft, {
@@ -528,6 +624,8 @@ const syncDraftFromQuery = () => {
     brand_id: filters.value.brand_id,
     report_start_date: filters.value.report_start_date,
     report_end_date: filters.value.report_end_date,
+    courier_integration_id: filters.value.courier_integration_id,
+    source: filters.value.source,
   });
 };
 
@@ -535,15 +633,16 @@ const fetchData = async () => {
   loading.value = true;
   try {
     const params = Object.fromEntries(Object.entries(route.query).filter(([, value]) => value !== '' && value !== null && value !== undefined));
-    if (isReturnReport.value) {
-      delete params.dash_start_date;
-      delete params.dash_end_date;
-      delete params.city_start_date;
-      delete params.city_end_date;
-      delete params.courier_start_date;
-      delete params.courier_end_date;
-      delete params.date_from;
-      delete params.date_to;
+    delete params.dash_start_date;
+    delete params.dash_end_date;
+    delete params.city_start_date;
+    delete params.city_end_date;
+    delete params.courier_start_date;
+    delete params.courier_end_date;
+    delete params.date_from;
+    delete params.date_to;
+    if (!isReturnReport.value) {
+      delete params.courier_integration_id;
     }
     const res = type.value === 'returns'
       ? await OrderPerformanceService.getReturns(params)
@@ -577,6 +676,8 @@ const applyGlobalFilters = () => pushQuery({
   brand_id: globalDraft.brand_id,
   report_start_date: globalDraft.report_start_date,
   report_end_date: globalDraft.report_end_date,
+  courier_integration_id: isReturnReport.value ? globalDraft.courier_integration_id : undefined,
+  source: globalDraft.source,
   dash_start_date: undefined,
   dash_end_date: undefined,
   city_start_date: undefined,
@@ -588,11 +689,13 @@ const applyGlobalFilters = () => pushQuery({
   page: undefined,
 });
 const clearGlobalFilters = () => {
-  Object.assign(globalDraft, { brand_id: '', report_start_date: '', report_end_date: '' });
+  Object.assign(globalDraft, { brand_id: '', report_start_date: '', report_end_date: '', courier_integration_id: '', source: '' });
   pushQuery({
     brand_id: undefined,
     report_start_date: undefined,
     report_end_date: undefined,
+    courier_integration_id: undefined,
+    source: undefined,
     dash_start_date: undefined,
     dash_end_date: undefined,
     city_start_date: undefined,
@@ -609,26 +712,48 @@ const clearGlobalDates = () => pushQuery({
   report_end_date: undefined,
   page: undefined,
 });
-const drilldownProduct = row => row.product_key && pushQuery({ tab: 'orders', product_key: row.product_key, city: undefined, courier_integration_id: undefined, page: undefined });
+const drilldownProduct = row => row.product_key && pushQuery({ tab: 'orders', product_key: row.product_key, city: undefined, page: undefined });
 const drilldownCity = row => row.city && pushQuery({ tab: 'orders', city: row.city, product_key: undefined, page: undefined });
 const drilldownCourier = row => row.courier_integration_id && pushQuery({ tab: 'orders', courier_integration_id: row.courier_integration_id, city: undefined, product_key: undefined, page: undefined });
 const applyOrderFilters = () => pushQuery({
   tab: 'orders',
   ...orderDraft,
-  date_from: isReturnReport.value ? undefined : orderDraft.date_from,
-  date_to: isReturnReport.value ? undefined : orderDraft.date_to,
+  courier_integration_id: isReturnReport.value ? filters.value.courier_integration_id : undefined,
+  source: filters.value.source,
+  date_from: undefined,
+  date_to: undefined,
   product_key: undefined,
   city: undefined,
   page: undefined,
 });
 const clearOrderFilters = () => {
   Object.assign(orderDraft, { keyword: '', date_from: '', date_to: '', courier_integration_id: '', source: '' });
-  pushQuery({ tab: 'orders', keyword: undefined, date_from: undefined, date_to: undefined, courier_integration_id: undefined, source: undefined, product_key: undefined, city: undefined, page: undefined });
+  pushQuery({
+    tab: 'orders',
+    keyword: undefined,
+    date_from: undefined,
+    date_to: undefined,
+    courier_integration_id: isReturnReport.value ? filters.value.courier_integration_id : undefined,
+    source: filters.value.source,
+    product_key: undefined,
+    city: undefined,
+    page: undefined,
+  });
 };
 
 watch(() => route.fullPath, () => {
   syncDraftFromQuery();
   fetchData();
+});
+
+watch(citySearch, () => {
+  cityPage.value = 1;
+});
+
+watch(filteredCityRows, () => {
+  if (cityPage.value > cityPagination.value.total_pages) {
+    cityPage.value = cityPagination.value.total_pages;
+  }
 });
 
 onMounted(() => {
@@ -679,8 +804,7 @@ onMounted(() => {
 .refresh-btn,
 .primary-btn,
 .secondary-btn,
-.tabs button,
-.pager button {
+.tabs button {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 800;
@@ -688,8 +812,7 @@ onMounted(() => {
 }
 
 .refresh-btn,
-.secondary-btn,
-.pager button {
+.secondary-btn {
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #1e293b;
@@ -702,7 +825,7 @@ onMounted(() => {
 
 .report-toolbar {
   display: grid;
-  grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   align-items: end;
   gap: 18px;
   margin-bottom: 14px;
@@ -729,9 +852,13 @@ onMounted(() => {
 
 .toolbar-controls {
   display: grid;
-  grid-template-columns: minmax(180px, 1.3fr) repeat(2, minmax(140px, 1fr)) auto;
+  grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(118px, 1fr)) auto;
   align-items: end;
   gap: 10px;
+}
+
+.toolbar-controls.cancel {
+  grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(130px, 1fr)) auto;
 }
 
 .toolbar-controls label {
@@ -759,7 +886,14 @@ onMounted(() => {
 
 .toolbar-actions {
   display: flex;
+  flex: 0 0 auto;
   gap: 8px;
+}
+
+.toolbar-actions .primary-btn,
+.toolbar-actions .secondary-btn {
+  min-width: 64px;
+  white-space: nowrap;
 }
 
 .metric-card,
@@ -825,6 +959,16 @@ onMounted(() => {
   font-weight: 900;
 }
 
+.muted-count {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.export-btn {
+  min-width: 96px;
+  white-space: nowrap;
+}
+
 .date-controls,
 :deep(.date-controls),
 .filter-grid {
@@ -848,8 +992,7 @@ onMounted(() => {
 .primary-btn,
 :deep(.primary-btn),
 .secondary-btn,
-:deep(.secondary-btn),
-.pager button {
+:deep(.secondary-btn) {
   min-height: 38px;
   padding: 8px 12px;
 }
@@ -888,7 +1031,8 @@ onMounted(() => {
 }
 
 .filter-grid.compact {
-  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(160px, 1fr)) auto;
+  grid-template-columns: minmax(280px, 520px) auto;
+  justify-content: start;
 }
 
 .filter-actions {
@@ -904,19 +1048,42 @@ onMounted(() => {
   margin: 4px 0 12px;
 }
 
-.pager {
+.report-table-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 2px 0 12px;
 }
 
-.pager button:disabled,
+.report-table-head h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.report-table-head p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
 .refresh-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.report-pagination-top {
+  padding: 0 0 14px;
+  border-top: none;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 10px;
+}
+
+.report-pagination-bottom {
+  margin-top: 14px;
 }
 
 :deep(.table-wrap) {
@@ -1000,7 +1167,7 @@ onMounted(() => {
   max-width: 180px;
   border: none;
   background: transparent;
-  color: #1e40af;
+  color: #1d4ed8;
   padding: 0;
   font: inherit;
   font-size: 12px;
@@ -1021,6 +1188,20 @@ onMounted(() => {
 
 :deep(.tracking-empty) {
   color: #64748b;
+}
+
+:deep(.status-badge) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 :deep(.risk-cell) {
