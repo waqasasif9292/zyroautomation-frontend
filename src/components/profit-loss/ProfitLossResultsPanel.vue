@@ -43,6 +43,8 @@ const props = defineProps({
 
 const summary = computed(() => props.results.summary || {});
 const totals = computed(() => props.results.totals || {});
+const extraExpenses = computed(() => Array.isArray(props.results.extra_expenses) ? props.results.extra_expenses : []);
+const oneTimeExpenses = computed(() => Array.isArray(props.results.one_time_expenses) ? props.results.one_time_expenses : []);
 const zeroDcCount = computed(() => Number(summary.value.zero_dc_count || 0));
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const percent = (value) => `${Number(value || 0).toLocaleString()}%`;
@@ -70,6 +72,25 @@ const summarySections = computed(() => [
         className: totals.value.total_profit_before_ads >= 0 ? 'positive' : 'negative',
         highlight: true,
       },
+    ],
+  },
+  {
+    title: 'Custom Expenses',
+    rows: [
+      ...extraExpenses.value.map(expense => ({
+        label: expense.label,
+        value: `-${money(expense.total)}`,
+        className: 'negative',
+        note: `${money(expense.value)} x dispatched orders`,
+      })),
+      ...oneTimeExpenses.value.map(expense => ({
+        label: expense.label,
+        value: `-${money(expense.total)}`,
+        className: 'negative',
+        note: 'One time expense',
+      })),
+      { label: 'Total Custom Per-Order Expenses', value: `-${money(totals.value.total_extra_expenses)}`, className: 'negative', highlight: true },
+      { label: 'Total One Time Expenses', value: `-${money(totals.value.total_one_time_expenses)}`, className: 'negative', highlight: true },
     ],
   },
   {

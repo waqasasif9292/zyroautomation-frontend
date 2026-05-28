@@ -208,8 +208,15 @@ const navItems = [
     key: 'financials',
     label: 'Financials',
     to: '/projections',
-    activePaths: ['/projections', '/profit-loss-calculations'],
+    activePaths: ['/projections', '/profit-loss-calculations', '/overall-profit-loss'],
     children: [
+      {
+        key: 'financials-overall-profit-loss',
+        label: 'Overall Profit Loss',
+        to: '/overall-profit-loss',
+        activePaths: ['/overall-profit-loss'],
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 14 3-3 3 2 5-6"/><path d="M18 7h-4"/></svg>`,
+      },
       {
         key: 'financials-profit-loss',
         label: 'Product Wise Profit Loss',

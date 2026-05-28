@@ -116,7 +116,7 @@
                 </td>
                 <td>
                   <div>{{ order.customer_name || '—' }}</div>
-                  <div v-if="order.contact" class="subtext">{{ order.contact }}</div>
+                  <div v-if="order.contact" class="subtext">{{ formatPhone(order.contact) }}</div>
                 </td>
                 <td>{{ order.courier_name || '—' }}</td>
                 <td>
@@ -171,6 +171,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
+import { formatPhone } from '../utils/phoneNormalizer';
 
 const router = useRouter();
 const route = useRoute();
@@ -484,10 +485,11 @@ select.filter-control {
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #475569;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
   text-align: left;
-  text-transform: uppercase;
 }
 
 .status-table td {

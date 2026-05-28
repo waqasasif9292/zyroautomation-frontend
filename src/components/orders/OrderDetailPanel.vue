@@ -69,6 +69,7 @@ import { useRouter } from 'vue-router';
 import OrderDetailSection from './OrderDetailSection.vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 import { useAuthStore } from '../../stores/authStore';
+import { formatPhone } from '../../utils/phoneNormalizer';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -104,7 +105,7 @@ const formatDateTime = (value) => {
 
 const customerRows = computed(() => [
   { label: 'Name', value: props.order.customer?.name },
-  { label: 'Phone', value: props.order.customer?.phone_local || props.order.customer?.phone_intl },
+  { label: 'Phone', value: formatPhone(props.order.customer?.phone_local || props.order.customer?.phone_intl) },
   { label: 'City', value: [props.order.customer?.city, props.order.customer?.country_code].filter(Boolean).join(', ') },
   { label: 'Address', value: props.order.customer?.address },
 ]);
@@ -118,6 +119,8 @@ const summaryRows = computed(() => [
   { label: 'Discount', value: formatMoney(props.order.currency, props.order.total_discounts) },
   { label: 'Tax', value: formatMoney(props.order.currency, props.order.total_tax) },
   { label: 'Total', value: formatMoney(props.order.currency, props.order.total_price) },
+  { label: 'Advance', value: formatMoney(props.order.currency, props.order.advance_payment) },
+  { label: 'Courier COD', value: formatMoney(props.order.currency, props.order.cod) },
   { label: 'Outstanding', value: formatMoney(props.order.currency, props.order.total_outstanding) },
 ]);
 

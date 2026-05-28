@@ -483,6 +483,7 @@ const leopardForm = reactive(emptyLeopardForm());
 const fallbackStatusCategories = [
   { key: 'hold', label: 'On Hold' },
   { key: 'pending_confirmation', label: 'Pending Confirmation' },
+  { key: 'duplicate', label: 'Duplicate' },
   { key: 'error', label: 'Error' },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse' },
   { key: 'dispatched', label: 'Dispatched' },

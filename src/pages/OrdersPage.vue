@@ -5,6 +5,8 @@
     </transition>
 
     <main class="orders-page">
+      <OrderStatsStrip class="orders-stats" @select="applyStatsFilter" />
+
       <section class="orders-card">
         <div class="card-header">
           <div>
@@ -43,11 +45,40 @@
               :pagination="orderStore.pagination"
               @page-change="changePage"
             />
+            <div ref="columnMenuRef" class="table-tools">
+              <div class="column-menu">
+                <button
+                  class="column-menu-trigger"
+                  type="button"
+                  :aria-expanded="showColumnMenu ? 'true' : 'false'"
+                  @click="showColumnMenu = !showColumnMenu"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 5h16M4 12h16M4 19h16" />
+                    <path d="M8 5v14M16 5v14" />
+                  </svg>
+                  Customize Columns
+                </button>
+                <div v-if="showColumnMenu" class="column-menu-panel">
+                  <label v-for="column in orderTableColumns" :key="column.key" class="column-option">
+                    <input
+                      type="checkbox"
+                      :checked="isColumnVisible(column.key)"
+                      :disabled="column.locked || savingColumns"
+                      @change="toggleColumn(column.key, $event.target.checked)"
+                    >
+                    <span>{{ column.label }}</span>
+                    <small v-if="column.locked">Locked</small>
+                  </label>
+                </div>
+              </div>
+            </div>
             <OrdersTable
               ref="tableRef"
               :orders="orderStore.orders"
               :loading="orderStore.loading"
               :serial-start="serialStart"
+              :visible-columns="visibleOrderColumns"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
@@ -101,13 +132,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import OrderDetailPanel from '../components/orders/OrderDetailPanel.vue';
 import OrderEmptyState from '../components/orders/OrderEmptyState.vue';
 import OrderFiltersBar from '../components/orders/OrderFiltersBar.vue';
 import OrderPagination from '../components/orders/OrderPagination.vue';
+import OrderStatsStrip from '../components/orders/OrderStatsStrip.vue';
 import OrdersTable from '../components/orders/OrdersTable.vue';
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
 import { useAuthStore } from '../stores/authStore';
@@ -123,6 +155,7 @@ const integrationStore = useIntegrationStore();
 const router = useRouter();
 const route = useRoute();
 const tableRef = ref(null);
+const columnMenuRef = ref(null);
 const toast = ref('');
 const showDeleteDialog = ref(false);
 const deleteLoading = ref(false);
@@ -130,7 +163,35 @@ const selectedOrder = ref(null);
 const showCancelDialog = ref(false);
 const cancelLoading = ref(false);
 const selectedCancelOrder = ref(null);
+const savingColumns = ref(false);
+const showColumnMenu = ref(false);
 let syncingQuery = false;
+
+const lockedOrderColumns = ['serial', 'actions'];
+const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'customer', 'phone', 'status', 'total', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'customer', 'phone', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const visibleOrderColumns = ref([...defaultOrderColumns]);
+
+const orderTableColumns = [
+  { key: 'serial', label: 'Serial Number', locked: true },
+  { key: 'order', label: 'Order' },
+  { key: 'brand', label: 'Brand' },
+  { key: 'source', label: 'Source' },
+  { key: 'tracking', label: 'Tracking' },
+  { key: 'customer', label: 'Customer' },
+  { key: 'phone', label: 'Phone Number' },
+  { key: 'city', label: 'City' },
+  { key: 'status', label: 'Status' },
+  { key: 'total', label: 'Total' },
+  { key: 'payment', label: 'Payment' },
+  { key: 'products', label: 'Product(s)' },
+  { key: 'actions', label: 'Actions', locked: true },
+];
+
+const normalizeOrderColumns = (columns = []) => {
+  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  return allowedOrderColumns.filter(column => requested.includes(column) || lockedOrderColumns.includes(column));
+};
 
 const orderQueryDefaults = {
   brand_id: null,
@@ -145,6 +206,11 @@ const orderQueryDefaults = {
   status: null,
   page: 1,
 };
+
+const exactOrderFilters = (overrides = {}) => ({
+  ...orderQueryDefaults,
+  ...overrides,
+});
 
 const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_id ||
@@ -162,6 +228,52 @@ const serialStart = computed(() => {
   if (!pagination) return 1;
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
 });
+
+const isColumnVisible = column => visibleOrderColumns.value.includes(column) || lockedOrderColumns.includes(column);
+
+const hydrateOrderColumns = () => {
+  visibleOrderColumns.value = normalizeOrderColumns(authStore.user?.ui_preferences?.orders_table_columns);
+};
+
+const toggleColumn = async (column, checked) => {
+  if (lockedOrderColumns.includes(column)) return;
+
+  const selected = new Set(visibleOrderColumns.value);
+  if (checked) {
+    selected.add(column);
+  } else {
+    selected.delete(column);
+  }
+
+  visibleOrderColumns.value = normalizeOrderColumns([...selected]);
+  savingColumns.value = true;
+  try {
+    await authStore.updateOrdersTableColumns(visibleOrderColumns.value);
+    showToast('Column preferences saved.');
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to save column preferences.');
+  } finally {
+    savingColumns.value = false;
+  }
+};
+
+const closeColumnMenu = () => {
+  showColumnMenu.value = false;
+};
+
+const closeColumnMenuOnOutsideClick = (event) => {
+  if (!showColumnMenu.value) return;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  if (columnMenuRef.value && (columnMenuRef.value.contains(event.target) || path.includes(columnMenuRef.value))) return;
+  closeColumnMenu();
+};
+
+const closeColumnMenuOnEscape = (event) => {
+  if (event.key === 'Escape') {
+    closeColumnMenu();
+  }
+};
 
 const changePage = async (page) => {
   await orderStore.setPage(page);
@@ -191,6 +303,12 @@ const applyFilters = async (values) => {
 
 const clearFilters = async () => {
   orderStore.hydrateFilters(orderQueryDefaults);
+  await replaceFilterQuery();
+  await orderStore.fetchOrders();
+};
+
+const applyStatsFilter = async (filter) => {
+  orderStore.hydrateFilters(exactOrderFilters(filter));
   await replaceFilterQuery();
   await orderStore.fetchOrders();
 };
@@ -286,6 +404,9 @@ watch(() => ({ ...route.query }), async () => {
 });
 
 onMounted(async () => {
+  document.addEventListener('mousedown', closeColumnMenuOnOutsideClick, true);
+  document.addEventListener('click', closeColumnMenuOnOutsideClick, true);
+  document.addEventListener('keydown', closeColumnMenuOnEscape);
   hydrateFiltersFromRoute();
   await Promise.all([
     orderStore.fetchOrders(),
@@ -293,6 +414,13 @@ onMounted(async () => {
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
   ]);
+  hydrateOrderColumns();
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', closeColumnMenuOnOutsideClick, true);
+  document.removeEventListener('click', closeColumnMenuOnOutsideClick, true);
+  document.removeEventListener('keydown', closeColumnMenuOnEscape);
 });
 </script>
 
@@ -301,6 +429,10 @@ onMounted(async () => {
   min-height: 100vh;
   padding: 32px;
   background: #f1f5f9;
+}
+
+.orders-stats {
+  margin: -32px -32px 24px;
 }
 
 .orders-card {
@@ -369,6 +501,119 @@ onMounted(async () => {
   margin-bottom: 10px;
 }
 
+.table-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.column-menu {
+  position: relative;
+}
+
+.column-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #b6c2d4;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.column-menu-trigger svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.column-menu-trigger[aria-expanded="true"],
+.column-menu-trigger:hover {
+  border-color: #64748b;
+  background: #f8fafc;
+  box-shadow: 0 7px 18px rgba(15, 23, 42, 0.08);
+}
+
+.column-menu-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 268px;
+  max-height: 330px;
+  overflow: auto;
+  border: 1px solid #d6deea;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.18);
+  padding: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+.column-menu-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.column-menu-panel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.column-menu-panel::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+  border: 2px solid #f1f5f9;
+}
+
+.column-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  border-radius: 7px;
+  color: #1f2937;
+  padding: 8px 9px;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.column-option:hover {
+  background: #f1f5f9;
+}
+
+.column-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1e293b;
+}
+
+.column-option input:disabled {
+  cursor: not-allowed;
+}
+
+.column-option span {
+  flex: 1;
+}
+
+.column-option small {
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #475569;
+  padding: 4px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .toast {
   position: fixed;
   top: 18px;
@@ -397,6 +642,10 @@ onMounted(async () => {
 @media (max-width: 760px) {
   .orders-page {
     padding: 16px;
+  }
+
+  .orders-stats {
+    margin: -16px -16px 18px;
   }
 
   .card-header,

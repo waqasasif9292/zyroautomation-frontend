@@ -116,6 +116,40 @@
           <p v-else class="empty-products">No couriers configured.</p>
         </section>
 
+        <section class="form-section">
+          <div class="section-heading-row">
+            <h2>Custom Expenses Per Order</h2>
+            <button class="btn-secondary small-btn" type="button" @click="addExtraExpense">Add Expense</button>
+          </div>
+          <div v-if="form.extra_expenses.length" class="expense-list">
+            <div v-for="(expense, index) in form.extra_expenses" :key="expense.key" class="expense-row">
+              <Field label="Label" :error="expenseError(index, 'label')">
+                <input v-model="expense.label" class="form-input" type="text">
+              </Field>
+              <NumberField v-model="expense.value" label="Amount Per Order" :error="expenseError(index, 'value')" />
+              <button class="btn-secondary remove-btn" type="button" @click="removeExtraExpense(index)">Remove</button>
+            </div>
+          </div>
+          <p v-else class="empty-products">No custom per-order expenses added.</p>
+        </section>
+
+        <section class="form-section">
+          <div class="section-heading-row">
+            <h2>One Time Expenses</h2>
+            <button class="btn-secondary small-btn" type="button" @click="addOneTimeExpense">Add Expense</button>
+          </div>
+          <div v-if="form.one_time_expenses.length" class="expense-list">
+            <div v-for="(expense, index) in form.one_time_expenses" :key="expense.key" class="expense-row">
+              <Field label="Label" :error="oneTimeExpenseError(index, 'label')">
+                <input v-model="expense.label" class="form-input" type="text">
+              </Field>
+              <NumberField v-model="expense.value" label="Amount" :error="oneTimeExpenseError(index, 'value')" />
+              <button class="btn-secondary remove-btn" type="button" @click="removeOneTimeExpense(index)">Remove</button>
+            </div>
+          </div>
+          <p v-else class="empty-products">No one-time expenses added.</p>
+        </section>
+
         <div class="actions">
           <button class="btn-secondary" type="button" :disabled="saving" @click="$emit('cancel')">Cancel</button>
           <button class="btn-primary" type="submit" :disabled="saving">{{ saving ? 'Saving...' : submitLabel }}</button>
@@ -192,6 +226,8 @@ const form = reactive({
   total_ad_spend: 0,
   ads_tax_percentage: 8,
   courier_taxes: {},
+  extra_expenses: [],
+  one_time_expenses: [],
 });
 
 const normalizeProductCosts = (products = []) => {
@@ -207,6 +243,14 @@ const normalizeCourierTaxes = (courierTaxes = []) => {
     Number(row.tax_percentage || 0),
   ]));
 };
+
+const normalizeExpenses = (expenses = []) => (
+  Array.isArray(expenses) ? expenses : []
+).map((expense) => ({
+  key: crypto.randomUUID(),
+  label: String(expense.label || ''),
+  value: Number(expense.value || 0),
+}));
 
 const syncCourierTaxDefaults = (couriers) => {
   couriers.forEach((courier) => {
@@ -237,6 +281,8 @@ watch(() => props.initialCalculation, (calculation) => {
     total_ad_spend: Number(calculation.total_ad_spend || 0),
     ads_tax_percentage: Number(calculation.ads_tax_percentage ?? 8),
     courier_taxes: normalizeCourierTaxes(calculation.courier_taxes),
+    extra_expenses: normalizeExpenses(calculation.extra_expenses),
+    one_time_expenses: normalizeExpenses(calculation.one_time_expenses),
   });
   syncCourierTaxDefaults(props.options.couriers);
 }, { immediate: true });
@@ -278,6 +324,8 @@ const submit = () => emit('submit', {
     courier_integration_id: courier.id,
     tax_percentage: Number(form.courier_taxes[courier.id] || 0),
   })),
+  extra_expenses: activeExtraExpenses.value,
+  one_time_expenses: activeOneTimeExpenses.value,
 });
 
 const selectedProducts = computed(() => props.options.products.filter(product => form.product_ids.includes(product.id)));
@@ -301,6 +349,47 @@ const courierTaxValue = (id) => Number(form.courier_taxes[id] ?? 4);
 const setCourierTax = (id, value) => {
   form.courier_taxes[id] = Number(value || 0);
 };
+
+const activeExtraExpenses = computed(() => form.extra_expenses
+  .map(expense => ({
+    label: String(expense.label || '').trim(),
+    value: Number(expense.value || 0),
+  }))
+  .filter(expense => expense.label || expense.value > 0));
+
+const activeOneTimeExpenses = computed(() => form.one_time_expenses
+  .map(expense => ({
+    label: String(expense.label || '').trim(),
+    value: Number(expense.value || 0),
+  }))
+  .filter(expense => expense.label || expense.value > 0));
+
+const addExtraExpense = () => {
+  form.extra_expenses.push({
+    key: crypto.randomUUID(),
+    label: '',
+    value: 0,
+  });
+};
+
+const removeExtraExpense = (index) => {
+  form.extra_expenses.splice(index, 1);
+};
+
+const addOneTimeExpense = () => {
+  form.one_time_expenses.push({
+    key: crypto.randomUUID(),
+    label: '',
+    value: 0,
+  });
+};
+
+const removeOneTimeExpense = (index) => {
+  form.one_time_expenses.splice(index, 1);
+};
+
+const expenseError = (index, field) => props.errors[`extra_expenses.${index}.${field}`] || '';
+const oneTimeExpenseError = (index, field) => props.errors[`one_time_expenses.${index}.${field}`] || '';
 
 const selectedProductsLabel = computed(() => {
   const selected = props.options.products.filter(product => form.product_ids.includes(product.id));
@@ -362,6 +451,13 @@ const handleProductsBlur = (event) => {
   color: #0f172a;
   font-size: 15px;
   font-weight: 800;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .form-grid {
@@ -488,9 +584,26 @@ const handleProductsBlur = (event) => {
 }
 
 .selected-products,
-.courier-tax-grid {
+.courier-tax-grid,
+.expense-list {
   display: grid;
   gap: 12px;
+}
+
+.expense-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px auto;
+  gap: 14px;
+  align-items: end;
+  border: 1px solid #d5e0ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.expense-row:hover {
+  border-color: #aebfd4;
+  background: #fbfdff;
 }
 
 .selected-product-card,
@@ -574,6 +687,16 @@ const handleProductsBlur = (event) => {
   cursor: pointer;
 }
 
+.small-btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.remove-btn {
+  min-height: 46px;
+}
+
 .btn-secondary {
   border: 1px solid #d1d5db;
   background: #fff;
@@ -595,7 +718,8 @@ const handleProductsBlur = (event) => {
 @media (max-width: 950px) {
   .form-grid,
   .selected-product-card,
-  .courier-tax-card {
+  .courier-tax-card,
+  .expense-row {
     grid-template-columns: 1fr;
   }
 }

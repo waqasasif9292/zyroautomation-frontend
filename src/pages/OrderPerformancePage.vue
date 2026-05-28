@@ -228,6 +228,7 @@ import AppLayout from '../layouts/AppLayout.vue';
 import OrderPagination from '../components/orders/OrderPagination.vue';
 import OrderPerformanceService from '../services/OrderPerformanceService';
 import { useAuthStore } from '../stores/authStore';
+import { formatPhone } from '../utils/phoneNormalizer';
 
 const DateRangeControls = defineComponent({
   props: {
@@ -558,6 +559,7 @@ const orderRows = computed(() => {
     status: titleCase(item.status || ''),
     brand_name: item.brand_name || 'Unassigned',
     courier_name: titleCase(item.courier_name || ''),
+    contact: formatPhone(item.contact),
     cash_on_delivery: money(item.cash_on_delivery),
     raw_tracking_number: item.tracking_number || '',
     tracking_number: item.tracking_number || item.address || '-',
@@ -1120,9 +1122,10 @@ onMounted(() => {
 :deep(.data-table th) {
   background: #f8fafc;
   color: #475569;
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 :deep(.th-button) {

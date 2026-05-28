@@ -133,6 +133,12 @@ export const useAuthStore = defineStore('auth', () => {
     return response.data;
   };
 
+  const updateOrdersTableColumns = async (columns) => {
+    const response = await axiosInstance.put('/user/preferences/orders-table-columns', { columns });
+    setUser(response.data.data.user);
+    return response.data;
+  };
+
   const clearAuth = () => {
     user.value = null;
     token.value = null;
@@ -164,6 +170,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     updateProfile,
     uploadAvatar,
+    updateOrdersTableColumns,
     clearAuth,
     initializeAuth,
   };

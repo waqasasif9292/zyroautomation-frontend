@@ -48,12 +48,33 @@
             </div>
             <div class="field">
               <label>Customer Contact</label>
-              <input v-model="form.customer_contact" :class="{ invalid: errors.customer_contact }" type="text" placeholder="+923009409648">
+              <input
+                v-model="form.customer_contact"
+                :class="{ invalid: errors.customer_contact }"
+                type="text"
+                inputmode="numeric"
+                maxlength="15"
+                placeholder="03XXXXXXXXX"
+                @blur="handlePhoneBlur('customer_contact', true)"
+              >
+              <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
+              <span v-if="customerContactPreview" class="phone-preview">Will save as {{ customerContactPreview }}</span>
+              <span v-if="phoneWarnings.customer_contact" class="phone-warning">{{ phoneWarnings.customer_contact }}</span>
               <span v-if="errors.customer_contact" class="field-error">{{ errors.customer_contact }}</span>
             </div>
             <div class="field">
               <label>Customer Contact Two <span class="optional-label">Optional</span></label>
-              <input v-model="form.customer_contact_two" type="text" placeholder="+923009409648">
+              <input
+                v-model="form.customer_contact_two"
+                type="text"
+                inputmode="numeric"
+                maxlength="15"
+                placeholder="03XXXXXXXXX"
+                @blur="handlePhoneBlur('customer_contact_two')"
+              >
+              <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
+              <span v-if="customerContactTwoPreview" class="phone-preview">Will save as {{ customerContactTwoPreview }}</span>
+              <span v-if="phoneWarnings.customer_contact_two" class="phone-warning">{{ phoneWarnings.customer_contact_two }}</span>
             </div>
           </div>
 
@@ -133,7 +154,7 @@
               </select>
               <span v-if="errors.leopard_pickup_address_id" class="field-error">{{ errors.leopard_pickup_address_id }}</span>
             </div>
-            <div v-else-if="!isArgoSelected" class="field">
+            <div v-else-if="hasCourierSelected && !isArgoSelected" class="field">
               <label>Origin City</label>
               <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }">
                 <option value=""></option>
@@ -143,7 +164,7 @@
               </select>
               <span v-if="errors.origin_city" class="field-error">{{ errors.origin_city }}</span>
             </div>
-            <div class="field">
+            <div v-if="hasCourierSelected" class="field">
               <label>Destination City</label>
               <select
                 v-model="destinationCitySelection"
@@ -170,7 +191,7 @@
             </div>
           </div>
 
-          <div class="grid two compact">
+          <div v-if="hasCourierSelected" class="grid two compact">
             <div class="field">
               <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight (kg)' }}</label>
               <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'">
@@ -193,9 +214,31 @@
 
           <div class="grid cod-row">
             <div class="field">
-              <label>Cash On Delivery</label>
-              <input v-model="form.cod" :class="{ invalid: errors.cod }" type="number" min="0" placeholder="999">
-              <span v-if="errors.cod" class="field-error">{{ errors.cod }}</span>
+              <label>Total Amount</label>
+              <div class="amount-input" :class="{ invalid: errors.total_price }">
+                <span>Rs.</span>
+                <input v-model="form.total_price" type="number" min="0" placeholder="999">
+              </div>
+              <span v-if="errors.total_price" class="field-error">{{ errors.total_price }}</span>
+            </div>
+            <label class="checkbox-field advance-toggle">
+              <input v-model="hasAdvancePayment" type="checkbox">
+              <span>Advance received</span>
+            </label>
+            <div v-if="hasAdvancePayment" class="field">
+              <label>Advance Amount</label>
+              <div class="amount-input" :class="{ invalid: errors.advance_payment }">
+                <span>Rs.</span>
+                <input v-model="form.advance_payment" type="number" min="0" placeholder="0">
+              </div>
+              <span v-if="errors.advance_payment" class="field-error">{{ errors.advance_payment }}</span>
+            </div>
+          </div>
+          <div class="cod-summary-row">
+            <div class="cod-summary">
+              <span>Courier COD</span>
+              <strong>Rs. {{ Number(courierCodAmount || 0).toLocaleString() }}</strong>
+              <small>This amount will be printed on the courier label.</small>
             </div>
           </div>
 
@@ -216,37 +259,62 @@
               <span>05</span>
               <h2>Order Items</h2>
             </div>
-            <button type="button" class="copy-btn" @click="copyItems">Copy</button>
+            <div v-if="items.length" class="copy-action">
+              <button type="button" class="copy-btn" :disabled="!items.length" @click="copyItems">
+                Copy
+              </button>
+            </div>
           </div>
 
           <div class="item-row">
             <div class="field no-gap">
-              <select v-model="item.product_id" :class="{ invalid: errors.items }">
-                <option value="">Select Product</option>
-                <option v-for="product in productStore.products" :key="product.id" :value="product.id">
-                  {{ product.name }} (Available: {{ Number(product.available_stock ?? product.total_inventory ?? 0).toLocaleString() }})
-                </option>
-              </select>
-            </div>
-            <div class="field no-gap">
-              <input v-model.number="item.quantity" :class="{ invalid: errors.items }" type="number" min="0" placeholder="0">
+              <div class="product-combobox" :class="{ invalid: errors.items }">
+                <input
+                  v-model="productSearch"
+                  type="text"
+                  placeholder="Search product"
+                  autocomplete="off"
+                  @focus="openProductCombobox"
+                  @input="handleProductSearch"
+                  @keydown.enter.prevent="selectFirstFilteredProduct"
+                  @keydown.esc="closeProductCombobox"
+                  @blur="closeProductCombobox"
+                >
+                <div v-if="isProductComboboxOpen" class="product-options">
+                  <button
+                    v-for="product in filteredProducts"
+                    :key="product.id"
+                    type="button"
+                    class="product-option"
+                    @mousedown.prevent="selectProduct(product)"
+                  >
+                    <span>{{ product.name }}</span>
+                    <small>Available: {{ Number(product.available_stock ?? product.total_inventory ?? 0).toLocaleString() }}</small>
+                  </button>
+                  <div v-if="!filteredProducts.length" class="product-option-empty">No products found</div>
+                </div>
+              </div>
             </div>
             <button type="button" class="add-item-btn" @click="addItem">Add</button>
           </div>
           <span v-if="errors.items || !hasOrderProducts" class="field-error items-error">
-            {{ errors.items || 'Add at least one product before saving.' }}
+            {{ errors.items || 'Select at least one product to continue.' }}
           </span>
 
           <div v-if="items.length" class="selected-items">
-            <div v-for="(row, index) in items" :key="row.product_id" class="selected-item">
+            <div v-for="row in items" :key="row.product_id" class="selected-item">
               <img class="item-image" :src="row.picture_url" :alt="row.name">
               <div class="item-main">
-                <span>{{ index + 1 }} x {{ row.name }}</span>
+                <span>{{ row.quantity || 1 }} x {{ row.name }}</span>
                 <strong>Rs. {{ Number(row.sale_price || 0).toLocaleString() }} Per Piece</strong>
               </div>
               <div class="item-qty">
                 <label>Qty</label>
-                <input v-model.number="row.quantity" type="number" min="1">
+                <div class="qty-stepper">
+                  <button type="button" :disabled="Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
+                  <span>{{ Number(row.quantity || 1).toLocaleString() }}</span>
+                  <button type="button" @click="incrementItemQuantity(row)">+</button>
+                </div>
               </div>
               <button class="remove-item-btn" type="button" @click="removeItem(row.product_id)">Remove</button>
             </div>
@@ -291,6 +359,7 @@ import { useIntegrationStore } from '../../stores/integrationStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useOrderStore } from '../../stores/orderStore';
 import { useProductStore } from '../../stores/productStore';
+import phoneNormalizer, { isNormalizedPakistaniMobile } from '../../utils/phoneNormalizer';
 
 const router = useRouter();
 const route = useRoute();
@@ -300,12 +369,16 @@ const notificationStore = useNotificationStore();
 const orderStore = useOrderStore();
 const productStore = useProductStore();
 const items = ref([]);
+const productSearch = ref('');
+const isProductComboboxOpen = ref(false);
 const errors = reactive({});
+const phoneWarnings = reactive({});
 const saving = ref(false);
 const creatingShipment = ref(false);
 const hydratingOrder = ref(false);
 const submitError = ref(null);
 const errorPopup = ref(null);
+const hasAdvancePayment = ref(false);
 const postexPickupAddresses = ref([]);
 const postexPickupLoading = ref(false);
 const postexPickupError = ref('');
@@ -342,14 +415,45 @@ const form = reactive({
   destination_city_id: '',
   packet_weight: '0.2',
   shipment_type: '',
+  total_price: '',
+  advance_payment: '',
   cod: '',
   special_instructions: '',
   internal_notes: '',
 });
 
+const phoneWarningMessage = "This doesn't look like a valid Pakistani mobile number (03XXXXXXXXX). It will be saved as entered.";
+const phonePreview = value => {
+  if (!value) return '';
+  const normalized = phoneNormalizer(value);
+  return isNormalizedPakistaniMobile(normalized) && normalized !== value ? normalized : '';
+};
+const customerContactPreview = computed(() => phonePreview(form.customer_contact));
+const customerContactTwoPreview = computed(() => phonePreview(form.customer_contact_two));
+
+const handlePhoneBlur = (field, required = false) => {
+  delete phoneWarnings[field];
+  const raw = form[field];
+  const normalized = phoneNormalizer(raw);
+
+  if (isNormalizedPakistaniMobile(normalized)) {
+    form[field] = normalized;
+    delete errors[field];
+    return;
+  }
+
+  if (!String(raw || '').trim()) {
+    if (required) {
+      errors[field] = 'Customer contact is required.';
+    }
+    return;
+  }
+
+  phoneWarnings[field] = phoneWarningMessage;
+};
+
 const item = reactive({
   product_id: '',
-  quantity: 0,
 });
 
 const showErrorPopup = (title, details = '') => {
@@ -363,14 +467,34 @@ const closeErrorPopup = () => {
 
 const isEditMode = computed(() => Boolean(route.params.id));
 const hasOrderProducts = computed(() => items.value.length > 0);
+const filteredProducts = computed(() => {
+  const search = productSearch.value.trim().toLowerCase();
+  if (!search) return productStore.products;
+
+  return productStore.products.filter((product) => {
+    const haystack = [
+      product.name,
+      product.sku,
+      product.id,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    return haystack.includes(search);
+  });
+});
 const selectedBrand = computed(() => brandStore.brands.find(brand => brand.id === form.brand_id));
 const brandSources = computed(() => selectedBrand.value?.sources || []);
 const selectedIntegration = computed(() => integrationStore.integrations.find((integration) => String(integration.id) === String(form.courier_integration_id)));
+const hasCourierSelected = computed(() => Boolean(form.courier_integration_id));
 const isPostexSelected = computed(() => selectedIntegration.value?.courier_slug === 'postex');
 const isLeopardSelected = computed(() => selectedIntegration.value?.courier_slug === 'leopard');
 const isDastaqSelected = computed(() => selectedIntegration.value?.courier_slug === 'dastaq');
 const isArgoSelected = computed(() => selectedIntegration.value?.courier_slug === 'argo');
 const isGramWeightSelected = computed(() => isLeopardSelected.value || isDastaqSelected.value);
+const courierCodAmount = computed(() => {
+  const total = Number(form.total_price || 0);
+  const advance = hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0;
+  return Math.max(total - advance, 0);
+});
 const destinationCitySelection = computed({
   get() {
     return isLeopardSelected.value ? form.destination_city_id : form.destination_city;
@@ -440,6 +564,13 @@ const shipmentTypeOptions = computed(() => {
   return ['Overnight', 'Same Day', 'Detain'];
 });
 
+const defaultShipmentTypeForSelectedCourier = () => {
+  if (isPostexSelected.value) return 'Overnight';
+  if (isLeopardSelected.value) return 'Overnight';
+  if (isDastaqSelected.value) return 'cod';
+  return '';
+};
+
 watch(() => form.brand_id, () => {
   if (hydratingOrder.value) return;
 
@@ -505,7 +636,7 @@ const loadPostexRuntimeData = async () => {
 const handleCourierChange = async () => {
   resetCourierDependentFields();
   form.packet_weight = isGramWeightSelected.value ? '500' : '0.2';
-  form.shipment_type = isDastaqSelected.value ? 'cod' : '';
+  form.shipment_type = defaultShipmentTypeForSelectedCourier();
   await loadPostexRuntimeData();
 };
 
@@ -525,6 +656,8 @@ watch(() => form.leopard_pickup_address_id, () => {
   'destination_city',
   'packet_weight',
   'shipment_type',
+  'total_price',
+  'advance_payment',
   'cod',
   'special_instructions',
   'internal_notes',
@@ -532,6 +665,19 @@ watch(() => form.leopard_pickup_address_id, () => {
   watch(() => form[key], () => {
     delete errors[key];
   });
+});
+
+watch([() => form.total_price, () => form.advance_payment, hasAdvancePayment], () => {
+  form.cod = String(courierCodAmount.value);
+  delete errors.cod;
+  delete errors.total_price;
+  delete errors.advance_payment;
+});
+
+watch(hasAdvancePayment, (enabled) => {
+  if (!enabled) {
+    form.advance_payment = '';
+  }
 });
 
 onMounted(async () => {
@@ -574,15 +720,18 @@ const loadOrderForEdit = async (id) => {
   form.destination_city_id = manual.destination_city_id || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
-  form.cod = manual.cod ?? order.total_price ?? '';
+  form.total_price = order.total_price ?? manual.cod ?? '';
+  form.cod = order.cod ?? manual.cod ?? order.total_outstanding ?? order.total_price ?? '';
+  form.advance_payment = order.advance_payment ?? manual.advance_payment ?? (Math.max(Number(form.total_price || 0) - Number(form.cod || 0), 0) || '');
+  hasAdvancePayment.value = Number(form.advance_payment || 0) > 0;
   form.special_instructions = manual.special_instructions || (order.shopify_order_id ? shopifyInstructions(order.line_items || []) : '');
   form.internal_notes = manual.internal_notes || '';
 
   await nextTick();
   hydratingOrder.value = false;
 
-  items.value = order.shopify_order_id ? [] : (order.line_items || []).map((line) => ({
-    product_id: line.product_id,
+  items.value = (order.line_items || []).map((line, index) => ({
+    product_id: line.product_id || line.id || `existing-${index}`,
     name: line.title || line.name,
     picture_url: line.picture_url,
     sale_price: line.price,
@@ -591,8 +740,14 @@ const loadOrderForEdit = async (id) => {
 
   const savedCourierSlug = manual.courier_slug || selectedIntegration.value?.courier_slug;
   if (savedCourierSlug === 'postex') {
+    if (!form.shipment_type) {
+      form.shipment_type = 'Overnight';
+    }
     await loadPostexRuntimeData();
   } else if (savedCourierSlug === 'leopard') {
+    if (!form.shipment_type) {
+      form.shipment_type = 'Overnight';
+    }
     await loadLeopardRuntimeData();
   } else if (savedCourierSlug === 'dastaq') {
     await loadDastaqRuntimeData();
@@ -611,19 +766,20 @@ const addItem = () => {
 
   const existing = items.value.find((row) => row.product_id === product.id);
   if (existing) {
-    existing.quantity += item.quantity || 1;
+    existing.quantity += 1;
   } else {
     items.value.push({
       product_id: product.id,
       name: product.name,
       picture_url: product.picture_url,
       sale_price: product.sale_price,
-      quantity: item.quantity || 1,
+      quantity: 1,
     });
   }
 
   item.product_id = '';
-  item.quantity = 0;
+  productSearch.value = '';
+  isProductComboboxOpen.value = false;
   delete errors.items;
 };
 
@@ -631,10 +787,52 @@ const removeItem = (productId) => {
   items.value = items.value.filter((row) => row.product_id !== productId);
 };
 
+const openProductCombobox = () => {
+  isProductComboboxOpen.value = true;
+};
+
+const closeProductCombobox = () => {
+  setTimeout(() => {
+    isProductComboboxOpen.value = false;
+  }, 120);
+};
+
+const handleProductSearch = () => {
+  item.product_id = '';
+  isProductComboboxOpen.value = true;
+  delete errors.items;
+};
+
+const selectProduct = (product) => {
+  item.product_id = product.id;
+  productSearch.value = product.name;
+  isProductComboboxOpen.value = false;
+  delete errors.items;
+};
+
+const selectFirstFilteredProduct = () => {
+  if (filteredProducts.value.length) {
+    selectProduct(filteredProducts.value[0]);
+  }
+};
+
+const incrementItemQuantity = (row) => {
+  row.quantity = Number(row.quantity || 1) + 1;
+};
+
+const decrementItemQuantity = (row) => {
+  row.quantity = Math.max(Number(row.quantity || 1) - 1, 1);
+};
+
 const copyItems = async () => {
-  const text = items.value.map(row => `${row.quantity} x ${row.name}`).join('\n');
-  if (navigator.clipboard && text) {
+  const text = items.value.map(row => `${row.quantity || 1} X ${row.name}`).join(' , ');
+  if (!navigator.clipboard || !text) return;
+
+  try {
     await navigator.clipboard.writeText(text);
+    notificationStore.show('Products copied to clipboard.');
+  } catch (error) {
+    notificationStore.show('Unable to copy products.', { type: 'error' });
   }
 };
 
@@ -925,6 +1123,11 @@ const formatApiErrorDetails = (value) => {
 
 const buildPayload = () => ({
   ...form,
+  customer_contact: phoneNormalizer(form.customer_contact),
+  customer_contact_two: phoneNormalizer(form.customer_contact_two),
+  total_price: Number(form.total_price || 0),
+  advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
+  cod: courierCodAmount.value,
   line_items: items.value.map((row) => ({
     product_id: row.product_id,
     quantity: Number(row.quantity || 1),
@@ -933,8 +1136,11 @@ const buildPayload = () => ({
 
 const handleSave = async (mode) => {
   Object.keys(errors).forEach(key => delete errors[key]);
+  Object.keys(phoneWarnings).forEach(key => delete phoneWarnings[key]);
   submitError.value = null;
   errorPopup.value = null;
+  handlePhoneBlur('customer_contact', true);
+  handlePhoneBlur('customer_contact_two');
 
   if (!form.brand_id) {
     errors.brand_id = 'Brand is required.';
@@ -951,7 +1157,7 @@ const handleSave = async (mode) => {
     courier_integration_id: 'Courier is required.',
     destination_city: 'Destination city is required.',
     packet_weight: 'Packet weight is required.',
-    cod: 'Cash on delivery is required.',
+    total_price: 'Total amount is required.',
     special_instructions: 'Special instructions are required.',
     internal_notes: 'Internal notes are required.',
   };
@@ -965,6 +1171,17 @@ const handleSave = async (mode) => {
       errors[key] = message;
     }
   });
+
+  const totalAmount = Number(form.total_price || 0);
+  const advanceAmount = hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0;
+  if (Number.isNaN(totalAmount) || totalAmount < 0) {
+    errors.total_price = 'Total amount must be zero or greater.';
+  }
+  if (hasAdvancePayment.value && (Number.isNaN(advanceAmount) || advanceAmount < 0)) {
+    errors.advance_payment = 'Advance payment must be zero or greater.';
+  } else if (hasAdvancePayment.value && advanceAmount > totalAmount) {
+    errors.advance_payment = 'Advance payment cannot be greater than total amount.';
+  }
 
   if (isPostexSelected.value) {
     if (postexPickupLoading.value) {
@@ -1196,7 +1413,7 @@ const handleSave = async (mode) => {
 }
 
 .grid.cod-row {
-  grid-template-columns: minmax(220px, 280px);
+  grid-template-columns: minmax(220px, 280px) max-content minmax(220px, 280px);
   align-items: end;
 }
 
@@ -1208,6 +1425,105 @@ const handleSave = async (mode) => {
 
 .field.no-gap {
   gap: 0;
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.advance-toggle {
+  padding-bottom: 1px;
+}
+
+.cod-summary-row {
+  margin-top: 2px;
+}
+
+.cod-summary {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: min(100%, 270px);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  padding: 12px 14px;
+}
+
+.cod-summary span {
+  display: block;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.cod-summary strong {
+  color: #1d4ed8;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.cod-summary small {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.amount-input span {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  border-right: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.amount-input input {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+}
+
+.amount-input input:focus {
+  box-shadow: none;
+}
+
+.amount-input:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .field label,
@@ -1269,6 +1585,10 @@ select:disabled {
   border-color: #ef4444;
 }
 
+.amount-input.invalid {
+  border-color: #ef4444;
+}
+
 .field-error {
   color: #ef4444;
   font-size: 11px;
@@ -1281,8 +1601,38 @@ select:disabled {
   font-weight: 700;
 }
 
+.phone-helper {
+  color: var(--color-text-secondary, #64748b);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.phone-preview {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.phone-warning {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 .items-error {
-  margin-top: -8px;
+  display: inline-flex;
+  width: fit-content;
+  margin-top: -6px;
+  border-radius: 7px;
+  background: #fef2f2;
+  padding: 5px 8px;
 }
 
 .section-title {
@@ -1331,6 +1681,12 @@ select:disabled {
   gap: 14px;
 }
 
+.copy-action {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+}
+
 .copy-btn {
   border: 1px solid #bfdbfe;
   border-radius: 8px;
@@ -1340,17 +1696,111 @@ select:disabled {
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
+}
+
+.copy-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
+}
+
+.copy-btn:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 2px;
+}
+
+.copy-btn:active:not(:disabled) {
+  background: #dbeafe;
+  box-shadow: none;
+  transform: translateY(0);
+}
+
+.copy-btn:disabled {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 .item-row {
   display: grid;
-  grid-template-columns: minmax(280px, 420px) 160px 78px;
+  grid-template-columns: minmax(280px, 520px) 78px;
   gap: 14px;
   align-items: center;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #f8fafc;
   padding: 14px;
+}
+
+.product-combobox {
+  position: relative;
+}
+
+.product-combobox input {
+  background: #fff;
+}
+
+.product-combobox.invalid input {
+  border-color: #ef4444;
+}
+
+.product-options {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
+}
+
+.product-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  color: #0f172a;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-option:hover,
+.product-option:focus-visible {
+  background: #eff6ff;
+}
+
+.product-option span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-option small {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.product-option-empty {
+  padding: 12px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .add-item-btn,
@@ -1385,7 +1835,7 @@ select:disabled {
 
 .selected-item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 96px auto;
+  grid-template-columns: 56px minmax(0, 1fr) 116px auto;
   align-items: center;
   gap: 14px;
   border: 1px solid #e2e8f0;
@@ -1436,6 +1886,54 @@ select:disabled {
   color: #64748b;
   font-size: 11px;
   font-weight: 700;
+}
+
+.qty-stepper {
+  display: grid;
+  grid-template-columns: 32px minmax(34px, 1fr) 32px;
+  align-items: center;
+  width: 116px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.qty-stepper button {
+  width: 32px;
+  height: 38px;
+  border: 0;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.qty-stepper button:hover:not(:disabled),
+.qty-stepper button:focus-visible:not(:disabled) {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.qty-stepper button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.qty-stepper span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 38px;
+  border-right: 1px solid #e2e8f0;
+  border-left: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .remove-item-btn {

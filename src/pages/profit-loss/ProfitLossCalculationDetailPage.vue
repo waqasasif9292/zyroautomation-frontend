@@ -364,9 +364,10 @@ td {
 
 th {
   color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
 }
 
 :deep(.detail-table-wrap) {
@@ -393,9 +394,10 @@ th {
 
 :deep(.detail-table th) {
   color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
   background: #f8fafc;
 }
 

@@ -22,6 +22,8 @@ const labels = {
   hold: 'On Hold',
   pending: 'Pending',
   pending_confirmation: 'Pending Confirmation',
+  duplicate: 'Duplicate',
+  Duplicate: 'Duplicate',
   paid: 'Paid',
   refunded: 'Refunded',
   voided: 'Voided',
@@ -69,6 +71,7 @@ const statusClass = computed(() => `status-${(statusText.value || 'unknown').toL
 .status-pending-confirmation,
 .status-pending { background: #fef3c7; color: #92400e; }
 .status-cancel-by-shipper,
+.status-duplicate,
 .status-error,
 .status-returned-to-shipper,
 .status-ready-for-return { background: #fee2e2; color: #991b1b; }

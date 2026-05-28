@@ -8,13 +8,10 @@
       <section class="panel">
         <div class="panel-header">
           <div>
-            <h1>Product Wise Profit Loss</h1>
-            <p>Saved product-wise profit/loss reports from actual order performance.</p>
+            <h1>Overall Profit Loss</h1>
+            <p>Saved overall reports from filtered order products and entered product costs.</p>
           </div>
-          <div class="header-actions">
-            <button class="secondary-btn" type="button" @click="router.push('/overall-profit-loss/create')">Overall Report</button>
-            <button class="primary-btn" type="button" @click="router.push('/profit-loss-calculations/create')">Add Report</button>
-          </div>
+          <button class="primary-btn" type="button" @click="router.push('/overall-profit-loss/create')">Create Report</button>
         </div>
 
         <div class="table-wrap">
@@ -24,31 +21,38 @@
                 <th>Name</th>
                 <th>Date Range</th>
                 <th>Orders</th>
-                <th>Delivered</th>
-                <th>Returned</th>
+                <th>Products</th>
+                <th>Quantity</th>
+                <th>Product Cost</th>
                 <th>Final Profit</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="7">Loading product wise profit/loss reports...</td>
+                <td colspan="8">Loading overall profit/loss reports...</td>
               </tr>
-              <tr v-else-if="!calculations.length">
-                <td colspan="7">No product wise profit/loss reports yet.</td>
+              <tr v-else-if="!reports.length">
+                <td class="empty-cell" colspan="8">
+                  <div>
+                    <strong>No overall profit/loss reports yet.</strong>
+                    <button class="primary-btn" type="button" @click="router.push('/overall-profit-loss/create')">Create Report</button>
+                  </div>
+                </td>
               </tr>
-              <tr v-for="calculation in calculations" v-else :key="calculation.id">
-                <td><button class="name-btn" type="button" @click="router.push(`/profit-loss-calculations/${calculation.id}`)">{{ calculation.name }}</button></td>
-                <td>{{ calculation.start_date }} to {{ calculation.end_date }}</td>
-                <td>{{ number(calculation.results?.summary?.total_orders) }}</td>
-                <td>{{ number(calculation.results?.summary?.delivered_count) }}</td>
-                <td>{{ number(calculation.results?.summary?.returned_count) }}</td>
-                <td :class="calculation.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(calculation.results?.totals?.final_profit) }}</td>
+              <tr v-for="report in reports" v-else :key="report.id">
+                <td><button class="name-btn" type="button" @click="router.push(`/overall-profit-loss/${report.id}`)">{{ report.name }}</button></td>
+                <td>{{ report.start_date }} to {{ report.end_date }}</td>
+                <td>{{ number(report.summary?.orders_count) }}</td>
+                <td>{{ number(report.summary?.products_count) }}</td>
+                <td>{{ number(report.summary?.total_quantity) }}</td>
+                <td>{{ money(report.summary?.total_product_cost) }}</td>
+                <td :class="report.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(report.results?.totals?.final_profit) }}</td>
                 <td>
                   <div class="actions">
-                    <button type="button" @click="router.push(`/profit-loss-calculations/${calculation.id}`)">View</button>
-                    <button type="button" @click="router.push(`/profit-loss-calculations/${calculation.id}/edit`)">Edit</button>
-                    <button class="danger-btn" type="button" @click="remove(calculation)">Delete</button>
+                    <button type="button" @click="router.push(`/overall-profit-loss/${report.id}`)">View</button>
+                    <button type="button" @click="router.push(`/overall-profit-loss/${report.id}/edit`)">Edit</button>
+                    <button class="danger-btn" type="button" @click="remove(report)">Delete</button>
                   </div>
                 </td>
               </tr>
@@ -62,15 +66,14 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
-import { useProfitLossCalculationStore } from '../../stores/profitLossCalculationStore';
+import OverallProfitLossService from '../../services/OverallProfitLossService';
 
 const router = useRouter();
 const route = useRoute();
-const store = useProfitLossCalculationStore();
-const { calculations, loading } = storeToRefs(store);
+const reports = ref([]);
+const loading = ref(true);
 const toast = ref('');
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const number = (value) => Number(value || 0).toLocaleString();
@@ -80,14 +83,25 @@ const showToast = (message) => {
   setTimeout(() => { toast.value = ''; }, 3000);
 };
 
-const remove = async (calculation) => {
-  if (!confirm(`Delete ${calculation.name}?`)) return;
-  await store.deleteCalculation(calculation.id);
+const fetchReports = async () => {
+  loading.value = true;
+  try {
+    const res = await OverallProfitLossService.getReports();
+    reports.value = res.data.data.reports;
+  } finally {
+    loading.value = false;
+  }
+};
+
+const remove = async (report) => {
+  if (!confirm(`Delete ${report.name}?`)) return;
+  await OverallProfitLossService.deleteReport(report.id);
+  reports.value = reports.value.filter(item => item.id !== report.id);
   showToast('Report deleted.');
 };
 
 onMounted(async () => {
-  await store.fetchCalculations();
+  await fetchReports();
   if (route.query.toast === 'created') {
     showToast('Report created.');
     router.replace({ query: {} });
@@ -106,10 +120,10 @@ onMounted(async () => {
 }
 
 .panel {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .panel-header {
@@ -121,14 +135,18 @@ onMounted(async () => {
   border-bottom: 1px solid #e2e8f0;
 }
 
+h1,
+p {
+  margin: 0;
+}
+
 h1 {
-  margin: 0 0 4px;
+  margin-bottom: 4px;
   color: #1e293b;
   font-size: 20px;
 }
 
 p {
-  margin: 0;
   color: #64748b;
   font-size: 14px;
 }
@@ -143,28 +161,13 @@ p {
   cursor: pointer;
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.secondary-btn {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  color: #374151;
-  padding: 10px 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .table-wrap {
   overflow-x: auto;
 }
 
 table {
   width: 100%;
-  min-width: 920px;
+  min-width: 1040px;
   border-collapse: collapse;
 }
 
@@ -193,6 +196,18 @@ th {
   cursor: pointer;
 }
 
+.empty-cell div {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 28px;
+  color: #64748b;
+}
+
+.empty-cell .primary-btn {
+  width: fit-content;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -200,31 +215,39 @@ th {
 }
 
 .actions button {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   background: #fff;
   padding: 7px 10px;
+  color: #334155;
+  font-weight: 800;
   cursor: pointer;
 }
 
-.danger-btn,
-.danger {
+.actions .danger-btn {
+  border-color: #fecaca;
   color: #dc2626;
 }
 
 .success {
   color: #16a34a;
+  font-weight: 800;
+}
+
+.danger {
+  color: #dc2626;
+  font-weight: 800;
 }
 
 .toast {
   position: fixed;
   top: 18px;
   right: 20px;
-  z-index: 20;
+  z-index: 50;
   border-radius: 8px;
-  background: #111827;
+  background: #0f172a;
   color: #fff;
-  padding: 11px 18px;
-  font-size: 13px;
+  padding: 12px 14px;
+  font-weight: 800;
 }
 </style>

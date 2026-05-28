@@ -25,6 +25,7 @@
         <option value="">Select Status</option>
         <option value="hold">On Hold</option>
         <option value="pending_confirmation">Pending Confirmation</option>
+        <option value="duplicate">Duplicate</option>
         <option value="cancel_by_shipper">Cancel by Shipper</option>
         <option value="error">Error</option>
         <option value="merchant_warehouse">Merchant Warehouse</option>
