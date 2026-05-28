@@ -1,6 +1,6 @@
 <template>
   <div v-if="pagination && pagination.total > 0" class="pagination-row">
-    <span class="pagination-summary">Showing {{ from }}-{{ to }} of {{ pagination.total }} orders</span>
+    <span class="pagination-summary">Showing {{ from }}-{{ to }} of {{ pagination.total }} {{ itemLabel }}</span>
     <div class="pagination-controls">
       <button class="page-btn" :disabled="!pagination.has_prev" @click="$emit('page-change', pagination.current_page - 1)">&lt; Prev</button>
       <button
@@ -24,6 +24,10 @@ const props = defineProps({
   pagination: {
     type: Object,
     default: null,
+  },
+  itemLabel: {
+    type: String,
+    default: 'orders',
   },
 });
 

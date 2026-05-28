@@ -3,64 +3,66 @@
     <table class="orders-table">
       <thead>
         <tr>
-          <th class="col-serial">#</th>
-          <th class="col-order">Order</th>
-          <th class="col-brand">Brand</th>
-          <th class="col-source">Source</th>
-          <th class="col-tracking">Tracking</th>
-          <th class="col-customer">Customer</th>
-          <th class="col-city">City</th>
-          <th class="col-status">Status</th>
-          <th class="col-total">Total</th>
-          <th class="col-payment">Payment</th>
-          <th class="col-products">Product(s)</th>
-          <th class="col-actions"></th>
+          <th v-if="isVisible('serial')" class="col-serial">#</th>
+          <th v-if="isVisible('order')" class="col-order">Order</th>
+          <th v-if="isVisible('brand')" class="col-brand">Brand</th>
+          <th v-if="isVisible('source')" class="col-source">Source</th>
+          <th v-if="isVisible('tracking')" class="col-tracking">Tracking</th>
+          <th v-if="isVisible('customer')" class="col-customer">Customer</th>
+          <th v-if="isVisible('phone')" class="col-phone">Phone</th>
+          <th v-if="isVisible('city')" class="col-city">City</th>
+          <th v-if="isVisible('status')" class="col-status">Status</th>
+          <th v-if="isVisible('total')" class="col-total">Total</th>
+          <th v-if="isVisible('payment')" class="col-payment">Payment</th>
+          <th v-if="isVisible('products')" class="col-products">Product(s)</th>
+          <th v-if="isVisible('actions')" class="col-actions">Actions</th>
         </tr>
       </thead>
       <tbody>
         <template v-if="loading">
           <tr v-for="row in 5" :key="row">
-            <td v-for="col in 12" :key="col"><span class="skeleton"></span></td>
+            <td v-for="col in visibleColumnCount" :key="col"><span class="skeleton"></span></td>
           </tr>
         </template>
         <tr v-else v-for="(order, index) in orders" :key="order.id" class="order-row" @click="$emit('view', order.id)">
-          <td class="serial">{{ serialStart + index }}</td>
-          <td>
+          <td v-if="isVisible('serial')" class="serial">{{ serialStart + index }}</td>
+          <td v-if="isVisible('order')">
             <div class="strong">{{ order.order_name || '—' }}</div>
             <div class="muted order-time">{{ formatDate(order.shopify_created_at) }}</div>
           </td>
-          <td>{{ order.brand_name || '—' }}</td>
-          <td>
+          <td v-if="isVisible('brand')">{{ order.brand_name || '—' }}</td>
+          <td v-if="isVisible('source')">
             <span class="source-badge">{{ order.source || '—' }}</span>
           </td>
-          <td>
+          <td v-if="isVisible('tracking')">
             <button
               v-if="order.tracking_number"
               type="button"
               class="tracking-code"
+              :title="order.tracking_number"
               @click.stop="$emit('track', order.id)"
             >
               {{ order.tracking_number }}
             </button>
             <span v-else class="tracking-empty">—</span>
           </td>
-          <td>
+          <td v-if="isVisible('customer')">
             <div class="strong">{{ order.customer?.name || '—' }}</div>
-            <div class="muted">{{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}</div>
           </td>
-          <td>{{ order.customer?.city || '—' }}</td>
-          <td><OrderStatusBadge :status="order.status" /></td>
-          <td class="total">{{ formatMoney(order.currency, order.total_price) }}</td>
-          <td>
+          <td v-if="isVisible('phone')" class="phone-cell">{{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}</td>
+          <td v-if="isVisible('city')">{{ order.customer?.city || '—' }}</td>
+          <td v-if="isVisible('status')"><OrderStatusBadge :status="order.status" /></td>
+          <td v-if="isVisible('total')" class="total">{{ formatMoney(order.currency, order.total_price) }}</td>
+          <td v-if="isVisible('payment')">
             <div class="payment-cell">
               <span class="truncate" :title="order.payment_method">{{ order.payment_method || '—' }}</span>
               <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
             </div>
           </td>
-          <td>
+          <td v-if="isVisible('products')">
             <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
           </td>
-          <td>
+          <td v-if="isVisible('actions')">
             <div class="action-buttons">
               <button class="action-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -99,9 +101,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 
-defineProps({
+const props = defineProps({
   orders: {
     type: Array,
     default: () => [],
@@ -114,10 +117,18 @@ defineProps({
     type: Number,
     default: 1,
   },
+  visibleColumns: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 defineEmits(['view', 'edit', 'delete', 'track', 'cancel']);
 
+const lockedColumns = ['serial', 'actions'];
+const visibleColumnSet = computed(() => new Set([...props.visibleColumns, ...lockedColumns]));
+const isVisible = column => visibleColumnSet.value.has(column);
+const visibleColumnCount = computed(() => visibleColumnSet.value.size);
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
 const statusText = (status) => {
@@ -128,7 +139,7 @@ const statusText = (status) => {
   }
   return '';
 };
-const canEdit = (order) => ['pending confirmation', 'hold', 'on hold', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
+const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
 const canCancel = (order) => {
   const hasTrackingNumber = String(order.tracking_number || '').trim() !== '';
   const isCancelledByShipper = statusText(order.status).toLowerCase() === 'cancel by shipper';
@@ -154,33 +165,37 @@ const formatDate = (value) => {
   overflow-x: auto;
   scrollbar-gutter: stable;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .orders-table {
   width: 100%;
-  min-width: 1570px;
+  min-width: 1080px;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 th {
-  padding: 14px 12px;
+  height: 42px;
+  padding: 10px 12px;
   background: #f8fafc;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
+  color: #566985;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
   text-align: left;
-  text-transform: uppercase;
   border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
 td {
-  padding: 16px 12px;
-  color: #374151;
-  font-size: 14px;
+  height: 64px;
+  padding: 12px;
+  color: #334155;
+  font-size: 13.5px;
   line-height: 1.35;
   vertical-align: middle;
   border-bottom: 1px solid #eaf0f6;
@@ -191,32 +206,49 @@ td {
 }
 
 .order-row:hover {
-  background: #fbfdff;
+  background: #f8fbff;
 }
 
-.col-serial { width: 2.9%; }
-.col-order { width: 9.9%; }
-.col-brand { width: 8%; }
-.col-source { width: 6.4%; }
-.col-tracking { width: 5.5%; }
-.col-customer { width: 11.8%; }
-.col-city { width: 6.9%; }
-.col-status { width: 10.6%; }
-.col-total { width: 6.5%; }
-.col-payment { width: 8.3%; }
-.col-products { width: 12.1%; }
-.col-actions { width: 11.1%; }
+.col-serial { width: 52px; }
+.col-order { width: 170px; }
+.col-brand { width: 132px; }
+.col-source { width: 112px; }
+.col-tracking { width: 112px; }
+.col-customer { width: 150px; }
+.col-phone { width: 132px; }
+.col-city { width: 132px; }
+.col-status { width: 164px; }
+.col-total { width: 118px; }
+.col-payment { width: 140px; }
+.col-products { width: 190px; }
+.col-actions { width: 132px; text-align: center; }
+
+td:first-child,
+th:first-child {
+  padding-left: 14px;
+}
+
+td:last-child,
+th:last-child {
+  padding-right: 14px;
+}
 
 .serial,
 .strong {
   color: #1e293b;
-  font-weight: 700;
+  font-weight: 800;
+}
+
+.strong {
+  overflow: hidden;
+  max-width: 180px;
+  text-overflow: ellipsis;
 }
 
 .muted {
-  margin-top: 3px;
+  margin-top: 4px;
   color: #9ca3af;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.25;
 }
 
@@ -233,7 +265,15 @@ td {
 
 .total {
   color: #1e293b;
-  font-weight: 700;
+  font-weight: 850;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.phone-cell {
+  color: #566985;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -259,7 +299,7 @@ td {
 .tracking-empty {
   display: inline-block;
   overflow: hidden;
-  max-width: 100%;
+  max-width: 92px;
   border: none;
   background: transparent;
   color: #1e40af;
@@ -286,20 +326,23 @@ td {
 .source-badge {
   display: inline-flex;
   align-items: center;
+  max-width: 88px;
+  overflow: hidden;
   border-radius: 999px;
   background: #eff6ff;
   color: #1e40af;
-  padding: 5px 9px;
+  padding: 5px 10px;
   font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
+  font-weight: 800;
+  line-height: 1.05;
+  text-overflow: ellipsis;
 }
 
 .action-buttons {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
   white-space: nowrap;
 }
 
@@ -307,10 +350,10 @@ td {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border: 1px solid #dbe3ee;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #fff;
   color: #2563eb;
   padding: 0;
@@ -320,8 +363,8 @@ td {
 }
 
 .action-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;

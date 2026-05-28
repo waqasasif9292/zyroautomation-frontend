@@ -29,6 +29,7 @@
             <ProjectionResultsPanel :calculations="projection.calculations" />
           </div>
         </section>
+
       </template>
     </main>
   </AppLayout>
@@ -53,19 +54,35 @@ const percent = (value) => `${Number(value || 0).toLocaleString()}%`;
 const inputItems = computed(() => {
   if (!projection.value) return [];
 
-  return [
+  const baseItems = [
     { label: 'Sale Price', value: money(projection.value.sale_price) },
     { label: 'Product Cost', value: money(projection.value.product_cost) },
-    { label: 'Bulity Cost', value: money(projection.value.bulity_cost) },
-    { label: 'Packing Cost', value: money(projection.value.packing_cost) },
-    { label: 'Delivery Charges', value: money(projection.value.delivery_charges) },
-    { label: 'Tax', value: percent(projection.value.tax_percentage) },
+    { label: 'Bulity Cost Per Order', value: money(projection.value.bulity_cost) },
+    { label: 'Packing Cost Per Order', value: money(projection.value.packing_cost) },
+    { label: 'Delivery Charges (DC) Per Order', value: money(projection.value.delivery_charges) },
+    { label: 'Courier Withholding Tax', value: percent(projection.value.tax_percentage) },
     { label: 'Ads Cost Per Day', value: money(projection.value.ads_cost_per_day) },
     { label: 'Ads Tax', value: percent(projection.value.ads_tax_percentage) },
-    { label: 'CPC', value: money(projection.value.cpc) },
+    { label: 'Ad Cost Per Order (CPC)', value: money(projection.value.cpc) },
     { label: 'Cancel Rate', value: percent(projection.value.cancel_rate) },
     { label: 'Return Rate', value: percent(projection.value.return_rate) },
   ];
+
+  const extraItems = Array.isArray(projection.value.extra_expenses)
+    ? projection.value.extra_expenses.map(expense => ({
+      label: `${expense.label} Per Order`,
+      value: money(expense.value),
+    }))
+    : [];
+
+  const oneTimeItems = Array.isArray(projection.value.one_time_expenses)
+    ? projection.value.one_time_expenses.map(expense => ({
+      label: `${expense.label} One Time`,
+      value: money(expense.value),
+    }))
+    : [];
+
+  return [...baseItems, ...extraItems, ...oneTimeItems];
 });
 
 onMounted(async () => {
@@ -77,6 +94,7 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
 </script>
 
 <style scoped>

@@ -64,6 +64,11 @@ body {
   background: #14532d;
 }
 
+.global-toast-error {
+  border: 1px solid #fecaca;
+  background: #991b1b;
+}
+
 .global-toast-fade-enter-active,
 .global-toast-fade-leave-active {
   transition: opacity 0.16s ease, transform 0.16s ease;

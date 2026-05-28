@@ -138,7 +138,7 @@
                   <div class="name-cell">{{ order.customer_name || order.order_name || '—' }}</div>
                   <div v-if="order.brand_name" class="subtext">{{ order.brand_name }}</div>
                 </td>
-                <td>{{ order.contact || '—' }}</td>
+                <td>{{ formatPhone(order.contact) || '—' }}</td>
                 <td>{{ order.courier_name || '—' }}</td>
                 <td>{{ order.status || '—' }}</td>
                 <td>
@@ -193,6 +193,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
+import { formatPhone } from '../utils/phoneNormalizer';
 
 const router = useRouter();
 const route = useRoute();
@@ -661,10 +662,11 @@ th {
   padding: 14px 20px;
   background: #f8fafc;
   color: #8a9ab3;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
   text-align: left;
-  text-transform: uppercase;
   border-top: 1px solid #e5e7eb;
   border-bottom: 1px solid #e5e7eb;
 }

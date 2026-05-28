@@ -17,6 +17,9 @@ const ProjectionService = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  getAiSuggestions(id) {
+    return axiosInstance.post(`/projections/${id}/ai-suggestions`);
+  },
   deleteProjection(id) {
     return axiosInstance.delete(`/projections/${id}`);
   },

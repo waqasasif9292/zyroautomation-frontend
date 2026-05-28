@@ -51,6 +51,11 @@ export const useProjectionStore = defineStore('projection', () => {
     projections.value = projections.value.filter(projection => projection.id !== id);
   };
 
+  const fetchAiSuggestions = async (id) => {
+    const res = await ProjectionService.getAiSuggestions(id);
+    return res.data.data.insights;
+  };
+
   return {
     projections,
     loading,
@@ -60,5 +65,6 @@ export const useProjectionStore = defineStore('projection', () => {
     createProjection,
     updateProjection,
     deleteProjection,
+    fetchAiSuggestions,
   };
 });

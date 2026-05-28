@@ -26,9 +26,29 @@
             <span v-if="errors.cost" class="field-error">{{ errors.cost }}</span>
           </div>
           <div class="form-group">
-            <label class="form-label">Total Inventory</label>
-            <input v-model.number="form.total_inventory" class="form-input" :class="{ 'input-error': errors.total_inventory }" type="number" min="0" step="1">
-            <span v-if="errors.total_inventory" class="field-error">{{ errors.total_inventory }}</span>
+            <label class="form-label">Available Stock</label>
+            <input v-model.number="form.available_stock" class="form-input" :class="{ 'input-error': errors.available_stock || errors.total_inventory }" type="number" step="1">
+            <span v-if="errors.available_stock || errors.total_inventory" class="field-error">{{ errors.available_stock || errors.total_inventory }}</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">SKU</label>
+            <input v-model="form.sku" class="form-input" :class="{ 'input-error': errors.sku }" type="text">
+            <span v-if="errors.sku" class="field-error">{{ errors.sku }}</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Low Stock Alert</label>
+            <input v-model.number="form.low_stock_threshold" class="form-input" :class="{ 'input-error': errors.low_stock_threshold }" type="number" min="0" step="1">
+            <span v-if="errors.low_stock_threshold" class="field-error">{{ errors.low_stock_threshold }}</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shopify Product ID</label>
+            <input v-model="form.shopify_product_id" class="form-input" :class="{ 'input-error': errors.shopify_product_id }" type="text">
+            <span v-if="errors.shopify_product_id" class="field-error">{{ errors.shopify_product_id }}</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shopify Variant ID</label>
+            <input v-model="form.shopify_variant_id" class="form-input" :class="{ 'input-error': errors.shopify_variant_id }" type="text">
+            <span v-if="errors.shopify_variant_id" class="field-error">{{ errors.shopify_variant_id }}</span>
           </div>
         </div>
 
@@ -61,7 +81,11 @@ const form = reactive({
   name: '',
   sale_price: 0,
   cost: 0,
-  total_inventory: 0,
+  available_stock: 0,
+  low_stock_threshold: 0,
+  sku: '',
+  shopify_product_id: '',
+  shopify_variant_id: '',
 });
 
 const setPicture = (event) => {
@@ -75,7 +99,11 @@ const submit = async () => {
   payload.append('name', form.name.trim());
   payload.append('sale_price', form.sale_price);
   payload.append('cost', form.cost);
-  payload.append('total_inventory', form.total_inventory);
+  payload.append('available_stock', form.available_stock);
+  payload.append('low_stock_threshold', form.low_stock_threshold);
+  payload.append('sku', form.sku.trim());
+  payload.append('shopify_product_id', form.shopify_product_id.trim());
+  payload.append('shopify_variant_id', form.shopify_variant_id.trim());
   if (picture.value) payload.append('picture', picture.value);
 
   saving.value = true;

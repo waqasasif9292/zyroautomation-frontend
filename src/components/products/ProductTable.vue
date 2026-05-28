@@ -8,27 +8,38 @@
           <th>Name</th>
           <th>Sale Price</th>
           <th>Cost</th>
-          <th>Inventory</th>
+          <th>Available</th>
+          <th>Booked</th>
+          <th>Sold</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
       <tbody>
         <template v-if="loading">
           <tr v-for="row in 5" :key="row">
-            <td v-for="col in 7" :key="col"><span class="skeleton"></span></td>
+            <td v-for="col in 9" :key="col"><span class="skeleton"></span></td>
           </tr>
         </template>
         <tr v-else v-for="(product, index) in products" :key="product.id">
           <td class="serial">{{ index + 1 }}</td>
           <td>
-            <img class="product-image" :src="product.picture_url" :alt="product.name">
+            <img
+              v-if="product.picture_url && !brokenImages[product.id]"
+              class="product-image"
+              :src="product.picture_url"
+              :alt="product.name"
+              @error="markBroken(product.id)"
+            >
+            <div v-else class="product-image placeholder">No image</div>
           </td>
           <td>
             <div class="product-name">{{ product.name }}</div>
           </td>
           <td class="money">{{ formatMoney(product.sale_price) }}</td>
           <td class="money">{{ formatMoney(product.cost) }}</td>
-          <td>{{ product.total_inventory }}</td>
+          <td :class="stockClass(product.available_stock)">{{ formatStock(product.available_stock) }}</td>
+          <td>{{ formatStock(product.booked_stock) }}</td>
+          <td>{{ formatStock(product.sold_stock) }}</td>
           <td>
             <div class="actions">
               <button class="icon-btn" type="button" title="Edit product" aria-label="Edit product" @click="$emit('edit', product.id)">
@@ -55,6 +66,8 @@
 </template>
 
 <script setup>
+import { reactive } from 'vue';
+
 defineProps({
   products: {
     type: Array,
@@ -68,7 +81,13 @@ defineProps({
 
 defineEmits(['edit', 'delete']);
 
+const brokenImages = reactive({});
+const markBroken = (id) => {
+  brokenImages[id] = true;
+};
 const formatMoney = (value) => `PKR ${Number(value || 0).toLocaleString()}`;
+const formatStock = (value) => Number(value || 0).toLocaleString();
+const stockClass = (value) => Number(value || 0) < 0 ? 'stock-negative' : 'stock';
 </script>
 
 <style scoped>
@@ -119,18 +138,36 @@ tbody tr:hover {
 
 .serial,
 .money,
+.stock,
 .product-name {
   color: #1e293b;
   font-weight: 700;
 }
 
+.stock-negative {
+  color: #dc2626;
+  font-weight: 800;
+}
+
 .product-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 52px;
   height: 52px;
   object-fit: cover;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: #f8fafc;
+}
+
+.product-image.placeholder {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .actions {

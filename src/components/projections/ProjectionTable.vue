@@ -38,6 +38,9 @@
           </td>
           <td>
             <div class="actions">
+              <button class="icon-btn ai-btn" type="button" title="Get AI improvement suggestions" aria-label="Get AI improvement suggestions" @click="$emit('ai-suggestions', projection)">
+                AI Suggestion
+              </button>
               <button class="icon-btn" type="button" title="View projection" aria-label="View projection" @click="$emit('view', projection.id)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
@@ -67,7 +70,7 @@ defineProps({
   },
 });
 
-defineEmits(['view', 'edit', 'delete']);
+defineEmits(['view', 'edit', 'delete', 'ai-suggestions']);
 
 const formatMoney = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const formatPercent = (value) => `${Number(value || 0).toLocaleString()}%`;
@@ -117,7 +120,7 @@ tbody tr:hover {
 }
 
 .col-actions {
-  width: 142px;
+  width: 250px;
 }
 
 .serial,
@@ -193,6 +196,19 @@ tbody tr:hover {
 .icon-btn:hover {
   color: #2563eb;
   border-color: #bfdbfe;
+}
+
+.ai-btn {
+  width: auto;
+  min-width: 108px;
+  padding: 0 10px;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ai-btn:hover {
+  background: #eff6ff;
 }
 
 .danger-btn:hover {

@@ -39,7 +39,7 @@
     <ConfirmDialog
       :show="showDeleteDialog"
       title="Delete Product?"
-      message="This product will be removed from your catalog. Existing orders will keep their saved order details."
+      message="This product will be removed from your products list. Existing orders will keep their saved order details."
       :details="selectedProduct?.name || ''"
       eyebrow="Product deletion"
       confirmText="Delete Product"
