@@ -9,7 +9,7 @@
           <span class="nav-icon" v-html="item.icon"></span>
           {{ item.label }}
         </button>
-        <div v-if="item.children" class="nav-children">
+        <div v-if="item.children && (effectiveActive === item.key || childKeys(item).includes(effectiveActive))" class="nav-children">
           <button
             v-for="child in item.children"
             :key="child.key"
@@ -27,6 +27,8 @@
 <script setup>
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useAuthStore } from '../stores/authStore';
+import { permissionForPath } from '../constants/sidebarPermissions';
 
 const props = defineProps({
   activeKey: { type: String, default: '' },
@@ -36,6 +38,12 @@ const emit = defineEmits(['change']);
 
 const route  = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
+const isTeamAdmin = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const hasPermission = (item) => {
+  const permission = item.permission || (item.to ? permissionForPath(item.to) : null);
+  return !permission || isTeamAdmin.value || authStore.user?.team_permissions?.includes(permission);
+};
 
 const effectiveActive = computed(() => {
   if (props.activeKey) return props.activeKey;
@@ -43,8 +51,11 @@ const effectiveActive = computed(() => {
   if (route.path.startsWith('/leopard-pickup-addresses')) return 'leopard';
   if (route.path.startsWith('/brands')) return 'brands';
   if (route.path.startsWith('/settings/whatsapp')) return 'whatsapp';
+  if (route.path.startsWith('/settings/statuses')) return 'statuses';
   if (route.path.startsWith('/settings/billing')) return 'billing';
+  if (route.path.startsWith('/settings/activity-logs')) return 'activity-logs';
   if (route.path.startsWith('/settings/security')) return 'security';
+  if (route.path.startsWith('/settings/team-members')) return 'team';
   return 'profile';
 });
 
@@ -60,7 +71,7 @@ const handleClick = (item) => {
   }
 };
 
-const navItems = [
+const baseNavItems = [
   {
     key: 'profile', label: 'Profile',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
@@ -78,15 +89,12 @@ const navItems = [
     ],
   },
   {
-    key: 'notifications', label: 'Notifications',
-    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
-  },
-  {
     key: 'whatsapp', label: 'WhatsApp Automation', to: '/settings/whatsapp',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.36 7.57L3 21l1.93-5.55A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8.5 8.5c.3 3.1 3 5.8 6.1 6.1l1.4-1.4-2.2-1.1-.8.8c-1.1-.5-2-1.4-2.5-2.5l.8-.8-1.1-2.2-1.7 1.1Z"/></svg>`,
   },
   {
     key: 'statuses', label: 'Courier Statuses',
+    to: '/settings/statuses',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><path d="M7 7h.01"/><path d="M14 8h4"/><path d="M16 6v4"/></svg>`,
   },
   {
@@ -94,7 +102,11 @@ const navItems = [
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
   },
   {
-    key: 'team', label: 'Team',
+    key: 'activity-logs', label: 'Activity Logs', to: '/settings/activity-logs',
+    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l3-3 3 2 5-6"/><path d="M7 8h.01"/><path d="M7 12h.01"/></svg>`,
+  },
+  {
+    key: 'team', label: 'Team', to: '/settings/team-members',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   },
   {
@@ -102,44 +114,62 @@ const navItems = [
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
   },
 ];
+
+const navItems = computed(() => baseNavItems
+  .filter(item => (!item.adminOnly || isTeamAdmin.value) && hasPermission(item))
+  .map(item => ({
+    ...item,
+    children: (item.children || []).filter(child => hasPermission(child)),
+  })));
 </script>
 
 <style scoped>
 .settings-sidebar {
-  width: 200px;
+  width: 232px;
   flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+  align-self: flex-start;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  min-height: 40px;
+  padding: 9px 11px;
   border: none;
-  background: none;
-  border-radius: 7px;
+  border-radius: 9px;
+  background: transparent;
   cursor: pointer;
   font-size: 13.5px;
-  color: #374151;
-  font-weight: 500;
+  color: #334155;
+  font-weight: 700;
   text-align: left;
   width: 100%;
   transition: background 0.15s, color 0.15s;
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .nav-item.active {
-  background: #eff6ff;
+  background: #eef5ff;
   color: #1d4ed8;
+  box-shadow: inset 3px 0 0 #2563eb;
 }
 
 .nav-item.active .nav-icon {
@@ -149,20 +179,41 @@ const navItems = [
 .nav-icon {
   display: flex;
   align-items: center;
-  color: #9ca3af;
+  justify-content: center;
+  width: 18px;
+  color: #94a3b8;
   flex-shrink: 0;
 }
 
 .nav-children {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: -1px 0 4px 28px;
+  gap: 3px;
+  margin: 2px 0 5px 18px;
+  padding-left: 16px;
+}
+
+.nav-children::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: 1px;
+  border-radius: 999px;
+  background: #dbe4ef;
 }
 
 .nav-child {
-  padding: 8px 10px;
+  min-height: 34px;
+  padding: 7px 10px;
   font-size: 13px;
-  color: #64748b;
+  color: #52637a;
+  font-weight: 700;
+}
+
+.nav-child.active {
+  box-shadow: none;
 }
 </style>

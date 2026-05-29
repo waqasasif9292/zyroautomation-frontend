@@ -204,7 +204,7 @@
                 </div>
                 <div class="row-actions">
                   <button class="btn-cancel" type="button" @click="editLeopardAddress(address)">Edit</button>
-                  <button class="btn-danger" type="button" @click="deleteLeopardAddress(address)">Delete</button>
+                  <button v-if="canDeleteRecords" class="btn-danger" type="button" @click="deleteLeopardAddress(address)">Delete</button>
                 </div>
               </article>
             </div>
@@ -350,17 +350,6 @@
           </div>
         </div>
 
-        <!-- Team Tab -->
-        <div v-else-if="activeTab === 'team'" class="content-panel">
-          <div class="panel-header">
-            <h2 class="panel-title">Team</h2>
-            <p class="panel-subtitle">Invite and manage your team members.</p>
-          </div>
-          <div class="panel-body empty-state">
-            <p>Team settings coming soon.</p>
-          </div>
-        </div>
-
         <!-- Security Tab -->
         <div v-else-if="activeTab === 'security'" class="content-panel">
           <div class="panel-header">
@@ -418,7 +407,8 @@ import SettingsService from '../../services/SettingsService';
 const router    = useRouter();
 const route     = useRoute();
 const authStore = useAuthStore();
-const activeTab = ref(route.query.tab || 'profile');
+const routeActiveTab = () => route.meta.settingsTab || route.query.tab || 'profile';
+const activeTab = ref(routeActiveTab());
 
 const handleNavClick = (key) => {
   activeTab.value = key;
@@ -428,6 +418,7 @@ const saving = ref(false);
 const successMsg = ref('');
 const errorMsg = ref('');
 const errors = reactive({});
+const canDeleteRecords = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const leopardLoading = ref(false);
 const leopardSaving = ref(false);
 const leopardFormOpen = ref(false);
@@ -486,7 +477,7 @@ const fallbackStatusCategories = [
   { key: 'duplicate', label: 'Duplicate' },
   { key: 'error', label: 'Error' },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse' },
-  { key: 'dispatched', label: 'Dispatched' },
+  { key: 'dispatched', label: 'In Transit' },
   { key: 'out_for_delivery', label: 'Out For Delivery' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'ready_for_return', label: 'Ready For Return' },
@@ -530,8 +521,21 @@ const loadFromStore = () => {
 loadFromStore();
 
 watch(() => authStore.user, loadFromStore);
+watch(() => [route.meta.settingsTab, route.query.tab], () => {
+  if (route.query.tab === 'statuses' && route.path === '/settings') {
+    router.replace('/settings/statuses');
+    return;
+  }
+
+  activeTab.value = routeActiveTab();
+});
 
 onMounted(async () => {
+  if (route.query.tab === 'statuses' && route.path === '/settings') {
+    await router.replace('/settings/statuses');
+    return;
+  }
+
   await Promise.all([loadLeopardData(), loadParcelStatuses()]);
   hydrateLeopardEditorFromQuery();
 });
@@ -683,6 +687,7 @@ const saveLeopardAddress = async () => {
 };
 
 const deleteLeopardAddress = async (address) => {
+  if (!canDeleteRecords.value) return;
   leopardDeleteTarget.value = address;
   leopardDeleteDialogOpen.value = true;
 };
@@ -865,11 +870,11 @@ const saveStatuses = async () => {
 .settings-body {
   display: flex;
   flex: 1;
-  max-width: 1100px;
+  max-width: none;
   width: 100%;
-  margin: 40px auto;
+  margin: 28px 0;
   padding: 0 28px;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
 }
 

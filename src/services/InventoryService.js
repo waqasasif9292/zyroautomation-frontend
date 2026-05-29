@@ -13,6 +13,12 @@ const InventoryService = {
   adjustProduct(productId, payload) {
     return axiosInstance.post(`/inventory/products/${productId}/adjust`, payload);
   },
+  reconcileUnbatched(productId) {
+    return axiosInstance.post(`/inventory/products/${productId}/reconcile-unbatched`);
+  },
+  updateBatch(batchId, payload) {
+    return axiosInstance.put(`/inventory/batches/${batchId}`, payload);
+  },
 };
 
 export default InventoryService;

@@ -148,9 +148,9 @@ const handleChangePassword = async () => {
 .settings-body {
   display: flex;
   align-items: flex-start;
-  gap: 32px;
+  gap: 24px;
   width: 100%;
-  max-width: 1100px;
+  max-width: none;
   margin: 0 auto;
   padding: 40px 28px;
 }

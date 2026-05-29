@@ -16,7 +16,7 @@
           <span class="nav-icon" v-html="item.icon"></span>
           <span>{{ item.label }}</span>
         </button>
-        <div v-if="item.children && isActive(item)" class="nav-submenu">
+        <div v-if="item.children?.length && isActive(item)" class="nav-submenu">
           <button
             v-for="child in item.children"
             :key="child.key"
@@ -55,6 +55,7 @@
 import { computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
+import { permissionForPath } from '../constants/sidebarPermissions';
 
 const router    = useRouter();
 const route     = useRoute();
@@ -81,7 +82,18 @@ const handleLogout = async () => {
   await authStore.logout();
 };
 
-const navItems = [
+const isTeamAdmin = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const hasPermission = (item) => {
+  const permission = permissionForPath(item.to);
+  return !permission || isTeamAdmin.value || authStore.user?.team_permissions?.includes(permission);
+};
+
+const filterChildren = (children = []) => children.filter(child => {
+  if (child.adminOnly && !isTeamAdmin.value) return false;
+  return hasPermission(child);
+});
+
+const baseNavItems = [
   {
     key: 'dashboard',
     label: 'Dashboard',
@@ -93,6 +105,12 @@ const navItems = [
     label: 'Orders',
     to: '/orders',
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+  },
+  {
+    key: 'abandoned-orders',
+    label: 'Abandoned Orders',
+    to: '/abandoned-orders',
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M10 15h4"/><path d="M12 13v4"/></svg>`,
   },
   {
     key: 'customers',
@@ -129,6 +147,12 @@ const navItems = [
         label: 'Packed',
         to: '/packing-logs/packed',
         icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+      },
+      {
+        key: 'packing-products',
+        label: 'Pending Products',
+        to: '/packing-logs/products',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7.5 12 3 4 7.5l8 4.5 8-4.5Z"/><path d="M4 7.5v9L12 21l8-4.5v-9"/><path d="M12 12v9"/></svg>`,
       },
     ],
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7.5 12 3 4 7.5l8 4.5 8-4.5Z"/><path d="M4 7.5v9L12 21l8-4.5v-9"/><path d="M12 12v9"/><path d="m8 5.25 8 4.5"/></svg>`,
@@ -235,13 +259,50 @@ const navItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h.01"/><path d="M11 15h2"/><path d="M17 9h.01"/><path d="M7 9h6"/></svg>`,
   },
   {
+    key: 'vendors',
+    label: 'Vendors',
+    to: '/vendors',
+    activePaths: ['/vendors'],
+    children: [
+      {
+        key: 'vendors-list',
+        label: 'Vendors',
+        to: '/vendors',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>`,
+      },
+      {
+        key: 'vendor-invoices',
+        label: 'Invoices',
+        to: '/vendors/invoices',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8z"/><path d="M14 2v6h6"/></svg>`,
+      },
+      {
+        key: 'vendor-bilties',
+        label: 'Bilties',
+        to: '/vendors/bilties',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M14 17h1V9h4l3 4v4h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+      },
+      {
+        key: 'vendor-receipts',
+        label: 'Stock Receipts',
+        to: '/vendors/stock-receipts',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7.5 12 3 4 7.5l8 4.5 8-4.5Z"/><path d="M4 7.5v9L12 21l8-4.5v-9"/><path d="m9 14 2 2 4-5"/></svg>`,
+      },
+    ],
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M14 17h1V9h4l3 4v4h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+  },
+  {
     key: 'settings',
     label: 'Settings',
     to: '/settings',
-    activePaths: ['/settings', '/brands', '/integrations'],
+    activePaths: ['/settings', '/brands', '/integrations', '/leopard-pickup-addresses'],
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>`,
   },
 ];
+
+const navItems = computed(() => baseNavItems
+  .filter(item => hasPermission(item))
+  .map(item => ({ ...item, children: filterChildren(item.children) })));
 </script>
 
 <style scoped>

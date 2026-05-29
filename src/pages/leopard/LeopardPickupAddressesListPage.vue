@@ -79,6 +79,7 @@
                           </svg>
                         </button>
                         <button
+                          v-if="canDeleteRecords"
                           type="button"
                           class="icon-btn danger"
                           title="Delete pickup address"
@@ -120,15 +121,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
+import { useAuthStore } from '../../stores/authStore';
 import LeopardService from '../../services/LeopardService';
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 const loading = ref(false);
 const deleteLoading = ref(false);
@@ -137,6 +140,7 @@ const deleteTarget = ref(null);
 const addresses = ref([]);
 const toast = ref('');
 const errorMessage = ref('');
+const canDeleteRecords = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 
 const showToast = (msg) => {
   toast.value = msg;
@@ -158,6 +162,7 @@ const loadAddresses = async () => {
 };
 
 const openDeleteDialog = (address) => {
+  if (!canDeleteRecords.value) return;
   deleteTarget.value = address;
   deleteDialogOpen.value = true;
 };
@@ -204,11 +209,11 @@ onMounted(async () => {
 .page-body {
   display: flex;
   flex: 1;
-  max-width: 1100px;
+  max-width: none;
   width: 100%;
-  margin: 40px auto;
+  margin: 28px 0;
   padding: 0 28px;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
 }
 

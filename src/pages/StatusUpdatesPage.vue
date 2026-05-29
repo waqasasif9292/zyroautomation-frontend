@@ -49,8 +49,15 @@
               @keydown.enter="applyFilters"
             >
 
-            <input v-model="draftFilters.date_from" class="filter-control" type="date">
-            <input v-model="draftFilters.date_to" class="filter-control" type="date">
+            <label class="date-filter-control" :class="{ 'has-value': draftFilters.date_from }">
+              <input v-model="draftFilters.date_from" class="filter-control" type="date" aria-label="Date From">
+              <span class="date-filter-placeholder">Date From</span>
+            </label>
+
+            <label class="date-filter-control" :class="{ 'has-value': draftFilters.date_to }">
+              <input v-model="draftFilters.date_to" class="filter-control" type="date" aria-label="Date To">
+              <span class="date-filter-placeholder">Date To</span>
+            </label>
 
             <select v-model="draftFilters.brand_id" class="filter-control">
               <option value="">Select Shipper</option>
@@ -70,12 +77,10 @@
             </select>
 
             <select v-model="draftFilters.sort" class="filter-control">
-              <option value="created_id_desc">DESC</option>
-              <option value="created_id_asc">ASC</option>
-              <option value="shopify_created_at_desc">Date DESC</option>
-              <option value="shopify_created_at_asc">Date ASC</option>
-              <option value="status_updated_at_desc">Status Updated DESC</option>
-              <option value="status_updated_at_asc">Status Updated ASC</option>
+              <option value="created_id_desc">Newest First</option>
+              <option value="created_id_asc">Oldest First</option>
+              <option value="status_updated_at_desc">Status Updated: Newest First</option>
+              <option value="status_updated_at_asc">Status Updated: Oldest First</option>
             </select>
 
             <div class="filter-actions">
@@ -435,6 +440,35 @@ onMounted(async () => {
 
 .filter-control::placeholder {
   color: #94a3b8;
+}
+
+.date-filter-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.date-filter-control .filter-control {
+  padding-right: 36px;
+}
+
+.date-filter-control:not(.has-value):not(:focus-within) .filter-control::-webkit-datetime-edit {
+  color: transparent;
+}
+
+.date-filter-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: #8393aa;
+  font-size: 14px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.date-filter-control.has-value .date-filter-placeholder,
+.date-filter-control:focus-within .date-filter-placeholder {
+  display: none;
 }
 
 select.filter-control {

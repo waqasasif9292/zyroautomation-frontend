@@ -211,6 +211,7 @@
                   <th>SKU</th>
                   <th>Orders</th>
                   <th>Quantity</th>
+                  <th>Cost Source</th>
                   <th>Unit Cost</th>
                   <th>Total Cost</th>
                 </tr>
@@ -225,11 +226,16 @@
                   <td>{{ product.sku || '-' }}</td>
                   <td>{{ number(product.order_count) }}</td>
                   <td>{{ number(product.quantity) }}</td>
+                  <td>
+                    <span class="source-badge" :class="product.cost_source === 'inventory' ? 'inventory' : 'manual'">
+                      {{ product.cost_source === 'inventory' ? 'Inventory' : 'Manual' }}
+                    </span>
+                  </td>
                   <td>{{ money(product.unit_cost) }}</td>
                   <td>{{ money(product.total_cost) }}</td>
                 </tr>
                 <tr v-if="!report.products.length">
-                  <td colspan="7">No product rows saved.</td>
+                  <td colspan="8">No product rows saved.</td>
                 </tr>
               </tbody>
             </table>
@@ -619,7 +625,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 900px;
+  min-width: 980px;
   border-collapse: collapse;
 }
 
@@ -647,6 +653,26 @@ td small {
 td .product-name {
   color: #0f172a;
   font-weight: 600;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.source-badge.inventory {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.source-badge.manual {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .expense-grid,

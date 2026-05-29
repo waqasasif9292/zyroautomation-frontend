@@ -9,17 +9,25 @@
         @keydown.enter="applyFilters"
       >
 
-      <input
-        v-model="draft.date_from"
-        class="filter-control"
-        type="date"
-      >
+      <label class="date-filter-control" :class="{ 'has-value': draft.date_from }">
+        <input
+          v-model="draft.date_from"
+          class="filter-control"
+          type="date"
+          aria-label="Date From"
+        >
+        <span class="date-filter-placeholder">Date From</span>
+      </label>
 
-      <input
-        v-model="draft.date_to"
-        class="filter-control"
-        type="date"
-      >
+      <label class="date-filter-control" :class="{ 'has-value': draft.date_to }">
+        <input
+          v-model="draft.date_to"
+          class="filter-control"
+          type="date"
+          aria-label="Date To"
+        >
+        <span class="date-filter-placeholder">Date To</span>
+      </label>
 
       <select v-model="draft.status" class="filter-control">
         <option value="">Select Status</option>
@@ -29,7 +37,7 @@
         <option value="cancel_by_shipper">Cancel by Shipper</option>
         <option value="error">Error</option>
         <option value="merchant_warehouse">Merchant Warehouse</option>
-        <option value="dispatched">Dispatched</option>
+        <option value="dispatched">In Transit</option>
         <option value="out_for_delivery">Out For Delivery</option>
         <option value="delivered">Delivered</option>
         <option value="ready_for_return">Ready For Return</option>
@@ -54,10 +62,8 @@
       </select>
 
       <select v-model="draft.sort" class="filter-control">
-        <option value="created_id_desc">DESC</option>
-        <option value="created_id_asc">ASC</option>
-        <option value="shopify_created_at_desc">Date DESC</option>
-        <option value="shopify_created_at_asc">Date ASC</option>
+        <option value="created_id_desc">Newest First</option>
+        <option value="created_id_asc">Oldest First</option>
       </select>
 
       <div class="filter-actions">
@@ -176,6 +182,35 @@ const clearFilters = () => {
 
 .filter-control::placeholder {
   color: #94a3b8;
+}
+
+.date-filter-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.date-filter-control .filter-control {
+  padding-right: 36px;
+}
+
+.date-filter-control:not(.has-value):not(:focus-within) .filter-control::-webkit-datetime-edit {
+  color: transparent;
+}
+
+.date-filter-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: #8393aa;
+  font-size: 14px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.date-filter-control.has-value .date-filter-placeholder,
+.date-filter-control:focus-within .date-filter-placeholder {
+  display: none;
 }
 
 select.filter-control {

@@ -1,8 +1,8 @@
 <template>
   <div class="webhook-section">
-    <label class="form-label">Shopify Webhook URL</label>
+    <label class="form-label">{{ label }}</label>
     <p class="form-sublabel">
-      Paste this URL into your Shopify webhook settings to receive order events for this brand.
+      {{ description }}
     </p>
 
     <div class="url-box">
@@ -12,8 +12,8 @@
       </button>
     </div>
 
-    <button type="button" class="regen-link" @click="$emit('requestRegenerate')">
-      Regenerate webhook URL
+    <button v-if="canRegenerate" type="button" class="regen-link" @click="$emit('requestRegenerate')">
+      {{ regenerateLabel }}
     </button>
   </div>
 </template>
@@ -23,6 +23,13 @@ import { ref } from 'vue';
 
 const props = defineProps({
   webhookUrl: { type: String, required: true },
+  label: { type: String, default: 'Shopify Orders Webhook URL' },
+  description: {
+    type: String,
+    default: 'Paste this URL into your Shopify webhook settings to receive order events for this brand.',
+  },
+  regenerateLabel: { type: String, default: 'Regenerate orders webhook URL' },
+  canRegenerate: { type: Boolean, default: true },
 });
 
 defineEmits(['requestRegenerate']);

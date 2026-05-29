@@ -43,7 +43,7 @@
           </div>
         </section>
 
-        <section class="form-section">
+        <section class="form-section product-section">
           <h2>Products & Costs</h2>
           <Field label="Products" :error="errors.product_ids">
             <div class="multi-select" @focusout="handleProductsBlur">
@@ -58,7 +58,7 @@
                   <input v-model="form.product_ids" type="checkbox" :value="product.id">
                   <span>
                     <strong>{{ product.name }}</strong>
-                    <small>Cost: {{ money(product.cost) }}</small>
+                    <small>Base: {{ money(product.cost) }} · Inventory: {{ money(product.inventory_cost) }}</small>
                   </span>
                 </label>
                 <p v-if="!options.products.length" class="empty-products">No products found.</p>
@@ -69,7 +69,34 @@
             <article v-for="product in selectedProducts" :key="product.id" class="selected-product-card">
               <div>
                 <h3>{{ product.name }}</h3>
-                <p>Set product cost for this calculation.</p>
+                <p>Choose inventory allocation cost or enter a manual unit cost.</p>
+                <p v-if="productCostSource(product.id) === 'inventory' && needsReconcile(product)" class="warning-text">
+                  {{ number(product.unbatched_allocation_quantity) }} unit(s) need reconcile in Inventory. Until then, those orders use base product cost.
+                </p>
+              </div>
+              <div class="cost-source-control">
+                <label class="radio-option">
+                  <input
+                    :checked="productCostSource(product.id) === 'inventory'"
+                    type="radio"
+                    :name="`cost-source-${product.id}`"
+                    value="inventory"
+                    @change="setProductCostSource(product, 'inventory')"
+                  >
+                  <span>Inventory</span>
+                  <small>{{ money(product.inventory_cost) }}</small>
+                </label>
+                <label class="radio-option">
+                  <input
+                    :checked="productCostSource(product.id) === 'manual'"
+                    type="radio"
+                    :name="`cost-source-${product.id}`"
+                    value="manual"
+                    @change="setProductCostSource(product, 'manual')"
+                  >
+                  <span>Manual</span>
+                  <small>Custom</small>
+                </label>
               </div>
               <label>
                 <span>Product Cost</span>
@@ -78,6 +105,7 @@
                   type="number"
                   min="0"
                   step="0.01"
+                  :disabled="productCostSource(product.id) === 'inventory'"
                   :value="productCostValue(product.id)"
                   @input="setProductCost(product.id, $event.target.value)"
                 >
@@ -86,6 +114,12 @@
           </div>
           <div class="form-grid">
             <NumberField v-model="form.packing_cost" label="Packing Cost Per Order" :error="errors.packing_cost" />
+          </div>
+        </section>
+
+        <section class="form-section ads-section">
+          <h2>Ads Values</h2>
+          <div class="form-grid two-col">
             <NumberField v-model="form.total_ad_spend" label="Total Ad Spend" :error="errors.total_ad_spend" />
             <NumberField v-model="form.ads_tax_percentage" label="Ad Tax %" :error="errors.ads_tax_percentage" max="100" />
           </div>
@@ -209,6 +243,7 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel']);
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
+const number = (value) => Number(value || 0).toLocaleString();
 const productsOpen = ref(false);
 
 const today = new Date().toISOString().slice(0, 10);
@@ -222,6 +257,7 @@ const form = reactive({
   courier_integration_id: '',
   product_ids: [],
   product_costs: {},
+  product_cost_sources: {},
   packing_cost: 0,
   total_ad_spend: 0,
   ads_tax_percentage: 8,
@@ -234,6 +270,13 @@ const normalizeProductCosts = (products = []) => {
   return Object.fromEntries((products || []).map(product => [
     product.product_id,
     Number(product.product_cost || 0),
+  ]));
+};
+
+const normalizeProductCostSources = (products = []) => {
+  return Object.fromEntries((products || []).map(product => [
+    product.product_id,
+    product.cost_source || 'manual',
   ]));
 };
 
@@ -277,6 +320,7 @@ watch(() => props.initialCalculation, (calculation) => {
     courier_integration_id: calculation.courier_integration_id || '',
     product_ids: calculation.product_ids || [],
     product_costs: normalizeProductCosts(calculation.products),
+    product_cost_sources: normalizeProductCostSources(calculation.products),
     packing_cost: Number(calculation.packing_cost || 0),
     total_ad_spend: Number(calculation.total_ad_spend || 0),
     ads_tax_percentage: Number(calculation.ads_tax_percentage ?? 8),
@@ -295,13 +339,18 @@ watch(() => form.product_ids.slice(), (ids) => {
   ids.forEach((id) => {
     if (form.product_costs[id] === undefined) {
       const product = props.options.products.find(item => item.id === id);
-      form.product_costs[id] = Number(product?.cost || 0);
+      form.product_cost_sources[id] = 'inventory';
+      form.product_costs[id] = Number(product?.inventory_cost ?? product?.cost ?? 0);
+    }
+    if (form.product_cost_sources[id] === undefined) {
+      form.product_cost_sources[id] = 'inventory';
     }
   });
 
   Object.keys(form.product_costs).forEach((id) => {
     if (!ids.includes(id)) {
       delete form.product_costs[id];
+      delete form.product_cost_sources[id];
     }
   });
 });
@@ -316,6 +365,7 @@ const submit = () => emit('submit', {
   products: form.product_ids.map(id => ({
     product_id: id,
     product_cost: Number(form.product_costs[id] || 0),
+    cost_source: productCostSource(id),
   })),
   packing_cost: form.packing_cost,
   total_ad_spend: form.total_ad_spend,
@@ -339,10 +389,20 @@ const visibleCouriers = computed(() => {
 });
 
 const productCostValue = (id) => Number(form.product_costs[id] || 0);
+const productCostSource = (id) => form.product_cost_sources[id] || 'inventory';
 
 const setProductCost = (id, value) => {
   form.product_costs[id] = Number(value || 0);
 };
+
+const setProductCostSource = (product, source) => {
+  form.product_cost_sources[product.id] = source;
+  if (source === 'inventory') {
+    form.product_costs[product.id] = Number(product.inventory_cost ?? product.cost ?? 0);
+  }
+};
+
+const needsReconcile = (product) => Number(product.unbatched_allocation_quantity || 0) > 0;
 
 const courierTaxValue = (id) => Number(form.courier_taxes[id] ?? 4);
 
@@ -467,6 +527,10 @@ const handleProductsBlur = (event) => {
   row-gap: 18px;
 }
 
+.form-grid.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .form-group {
   display: grid;
   gap: 6px;
@@ -500,6 +564,12 @@ const handleProductsBlur = (event) => {
   outline: none;
   border-color: #1e293b;
   box-shadow: none;
+}
+
+:deep(.form-input:disabled) {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .multi-select {
@@ -606,7 +676,17 @@ const handleProductsBlur = (event) => {
   background: #fbfdff;
 }
 
-.selected-product-card,
+.selected-product-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px 220px;
+  gap: 16px;
+  align-items: end;
+  border: 1px solid #d5e0ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px 14px;
+}
+
 .courier-tax-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 220px;
@@ -636,6 +716,67 @@ const handleProductsBlur = (event) => {
   margin: 4px 0 0;
   color: #64748b;
   font-size: 13px;
+}
+
+.selected-product-card .warning-text {
+  display: inline-flex;
+  margin-top: 8px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cost-source-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.radio-option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-height: 58px;
+  border: 1px solid #d5e0ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.radio-option:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.radio-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: #1e293b;
+}
+
+.radio-option span,
+.radio-option small {
+  display: block;
+  min-width: 0;
+}
+
+.radio-option span {
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.radio-option small {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .selected-product-card label,
@@ -717,6 +858,7 @@ const handleProductsBlur = (event) => {
 
 @media (max-width: 950px) {
   .form-grid,
+  .form-grid.two-col,
   .selected-product-card,
   .courier-tax-card,
   .expense-row {

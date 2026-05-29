@@ -8,7 +8,8 @@
           <th v-if="isVisible('brand')" class="col-brand">Brand</th>
           <th v-if="isVisible('source')" class="col-source">Source</th>
           <th v-if="isVisible('tracking')" class="col-tracking">Tracking</th>
-          <th v-if="isVisible('customer')" class="col-customer">Customer</th>
+          <th v-if="isVisible('created_by')" class="col-created-by">Created By</th>
+          <th v-if="isVisible('customer')" class="col-customer">Customer Name</th>
           <th v-if="isVisible('phone')" class="col-phone">Phone</th>
           <th v-if="isVisible('city')" class="col-city">City</th>
           <th v-if="isVisible('status')" class="col-status">Status</th>
@@ -45,6 +46,12 @@
               {{ order.tracking_number }}
             </button>
             <span v-else class="tracking-empty">—</span>
+          </td>
+          <td v-if="isVisible('created_by')">
+            <div class="strong">{{ order.created_by?.name || '—' }}</div>
+            <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
+              Last: {{ order.last_saved_by.name }}
+            </div>
           </td>
           <td v-if="isVisible('customer')">
             <div class="strong">{{ order.customer?.name || '—' }}</div>
@@ -83,7 +90,7 @@
                   <path d="m15 9-6 6" />
                 </svg>
               </button>
-              <button class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
+              <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 7h16" />
                   <path d="M10 11v6" />
@@ -103,6 +110,7 @@
 <script setup>
 import { computed } from 'vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
+import { useAuthStore } from '../../stores/authStore';
 
 const props = defineProps({
   orders: {
@@ -125,10 +133,12 @@ const props = defineProps({
 
 defineEmits(['view', 'edit', 'delete', 'track', 'cancel']);
 
+const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
 const visibleColumnSet = computed(() => new Set([...props.visibleColumns, ...lockedColumns]));
 const isVisible = column => visibleColumnSet.value.has(column);
 const visibleColumnCount = computed(() => visibleColumnSet.value.size);
+const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
 const statusText = (status) => {
@@ -139,12 +149,13 @@ const statusText = (status) => {
   }
   return '';
 };
-const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
+const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'error', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
 const canCancel = (order) => {
   const hasTrackingNumber = String(order.tracking_number || '').trim() !== '';
   const isCancelledByShipper = statusText(order.status).toLowerCase() === 'cancel by shipper';
+  const isMerchantWarehouse = order.status_category === 'merchant_warehouse';
 
-  return !hasTrackingNumber && !isCancelledByShipper;
+  return canManageDestructiveActions.value && (!hasTrackingNumber || isMerchantWarehouse) && !isCancelledByShipper;
 };
 const formatDate = (value) => {
   if (!value) return '—';
@@ -172,7 +183,7 @@ const formatDate = (value) => {
 
 .orders-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1200px;
   border-collapse: collapse;
   table-layout: auto;
 }
@@ -214,6 +225,7 @@ td {
 .col-brand { width: 132px; }
 .col-source { width: 112px; }
 .col-tracking { width: 112px; }
+.col-created-by { width: 138px; }
 .col-customer { width: 150px; }
 .col-phone { width: 132px; }
 .col-city { width: 132px; }

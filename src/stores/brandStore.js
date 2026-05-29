@@ -60,6 +60,19 @@ export const useBrandStore = defineStore('brand', () => {
     }
   };
 
+  const regenerateAbandonedWebhook = async (id) => {
+    formLoading.value = true;
+    try {
+      const res = await BrandService.regenerateAbandonedWebhook(id);
+      const updated = res.data.data.brand;
+      const idx = brands.value.findIndex(b => b.id === id);
+      if (idx !== -1) brands.value[idx] = updated;
+      return updated;
+    } finally {
+      formLoading.value = false;
+    }
+  };
+
   const fetchCustomSources = async () => {
     const res = await BrandService.getCustomSources();
     return res.data.data.custom_sources;
@@ -74,6 +87,7 @@ export const useBrandStore = defineStore('brand', () => {
     createBrand,
     updateBrand,
     regenerateWebhook,
+    regenerateAbandonedWebhook,
     fetchCustomSources,
   };
 });

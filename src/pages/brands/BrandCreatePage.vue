@@ -180,11 +180,11 @@ const handleSubmit = async () => {
 .page-body {
   display: flex;
   flex: 1;
-  max-width: 1100px;
+  max-width: none;
   width: 100%;
-  margin: 40px auto;
+  margin: 28px 0;
   padding: 0 28px;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
 }
 

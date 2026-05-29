@@ -168,8 +168,8 @@ const showColumnMenu = ref(false);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
-const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'customer', 'phone', 'status', 'total', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'customer', 'phone', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'city', 'status', 'total', 'payment', 'products', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumns = [
@@ -178,7 +178,8 @@ const orderTableColumns = [
   { key: 'brand', label: 'Brand' },
   { key: 'source', label: 'Source' },
   { key: 'tracking', label: 'Tracking' },
-  { key: 'customer', label: 'Customer' },
+  { key: 'created_by', label: 'Created By' },
+  { key: 'customer', label: 'Customer Name' },
   { key: 'phone', label: 'Phone Number' },
   { key: 'city', label: 'City' },
   { key: 'status', label: 'Status' },
