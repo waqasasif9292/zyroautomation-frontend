@@ -26,6 +26,7 @@
               v-else
               :integrations="integrations"
               :loading="loading"
+              :can-delete="canDeleteRecords"
               @edit="(id) => router.push(`/integrations/${id}/edit`)"
               @delete="openDeleteModal"
             />
@@ -51,7 +52,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -59,10 +60,12 @@ import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import IntegrationTable from '../../components/integrations/IntegrationTable.vue';
 import IntegrationEmptyState from '../../components/integrations/IntegrationEmptyState.vue';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
+import { useAuthStore } from '../../stores/authStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 const integrationStore = useIntegrationStore();
 const { integrations, loading } = storeToRefs(integrationStore);
 
@@ -70,6 +73,7 @@ const toast = ref('');
 const showDelete = ref(false);
 const deleteLoading = ref(false);
 const selectedIntegration = ref(null);
+const canDeleteRecords = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 
 const showToast = (message) => {
   toast.value = message;
@@ -79,6 +83,7 @@ const showToast = (message) => {
 };
 
 const openDeleteModal = (integration) => {
+  if (!canDeleteRecords.value) return;
   selectedIntegration.value = integration;
   showDelete.value = true;
 };
@@ -121,11 +126,11 @@ onMounted(async () => {
 .page-body {
   display: flex;
   flex: 1;
-  max-width: 1100px;
+  max-width: none;
   width: 100%;
-  margin: 40px auto;
+  margin: 28px 0;
   padding: 0 28px;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
 }
 

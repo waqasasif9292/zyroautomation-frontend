@@ -8,6 +8,9 @@
           <th>Name</th>
           <th>Sale Price</th>
           <th>Cost</th>
+          <th>Avg Cost</th>
+          <th>Latest Cost</th>
+          <th>Batches</th>
           <th>Available</th>
           <th>Booked</th>
           <th>Sold</th>
@@ -17,7 +20,7 @@
       <tbody>
         <template v-if="loading">
           <tr v-for="row in 5" :key="row">
-            <td v-for="col in 9" :key="col"><span class="skeleton"></span></td>
+            <td v-for="col in 12" :key="col"><span class="skeleton"></span></td>
           </tr>
         </template>
         <tr v-else v-for="(product, index) in products" :key="product.id">
@@ -37,6 +40,9 @@
           </td>
           <td class="money">{{ formatMoney(product.sale_price) }}</td>
           <td class="money">{{ formatMoney(product.cost) }}</td>
+          <td class="money">{{ formatMoney(product.average_purchase_cost) }}</td>
+          <td class="money">{{ formatMoney(product.latest_purchase_cost) }}</td>
+          <td class="stock">{{ formatStock(product.batch_count) }}</td>
           <td :class="stockClass(product.available_stock)">{{ formatStock(product.available_stock) }}</td>
           <td>{{ formatStock(product.booked_stock) }}</td>
           <td>{{ formatStock(product.sold_stock) }}</td>

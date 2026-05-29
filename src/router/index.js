@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
+import { permissionForPath } from '../constants/sidebarPermissions';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -9,10 +10,21 @@ const routes = [
   { path: '/reset-password', component: () => import('../pages/ResetPasswordPage.vue'), meta: { requiresGuest: true } },
   { path: '/dashboard', component: () => import('../pages/DashboardPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/statuses', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true, settingsTab: 'statuses' } },
   { path: '/settings/whatsapp', component: () => import('../pages/settings/WhatsAppAutomationPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/billing', component: () => import('../pages/settings/BillingPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/activity-logs', component: () => import('../pages/settings/ActivityLogsPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/security', component: () => import('../pages/settings/SecurityPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/team-members', component: () => import('../pages/settings/TeamMembersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/team-members/create', component: () => import('../pages/settings/TeamMemberFormPage.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/team-members/:id/edit', component: () => import('../pages/settings/TeamMemberFormPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders', component: () => import('../pages/OrdersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/abandoned-orders', component: () => import('../pages/AbandonedOrdersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/vendors', component: () => import('../pages/vendors/VendorsListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/vendors/invoices', component: () => import('../pages/vendors/InvoicesListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/vendors/bilties', component: () => import('../pages/vendors/BiltiesListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/vendors/stock-receipts', component: () => import('../pages/vendors/StockReceiptsListPage.vue'), meta: { requiresAuth: true } },
+  { path: '/vendors/:id', component: () => import('../pages/vendors/VendorDetailPage.vue'), meta: { requiresAuth: true } },
   { path: '/status-updates', component: () => import('../pages/StatusUpdatesPage.vue'), meta: { requiresAuth: true } },
   { path: '/status-updates/fetch/:courierSlug', component: () => import('../pages/StatusUpdateFetchPage.vue'), meta: { requiresAuth: true } },
   { path: '/delivery-charges', component: () => import('../pages/DeliveryChargesPage.vue'), meta: { requiresAuth: true } },
@@ -20,6 +32,7 @@ const routes = [
   { path: '/packing-logs', redirect: '/packing-logs/pending' },
   { path: '/packing-logs/pending', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'pending' } },
   { path: '/packing-logs/packed', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'packed' } },
+  { path: '/packing-logs/products', component: () => import('../pages/PackingProductsPage.vue'), meta: { requiresAuth: true } },
   { path: '/returns', redirect: '/returns/pending' },
   { path: '/returns/pending', component: () => import('../pages/ReturnManagementPage.vue'), meta: { requiresAuth: true, returnView: 'pending' } },
   { path: '/returns/received', component: () => import('../pages/ReturnManagementPage.vue'), meta: { requiresAuth: true, returnView: 'received' } },
@@ -65,7 +78,7 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
   if (!authStore.isAuthenticated) {
@@ -76,7 +89,26 @@ router.beforeEach((to, from, next) => {
     return next('/login');
   }
 
+  if (to.meta.requiresAuth && authStore.isAuthenticated && !authStore.user) {
+    try {
+      await authStore.fetchUser();
+    } catch (error) {
+      return next('/login');
+    }
+  }
+
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
+    return next('/dashboard');
+  }
+
+  const user = authStore.user;
+  const isAdmin = ['admin', 'owner'].includes(user?.team_role || 'admin');
+  if (to.meta.adminOnly && !isAdmin) {
+    return next('/dashboard');
+  }
+
+  const requiredPermission = to.meta.requiresAuth ? permissionForPath(to.path) : null;
+  if (requiredPermission && !isAdmin && !user?.team_permissions?.includes(requiredPermission)) {
     return next('/dashboard');
   }
 

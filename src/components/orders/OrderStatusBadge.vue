@@ -30,7 +30,7 @@ const labels = {
   partially_paid: 'Partially paid',
   partially_refunded: 'Partially refunded',
   merchant_warehouse: 'Merchant Warehouse',
-  dispatched: 'Dispatched',
+  dispatched: 'In Transit',
   out_for_delivery: 'Out For Delivery',
   delivered: 'Delivered',
   ready_for_return: 'Ready For Return',

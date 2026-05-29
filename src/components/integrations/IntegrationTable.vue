@@ -50,7 +50,7 @@
               <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
             </svg>
           </button>
-          <button class="icon-btn delete" @click="$emit('delete', integration)">
+          <button v-if="canDelete" class="icon-btn delete" @click="$emit('delete', integration)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6" />
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
@@ -72,6 +72,7 @@ import { getCourierBySlug } from '../../constants/couriers';
 defineProps({
   integrations: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
+  canDelete: { type: Boolean, default: true },
 });
 
 const hasOptions = (options) => {

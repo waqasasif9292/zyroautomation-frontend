@@ -16,6 +16,9 @@ const BrandService = {
   regenerateWebhook(id) {
     return axiosInstance.post(`/brands/${id}/webhook/regenerate`);
   },
+  regenerateAbandonedWebhook(id) {
+    return axiosInstance.post(`/brands/${id}/webhook/abandoned/regenerate`);
+  },
   getCustomSources() {
     return axiosInstance.get('/user/custom-sources');
   },

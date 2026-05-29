@@ -200,18 +200,21 @@ onMounted(loadBilling);
 
 <style scoped>
 .settings-wrapper {
-  min-height: 100vh;
-  background: #f1f5f9;
+  background: #f9fafb;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 
 .settings-body {
   display: flex;
+  flex: 1;
   align-items: flex-start;
-  gap: 32px;
+  gap: 24px;
   width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 40px 28px;
+  max-width: none;
+  margin: 28px 0;
+  padding: 0 28px;
 }
 
 .billing-content {

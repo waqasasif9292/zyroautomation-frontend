@@ -102,23 +102,60 @@
                     <th>SKU</th>
                     <th>Orders</th>
                     <th>Quantity</th>
+                    <th>Cost Source</th>
                     <th>Unit Cost</th>
                     <th>Total Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="!products.length">
-                    <td colspan="7">No products found for these filters.</td>
+                    <td colspan="8">No products found for these filters.</td>
                   </tr>
                   <tr v-for="(product, index) in products" :key="product.key">
                     <td>{{ index + 1 }}</td>
                     <td>
                       <span class="product-name">{{ product.name }}</span>
                       <small v-if="product.variant_id">Variant: {{ product.variant_id }}</small>
+                      <small v-if="product.product_id">
+                        Base: {{ money(product.default_cost) }} · Inventory: {{ money(product.inventory_cost) }}
+                      </small>
+                      <small
+                        v-if="productCostSource(product.key) === 'inventory' && Number(product.unbatched_allocation_quantity || 0) > 0"
+                        class="warning-text"
+                      >
+                        {{ number(product.unbatched_allocation_quantity) }} unit(s) need reconcile in Inventory. Until then, those orders use base product cost.
+                      </small>
                     </td>
                     <td>{{ product.sku || '-' }}</td>
                     <td>{{ number(product.order_count) }}</td>
                     <td>{{ number(product.quantity) }}</td>
+                    <td>
+                      <div v-if="product.product_id" class="cost-source-control">
+                        <label class="radio-option">
+                          <input
+                            :checked="productCostSource(product.key) === 'inventory'"
+                            type="radio"
+                            :name="`overall-cost-source-${product.key}`"
+                            value="inventory"
+                            @change="setProductCostSource(product, 'inventory')"
+                          >
+                          <span>Inventory</span>
+                          <small>{{ money(product.inventory_cost) }}</small>
+                        </label>
+                        <label class="radio-option">
+                          <input
+                            :checked="productCostSource(product.key) === 'manual'"
+                            type="radio"
+                            :name="`overall-cost-source-${product.key}`"
+                            value="manual"
+                            @change="setProductCostSource(product, 'manual')"
+                          >
+                          <span>Manual</span>
+                          <small>Editable</small>
+                        </label>
+                      </div>
+                      <span v-else class="source-fallback">Manual</span>
+                    </td>
                     <td>
                       <input
                         v-model.number="productCosts[product.key]"
@@ -126,6 +163,7 @@
                         type="number"
                         min="0"
                         step="0.01"
+                        :disabled="productCostSource(product.key) === 'inventory'"
                       >
                     </td>
                     <td class="money-cell">{{ money(product.quantity * Number(productCosts[product.key] || 0)) }}</td>
@@ -276,6 +314,7 @@ const options = ref({ brands: [], couriers: [], sources: [] });
 const products = ref([]);
 const summary = ref({ orders_count: 0, products_count: 0, total_quantity: 0 });
 const productCosts = reactive({});
+const productCostSources = reactive({});
 const errors = reactive({});
 const filters = reactive({
   name: '',
@@ -323,6 +362,7 @@ const payload = computed(() => ({
     order_count: Number(product.order_count || 0),
     unit_cost: Number(productCosts[product.key] || 0),
     total_cost: Number(product.quantity || 0) * Number(productCosts[product.key] || 0),
+    cost_source: productCostSource(product.key),
   })),
   packing_cost: Number(costs.packing_cost || 0),
   total_ad_spend: Number(costs.total_ad_spend || 0),
@@ -397,6 +437,15 @@ const removeOneTimeExpense = (index) => {
 const expenseError = (index, field) => errors[`extra_expenses.${index}.${field}`] || '';
 const oneTimeExpenseError = (index, field) => errors[`one_time_expenses.${index}.${field}`] || '';
 
+const productCostSource = (key) => productCostSources[key] || 'inventory';
+
+const setProductCostSource = (product, source) => {
+  productCostSources[product.key] = source;
+  if (source === 'inventory') {
+    productCosts[product.key] = Number(product.inventory_cost ?? product.default_cost ?? 0);
+  }
+};
+
 const setErrors = (err) => {
   Object.keys(errors).forEach(key => delete errors[key]);
   const data = err.response?.data;
@@ -432,8 +481,13 @@ const goToProducts = async () => {
     products.value = res.data.data.products;
     summary.value = res.data.data.summary;
     Object.keys(productCosts).forEach(key => delete productCosts[key]);
+    Object.keys(productCostSources).forEach(key => delete productCostSources[key]);
     products.value.forEach((product) => {
-      productCosts[product.key] = Number(product.default_cost || 0);
+      const source = product.product_id ? (product.cost_source || 'inventory') : 'manual';
+      productCostSources[product.key] = source;
+      productCosts[product.key] = Number(source === 'inventory'
+        ? (product.inventory_cost ?? product.default_cost ?? 0)
+        : (product.unit_cost ?? product.default_cost ?? 0));
     });
     step.value = 2;
   } catch (err) {
@@ -477,7 +531,9 @@ const fillReport = (report) => {
   summary.value = report.summary || { orders_count: 0, products_count: 0, total_quantity: 0 };
   products.value = report.products || [];
   Object.keys(productCosts).forEach(key => delete productCosts[key]);
+  Object.keys(productCostSources).forEach(key => delete productCostSources[key]);
   products.value.forEach((product) => {
+    productCostSources[product.key] = product.cost_source || (product.product_id ? 'inventory' : 'manual');
     productCosts[product.key] = Number(product.unit_cost ?? product.default_cost ?? 0);
   });
   Object.assign(costs, {
@@ -783,7 +839,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 900px;
+  min-width: 1120px;
   border-collapse: collapse;
 }
 
@@ -817,6 +873,59 @@ td small {
   margin-top: 3px;
   color: #64748b;
   font-size: 12px;
+}
+
+td small.warning-text {
+  color: #92400e;
+  font-weight: 800;
+}
+
+.cost-input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.cost-source-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(95px, 1fr));
+  gap: 8px;
+}
+
+.radio-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 7px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 7px 8px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.radio-option small {
+  grid-column: 2;
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.source-fallback {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  padding: 0 10px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .money-cell {

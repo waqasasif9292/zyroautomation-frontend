@@ -94,7 +94,17 @@
           <!-- Webhook URL -->
           <WebhookUrlField
             :webhookUrl="currentWebhookUrl"
+            label="Shopify Orders Webhook URL"
+            description="Use this URL for Shopify order webhooks for this brand."
             @requestRegenerate="showRegenModal = true"
+          />
+
+          <WebhookUrlField
+            :webhookUrl="currentAbandonedWebhookUrl"
+            label="Abandoned Orders Webhook URL"
+            description="Use this URL for Shopify abandoned order webhooks for this brand."
+            regenerateLabel="Regenerate abandoned orders webhook URL"
+            @requestRegenerate="showAbandonedRegenModal = true"
           />
 
           <!-- Actions -->
@@ -123,16 +133,30 @@
 
     <ConfirmDialog
       :show="showRegenModal"
-      title="Regenerate Webhook URL?"
-      message="A new webhook URL will be created. Your existing Shopify webhook will stop working until you update it in Shopify."
+      title="Regenerate Orders Webhook URL?"
+      message="A new orders webhook URL will be created. Your existing Shopify order webhook will stop working until you update it in Shopify."
       :details="form.name"
       eyebrow="Webhook settings"
-      confirmText="Regenerate URL"
+      confirmText="Regenerate Orders URL"
       cancelText="Keep Current URL"
       variant="danger"
       :loading="regenLoading"
       @confirm="handleRegenerate"
       @cancel="showRegenModal = false"
+    />
+
+    <ConfirmDialog
+      :show="showAbandonedRegenModal"
+      title="Regenerate Abandoned Orders Webhook URL?"
+      message="A new abandoned orders webhook URL will be created. Your existing Shopify abandoned order webhook will stop working until you update it in Shopify."
+      :details="form.name"
+      eyebrow="Webhook settings"
+      confirmText="Regenerate Abandoned URL"
+      cancelText="Keep Current URL"
+      variant="danger"
+      :loading="abandonedRegenLoading"
+      @confirm="handleAbandonedRegenerate"
+      @cancel="showAbandonedRegenModal = false"
     />
   </AppLayout>
 </template>
@@ -157,8 +181,11 @@ const pageLoading       = ref(true);
 const notFound          = ref(false);
 const saving            = ref(false);
 const regenLoading      = ref(false);
+const abandonedRegenLoading = ref(false);
 const showRegenModal    = ref(false);
+const showAbandonedRegenModal = ref(false);
 const currentWebhookUrl = ref('');
+const currentAbandonedWebhookUrl = ref('');
 const customSources     = ref([]);
 const toast             = ref('');
 const errors            = reactive({});
@@ -191,6 +218,7 @@ onMounted(async () => {
     form.address        = brand.address || '';
     form.sources        = [...(brand.sources ?? [])];
     currentWebhookUrl.value = brand.webhook_url;
+    currentAbandonedWebhookUrl.value = brand.abandoned_webhook_url;
     customSources.value = brandCustomSources(brand.sources ?? []);
   } catch (err) {
     if (err.response?.status === 404) {
@@ -262,12 +290,28 @@ const handleRegenerate = async () => {
   try {
     const updated = await brandStore.regenerateWebhook(id);
     currentWebhookUrl.value = updated.webhook_url;
+    currentAbandonedWebhookUrl.value = updated.abandoned_webhook_url;
     showRegenModal.value    = false;
-    showToast('Webhook URL regenerated. Update your Shopify settings.');
+    showToast('Orders webhook URL regenerated. Update your Shopify settings.');
   } catch {
     showRegenModal.value = false;
   } finally {
     regenLoading.value = false;
+  }
+};
+
+const handleAbandonedRegenerate = async () => {
+  abandonedRegenLoading.value = true;
+  try {
+    const updated = await brandStore.regenerateAbandonedWebhook(id);
+    currentWebhookUrl.value = updated.webhook_url;
+    currentAbandonedWebhookUrl.value = updated.abandoned_webhook_url;
+    showAbandonedRegenModal.value = false;
+    showToast('Abandoned orders webhook URL regenerated. Update your Shopify settings.');
+  } catch {
+    showAbandonedRegenModal.value = false;
+  } finally {
+    abandonedRegenLoading.value = false;
   }
 };
 
@@ -277,11 +321,11 @@ const handleRegenerate = async () => {
 .page-body {
   display: flex;
   flex: 1;
-  max-width: 1100px;
+  max-width: none;
   width: 100%;
-  margin: 40px auto;
+  margin: 28px 0;
   padding: 0 28px;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
 }
 

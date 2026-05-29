@@ -1151,7 +1151,6 @@ const handleSave = async (mode) => {
   }
 
   const requiredFields = {
-    customer_name: 'Customer name is required.',
     customer_contact: 'Customer contact is required.',
     customer_address: 'Customer address is required.',
     courier_integration_id: 'Courier is required.',
@@ -1159,8 +1158,11 @@ const handleSave = async (mode) => {
     packet_weight: 'Packet weight is required.',
     total_price: 'Total amount is required.',
     special_instructions: 'Special instructions are required.',
-    internal_notes: 'Internal notes are required.',
   };
+
+  if (mode === 'create') {
+    requiredFields.customer_name = 'Customer name is required for label generation.';
+  }
 
   if (!isArgoSelected.value) {
     requiredFields.shipment_type = 'Shipment type is required.';

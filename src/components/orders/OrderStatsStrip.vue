@@ -122,7 +122,7 @@ const statItems = computed(() => [
   { key: 'pending_confirmation', label: 'Pending Confirmation', value: stats.value.pending_confirmation, icon: 'status', filter: statusFilter('pending_confirmation') },
   { key: 'duplicate', label: 'Duplicate', value: stats.value.duplicate, icon: 'status', filter: statusFilter('duplicate') },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'status', filter: statusFilter('merchant_warehouse') },
-  { key: 'dispatched', label: 'Dispatched', value: stats.value.dispatched, icon: 'status', filter: statusFilter('dispatched') },
+  { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'status', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'status', filter: statusFilter('out_for_delivery') },
 ]);
 

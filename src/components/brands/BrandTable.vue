@@ -5,7 +5,8 @@
         <tr>
           <th class="col-name">Brand Name</th>
           <th class="col-sources">Sources</th>
-          <th class="col-webhook">Webhook URL</th>
+          <th class="col-webhook">Order Webhook URL</th>
+          <th class="col-webhook">Abandoned URL</th>
           <th class="col-actions"></th>
         </tr>
       </thead>
@@ -15,6 +16,7 @@
           <tr v-for="n in 3" :key="'sk' + n" class="skeleton-row">
             <td><div class="sk sk-name"></div></td>
             <td><div class="sk sk-sources"></div></td>
+            <td><div class="sk sk-webhook"></div></td>
             <td><div class="sk sk-webhook"></div></td>
             <td><div class="sk sk-icon"></div></td>
           </tr>
@@ -56,6 +58,25 @@
               </div>
             </td>
 
+            <td class="cell-webhook">
+              <div class="webhook-cell">
+                <span class="webhook-url">{{ brand.abandoned_webhook_url }}</span>
+                <button
+                  type="button"
+                  class="copy-icon-btn"
+                  :title="copiedId === `${brand.id}:abandoned` ? 'Copied!' : 'Copy URL'"
+                  @click="copyUrl(brand, 'abandoned')"
+                >
+                  <svg v-if="copiedId !== `${brand.id}:abandoned`" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                  <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </button>
+              </div>
+            </td>
+
             <td class="cell-actions">
               <button
                 type="button"
@@ -88,18 +109,21 @@ defineEmits(['edit']);
 
 const copiedId = ref(null);
 
-const copyUrl = async (brand) => {
+const copyUrl = async (brand, type = 'order') => {
+  const url = type === 'abandoned' ? brand.abandoned_webhook_url : brand.webhook_url;
+  const id = type === 'abandoned' ? `${brand.id}:abandoned` : brand.id;
+
   try {
-    await navigator.clipboard.writeText(brand.webhook_url);
+    await navigator.clipboard.writeText(url);
   } catch {
     const el = document.createElement('textarea');
-    el.value = brand.webhook_url;
+    el.value = url;
     document.body.appendChild(el);
     el.select();
     document.execCommand('copy');
     document.body.removeChild(el);
   }
-  copiedId.value = brand.id;
+  copiedId.value = id;
   setTimeout(() => { copiedId.value = null; }, 2000);
 };
 </script>
@@ -111,6 +135,7 @@ const copyUrl = async (brand) => {
 
 .brand-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 13.5px;
 }
@@ -127,10 +152,10 @@ const copyUrl = async (brand) => {
   background: #fafafa;
 }
 
-.col-name    { width: 22%; }
-.col-sources { width: 25%; }
-.col-webhook { width: 43%; }
-.col-actions { width: 10%; }
+.col-name    { width: 18%; }
+.col-sources { width: 20%; }
+.col-webhook { width: 28%; }
+.col-actions { width: 6%; }
 
 .data-row {
   border-bottom: 1px solid #f3f4f6;
