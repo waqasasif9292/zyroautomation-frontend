@@ -5,19 +5,19 @@
       <div
         v-for="source in PREDEFINED_SOURCES"
         :key="source"
-        :class="['checklist-row', { 'checklist-row--locked': source === LOCKED_SOURCE }]"
-        @click="source !== LOCKED_SOURCE && toggleSource(source)"
+        :class="['checklist-row', { 'checklist-row--locked': isLocked(source) }]"
+        @click="!isLocked(source) && toggleSource(source)"
       >
         <input
           type="checkbox"
           :checked="isSelected(source)"
-          :disabled="source === LOCKED_SOURCE"
-          @click.stop="source !== LOCKED_SOURCE && toggleSource(source)"
+          :disabled="isLocked(source)"
+          @click.stop="!isLocked(source) && toggleSource(source)"
           class="checklist-checkbox"
         />
         <span class="checklist-label">
           {{ source }}
-          <span v-if="source === LOCKED_SOURCE" class="locked-badge">Required</span>
+          <span v-if="isLocked(source)" class="locked-badge">Required</span>
         </span>
       </div>
 
@@ -62,8 +62,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 
-const PREDEFINED_SOURCES = ['Website', 'WhatsApp', 'Abandoned', 'Social'];
-const LOCKED_SOURCE      = 'Website';
+const PREDEFINED_SOURCES = ['Website', 'Abandoned', 'WhatsApp', 'Social'];
+const LOCKED_SOURCES     = ['Website', 'Abandoned'];
 
 const props = defineProps({
   modelValue:    { type: Array,  default: () => [] },
@@ -92,18 +92,21 @@ watch(
 watch(
   () => props.modelValue,
   (val) => {
-    if (!val.includes(LOCKED_SOURCE)) {
-      emit('update:modelValue', [LOCKED_SOURCE, ...val]);
+    const missingLockedSources = LOCKED_SOURCES.filter(source => !val.includes(source));
+    if (missingLockedSources.length) {
+      emit('update:modelValue', [...missingLockedSources, ...val]);
     }
   },
   { immediate: true }
 );
 
+const isLocked = (source) => LOCKED_SOURCES.includes(source);
+
 const isSelected = (source) =>
-  source === LOCKED_SOURCE ? true : props.modelValue.includes(source);
+  isLocked(source) ? true : props.modelValue.includes(source);
 
 const toggleSource = (source) => {
-  if (source === LOCKED_SOURCE) return;
+  if (isLocked(source)) return;
   const current = [...props.modelValue];
   const idx = current.indexOf(source);
   if (idx === -1) {

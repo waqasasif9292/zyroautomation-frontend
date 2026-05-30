@@ -4,6 +4,8 @@ import CustomerService from '../services/CustomerService';
 
 const defaultFilters = () => ({
   search: '',
+  sort_by: 'date',
+  sort_dir: 'desc',
   page: 1,
 });
 
@@ -34,6 +36,14 @@ export const useCustomerStore = defineStore('customer', () => {
     await fetchCustomers();
   };
 
+  const setFilters = async (values) => {
+    Object.entries(values).forEach(([key, value]) => {
+      filters[key] = value || '';
+    });
+    filters.page = 1;
+    await fetchCustomers();
+  };
+
   const hydrateFilters = (values) => {
     Object.assign(filters, defaultFilters(), values);
     filters.page = Number.parseInt(filters.page, 10) || 1;
@@ -51,6 +61,7 @@ export const useCustomerStore = defineStore('customer', () => {
     loading,
     fetchCustomers,
     setFilter,
+    setFilters,
     hydrateFilters,
     setPage,
   };

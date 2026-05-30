@@ -1,30 +1,46 @@
 <template>
-  <aside class="sidebar">
+  <aside :class="['sidebar', { collapsed: isCollapsed }]">
     <!-- Brand -->
-    <button class="sidebar-brand" type="button" @click="router.push('/dashboard')">
-      <div class="brand-logo">Z</div>
-      <span class="brand-name">Zyro Automation</span>
-    </button>
+    <div class="sidebar-header">
+      <button class="sidebar-brand" type="button" title="Dashboard" @click="router.push('/dashboard')">
+        <div class="brand-logo">Z</div>
+        <span class="brand-name">Zyro Automation</span>
+      </button>
+      <button
+        class="sidebar-toggle"
+        type="button"
+        :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :aria-pressed="isCollapsed"
+        :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        @click="toggleSidebar"
+      >
+        <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </button>
+    </div>
 
     <!-- Nav -->
     <nav class="sidebar-nav">
       <div v-for="item in navItems" :key="item.key" class="nav-group">
         <button
           :class="['nav-item', { active: isActive(item) }]"
+          :title="item.label"
           @click="router.push(item.to)"
         >
           <span class="nav-icon" v-html="item.icon"></span>
-          <span>{{ item.label }}</span>
+          <span class="nav-label">{{ item.label }}</span>
         </button>
-        <div v-if="item.children?.length && isActive(item)" class="nav-submenu">
+        <div v-if="!isCollapsed && item.children?.length && isActive(item)" class="nav-submenu">
           <button
             v-for="child in item.children"
             :key="child.key"
             :class="['nav-subitem', { active: isChildActive(child) }]"
+            :title="child.label"
             @click="router.push(child.to)"
           >
             <span class="nav-subicon" v-html="child.icon"></span>
-            {{ child.label }}
+            <span class="nav-label">{{ child.label }}</span>
           </button>
         </div>
       </div>
@@ -39,20 +55,20 @@
           <span class="user-email">{{ authStore.user?.email || '' }}</span>
         </div>
       </div>
-      <button class="logout-btn" @click="handleLogout">
+      <button class="logout-btn" title="Logout" @click="handleLogout">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>
           <line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
-        Logout
+        <span class="nav-label">Logout</span>
       </button>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import { permissionForPath } from '../constants/sidebarPermissions';
@@ -60,6 +76,16 @@ import { permissionForPath } from '../constants/sidebarPermissions';
 const router    = useRouter();
 const route     = useRoute();
 const authStore = useAuthStore();
+const sidebarStorageKey = 'zyro-sidebar-collapsed';
+const isCollapsed = ref(localStorage.getItem(sidebarStorageKey) === 'true');
+
+watch(isCollapsed, (value) => {
+  localStorage.setItem(sidebarStorageKey, value ? 'true' : 'false');
+});
+
+const toggleSidebar = () => {
+  isCollapsed.value = !isCollapsed.value;
+};
 
 const userInitial = computed(() => {
   const name = authStore.user?.name || '';
@@ -316,25 +342,70 @@ const navItems = computed(() => baseNavItems
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-x: hidden;
   overflow-y: auto;
+  transition: width 0.26s ease, box-shadow 0.26s ease;
+  will-change: width;
+}
+
+.sidebar.collapsed {
+  width: 72px;
 }
 
 /* Brand */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  padding: 20px 18px 16px;
+  min-width: 0;
+  flex: 1;
+  padding: 4px 0 4px 4px;
   border: none;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
   background: transparent;
   cursor: pointer;
   text-align: left;
+  overflow: hidden;
 }
 
 .sidebar-brand:hover .brand-name {
   color: #fff;
+}
+
+.sidebar-toggle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.26s ease;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(148, 163, 184, 0.34);
+  color: #e2e8f0;
+}
+
+.toggle-icon {
+  transition: transform 0.26s ease;
+}
+
+.sidebar.collapsed .toggle-icon {
+  transform: rotate(180deg);
 }
 
 .brand-logo {
@@ -359,6 +430,7 @@ const navItems = computed(() => baseNavItems
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: opacity 0.18s ease, transform 0.24s ease, width 0.24s ease;
 }
 
 /* Nav */
@@ -384,7 +456,8 @@ const navItems = computed(() => baseNavItems
   font-weight: 500;
   text-align: left;
   width: 100%;
-  transition: background 0.15s, color 0.15s;
+  overflow: hidden;
+  transition: background 0.15s, color 0.15s, padding 0.26s ease, gap 0.26s ease;
 }
 
 .nav-item:hover {
@@ -435,6 +508,7 @@ const navItems = computed(() => baseNavItems
   font-weight: 700;
   padding: 8px 10px;
   text-align: left;
+  overflow: hidden;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
@@ -469,7 +543,18 @@ const navItems = computed(() => baseNavItems
 .nav-icon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
+}
+
+.nav-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.18s ease, transform 0.24s ease, width 0.24s ease;
 }
 
 /* Footer */
@@ -506,6 +591,7 @@ const navItems = computed(() => baseNavItems
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: opacity 0.18s ease, transform 0.24s ease, width 0.24s ease;
 }
 
 .user-name {
@@ -539,11 +625,91 @@ const navItems = computed(() => baseNavItems
   font-weight: 500;
   text-align: left;
   width: 100%;
-  transition: background 0.15s, color 0.15s;
+  overflow: hidden;
+  transition: background 0.15s, color 0.15s, padding 0.26s ease, gap 0.26s ease;
 }
 
 .logout-btn:hover {
   background: rgba(239, 68, 68, 0.12);
   color: #fca5a5;
+}
+
+.sidebar.collapsed .sidebar-header {
+  align-items: center;
+  flex-direction: column;
+  padding: 16px 10px 12px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 0;
+  width: 40px;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  width: 40px;
+  height: 40px;
+}
+
+.sidebar.collapsed .brand-name,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .user-info {
+  width: 0;
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  align-items: center;
+  padding: 16px 10px;
+}
+
+.sidebar.collapsed .nav-group {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.sidebar.collapsed .nav-item,
+.sidebar.collapsed .logout-btn {
+  width: 40px;
+  height: 40px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.sidebar.collapsed .nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar.collapsed .user-row {
+  justify-content: center;
+  padding: 5px 0;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  align-items: center;
+  padding: 12px 10px 16px;
+}
+
+.sidebar.collapsed .logout-btn svg {
+  flex: 0 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar-toggle,
+  .toggle-icon,
+  .brand-name,
+  .nav-label,
+  .user-info,
+  .nav-item,
+  .logout-btn {
+    transition: none;
+  }
 }
 </style>

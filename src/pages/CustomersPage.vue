@@ -24,7 +24,23 @@
               >
               <button v-if="localSearch" class="clear-search" type="button" @click="localSearch = ''">×</button>
             </div>
-            <span class="results-count">{{ customerStore.pagination?.total || 0 }} customers</span>
+            <div class="filters-actions">
+              <label class="select-wrap">
+                <span>Sort by</span>
+                <select v-model="localSortBy" class="filter-select">
+                  <option value="date">Date</option>
+                  <option value="orders">Number of orders</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span>Order</span>
+                <select v-model="localSortDir" class="filter-select">
+                  <option value="desc">{{ localSortBy === 'orders' ? 'High to low' : 'Newest first' }}</option>
+                  <option value="asc">{{ localSortBy === 'orders' ? 'Low to high' : 'Oldest first' }}</option>
+                </select>
+              </label>
+              <span class="results-count">{{ customerStore.pagination?.total || 0 }} customers</span>
+            </div>
           </div>
 
           <div class="table-wrap">
@@ -87,12 +103,16 @@ const router = useRouter();
 const route = useRoute();
 const customerStore = useCustomerStore();
 const localSearch = ref(customerStore.filters.search || '');
+const localSortBy = ref(customerStore.filters.sort_by || 'date');
+const localSortDir = ref(customerStore.filters.sort_dir || 'desc');
 let searchTimer = null;
 let syncingQuery = false;
 let hydratingFilters = false;
 
 const customerQueryDefaults = {
   search: '',
+  sort_by: 'date',
+  sort_dir: 'desc',
   page: 1,
 };
 
@@ -106,6 +126,8 @@ const hydrateFiltersFromRoute = () => {
   hydratingFilters = true;
   customerStore.hydrateFilters(readFilterQuery(route.query, customerQueryDefaults));
   localSearch.value = customerStore.filters.search || '';
+  localSortBy.value = customerStore.filters.sort_by || 'date';
+  localSortDir.value = customerStore.filters.sort_dir || 'desc';
   hydratingFilters = false;
 };
 
@@ -128,6 +150,13 @@ watch(localSearch, (value) => {
     await customerStore.setFilter('search', value);
     await replaceFilterQuery();
   }, 400);
+});
+
+watch([localSortBy, localSortDir], async ([sortBy, sortDir]) => {
+  if (hydratingFilters) return;
+  if (sortBy === customerStore.filters.sort_by && sortDir === customerStore.filters.sort_dir) return;
+  await customerStore.setFilters({ sort_by: sortBy, sort_dir: sortDir });
+  await replaceFilterQuery();
 });
 
 const changePage = async (page) => {
@@ -239,6 +268,41 @@ onMounted(() => {
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+}
+
+.filters-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.filter-select {
+  height: 38px;
+  min-width: 132px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+  padding: 0 34px 0 11px;
+}
+
+.filter-select:focus {
+  border-color: #1e293b;
 }
 
 .results-count {
@@ -362,6 +426,22 @@ strong {
   }
 
   .search-wrap {
+    width: 100%;
+  }
+
+  .filters-actions {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .select-wrap {
+    flex: 1 1 160px;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .filter-select {
     width: 100%;
   }
 }

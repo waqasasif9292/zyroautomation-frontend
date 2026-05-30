@@ -353,6 +353,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
+import AbandonedOrderService from '../../services/AbandonedOrderService';
 import IntegrationService from '../../services/IntegrationService';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
@@ -420,6 +421,7 @@ const form = reactive({
   cod: '',
   special_instructions: '',
   internal_notes: '',
+  abandoned_order_id: '',
 });
 
 const phoneWarningMessage = "This doesn't look like a valid Pakistani mobile number (03XXXXXXXXX). It will be saved as entered.";
@@ -697,8 +699,57 @@ onMounted(async () => {
       showErrorPopup(message);
       router.push('/orders');
     }
+  } else if (route.query.abandoned_order_id) {
+    try {
+      await loadAbandonedOrderForCreate(route.query.abandoned_order_id);
+    } catch (error) {
+      showErrorPopup(apiErrorMessage(error, 'Unable to load abandoned order for manual entry.'));
+    }
   }
 });
+
+const loadAbandonedOrderForCreate = async (id) => {
+  const res = await AbandonedOrderService.getOrder(id);
+  const order = res.data.data.order;
+  const customer = order.customer || {};
+  const address = order.addresses?.primary || order.addresses?.shipping || order.addresses?.customer_default || order.addresses?.billing || {};
+  const productLines = (order.line_items || [])
+    .map(line => `${line.title || line.name || 'Item'} x${line.quantity || 1}`)
+    .join('\n');
+
+  hydratingOrder.value = true;
+  form.abandoned_order_id = order.id || String(id);
+  form.brand_id = order.brand_id || '';
+  form.source = sourceForAbandonedOrder();
+  form.customer_name = customer.name || '';
+  form.customer_contact = customer.phone_normalized || customer.phone || '';
+  form.customer_contact_two = '';
+  form.customer_address = address.formatted || primaryAddressFromAbandoned(order) || '';
+  form.destination_city = address.city || '';
+  form.destination_city_id = '';
+  form.total_price = String(order.total_price || '');
+  form.advance_payment = '';
+  form.cod = String(order.total_price || '');
+  hasAdvancePayment.value = false;
+  form.special_instructions = '';
+  form.internal_notes = productLines;
+  items.value = [];
+  productSearch.value = '';
+
+  await nextTick();
+  hydratingOrder.value = false;
+};
+
+const sourceForAbandonedOrder = () => {
+  const sources = brandSources.value || [];
+  return sources.includes('Abandoned') ? 'Abandoned' : (sources[0] || '');
+};
+
+const primaryAddressFromAbandoned = (order) => order.addresses?.primary?.formatted
+  || order.addresses?.shipping?.formatted
+  || order.addresses?.customer_default?.formatted
+  || order.addresses?.billing?.formatted
+  || '';
 
 const loadOrderForEdit = async (id) => {
   const order = await orderStore.fetchOrder(id);
