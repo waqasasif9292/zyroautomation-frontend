@@ -110,7 +110,18 @@
                     <strong>{{ order.customer?.name || 'Unknown Customer' }}</strong>
                     <span class="subtext">{{ order.email || order.customer?.email || '-' }}</span>
                   </td>
-                  <td>{{ order.customer?.phone_normalized || order.customer?.phone || '-' }}</td>
+                  <td class="phone-cell">
+                    <span>{{ orderPhone(order) }}</span>
+                    <button
+                      v-if="mainOrderCount(order) > 0"
+                      class="main-orders-badge"
+                      type="button"
+                      :title="`View ${mainOrderCount(order)} matching main orders`"
+                      @click="openMainOrders(order)"
+                    >
+                      {{ mainOrderCount(order) }} main {{ mainOrderCount(order) === 1 ? 'order' : 'orders' }}
+                    </button>
+                  </td>
                   <td class="address-cell">{{ primaryAddress(order) || '-' }}</td>
                   <td class="items-cell">
                     <span>{{ itemCount(order) }} items</span>
@@ -123,6 +134,19 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                         <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </button>
+                    <button
+                      v-if="(order.status || 'pending') === 'pending'"
+                      class="action-btn create-order-btn"
+                      type="button"
+                      title="Create order"
+                      aria-label="Create order"
+                      @click="createOrderFromAbandoned(order)"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
                       </svg>
                     </button>
                     <button
@@ -242,7 +266,18 @@
                 <div class="detail-grid">
                   <div><span>Name</span><strong>{{ selectedOrder.customer?.name || '-' }}</strong></div>
                   <div><span>Email</span><strong>{{ selectedOrder.email || selectedOrder.customer?.email || '-' }}</strong></div>
-                  <div><span>Phone</span><strong>{{ selectedOrder.customer?.phone_normalized || selectedOrder.customer?.phone || '-' }}</strong></div>
+                  <div>
+                    <span>Phone</span>
+                    <strong>{{ orderPhone(selectedOrder) }}</strong>
+                    <button
+                      v-if="mainOrderCount(selectedOrder) > 0"
+                      class="main-orders-badge detail-match-badge"
+                      type="button"
+                      @click="openMainOrders(selectedOrder)"
+                    >
+                      {{ mainOrderCount(selectedOrder) }} matching main {{ mainOrderCount(selectedOrder) === 1 ? 'order' : 'orders' }}
+                    </button>
+                  </div>
                 </div>
               </section>
 
@@ -511,8 +546,29 @@ const itemCount = (order) => (order.line_items || []).reduce((sum, item) => sum 
 
 const itemSummary = (order) => (order.line_items || [])
   .slice(0, 2)
-  .map(item => item.sku ? `${item.sku} x${item.quantity}` : `${item.title || 'Item'} x${item.quantity}`)
+  .map(item => `${item.title || item.name || 'Item'} x${item.quantity}`)
   .join(', ');
+
+const orderPhone = (order) => order?.customer?.phone_normalized || order?.customer?.phone || '-';
+
+const mainOrderCount = (order) => Number(order?.main_order_matches?.count || 0);
+
+const openMainOrders = (order) => {
+  const phone = orderPhone(order);
+  if (!phone || phone === '-') return;
+
+  router.push({
+    path: '/orders',
+    query: { search: phone },
+  });
+};
+
+const createOrderFromAbandoned = (order) => {
+  router.push({
+    path: '/orders/create',
+    query: { abandoned_order_id: order.id },
+  });
+};
 
 const money = (value, currency) => `${currency || ''} ${Number(value || 0).toLocaleString(undefined, {
   minimumFractionDigits: 2,
@@ -808,8 +864,38 @@ strong {
   max-width: 220px;
 }
 
+.phone-cell {
+  min-width: 126px;
+}
+
+.main-orders-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.main-orders-badge:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.detail-match-badge {
+  margin-top: 8px;
+}
+
 .actions-cell {
-  min-width: 160px;
+  min-width: 200px;
 }
 
 .actions-cell,
@@ -844,6 +930,16 @@ strong {
 
 .view-btn:hover:not(:disabled) {
   background: #e0e7ff;
+}
+
+.create-order-btn {
+  border-color: #bae6fd;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.create-order-btn:hover:not(:disabled) {
+  background: #bae6fd;
 }
 
 .complete-btn {
