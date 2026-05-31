@@ -66,8 +66,6 @@
             <select v-model="draftFilters.sort" class="filter-control">
               <option value="received_desc">Newest Received</option>
               <option value="received_asc">Oldest Received</option>
-              <option value="date_desc">Order Date: Newest</option>
-              <option value="date_asc">Order Date: Oldest</option>
               <option value="total_desc">Total: High to Low</option>
               <option value="total_asc">Total: Low to High</option>
             </select>
