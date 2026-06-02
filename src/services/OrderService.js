@@ -37,6 +37,9 @@ const OrderService = {
   cancelByShipper(id) {
     return axiosInstance.put(`/orders/${id}/cancel-by-shipper`);
   },
+  bulkDeleteOrders(ids) {
+    return axiosInstance.post('/orders/bulk-delete', { ids });
+  },
   deleteOrder(id) {
     return axiosInstance.delete(`/orders/${id}`);
   },
