@@ -68,6 +68,11 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
     orders.value = orders.value.filter(order => order.id !== id);
   };
 
+  const bulkDeleteOrders = async (ids) => {
+    await AbandonedOrderService.bulkDeleteOrders(ids);
+    orders.value = orders.value.filter(order => !ids.includes(order.id));
+  };
+
   return {
     orders,
     pagination,
@@ -81,5 +86,6 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
     setPage,
     updateStatus,
     deleteOrder,
+    bulkDeleteOrders,
   };
 });

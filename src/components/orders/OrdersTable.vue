@@ -3,6 +3,16 @@
     <table class="orders-table">
       <thead>
         <tr>
+          <th v-if="selectable" class="col-select">
+            <input
+              type="checkbox"
+              :checked="allPageSelected"
+              :indeterminate.prop="somePageSelected && !allPageSelected"
+              aria-label="Select all orders on this page"
+              @click.stop
+              @change="$emit('select-page', $event.target.checked)"
+            >
+          </th>
           <th v-if="isVisible('serial')" class="col-serial">#</th>
           <th v-if="isVisible('order')" class="col-order">Order</th>
           <th v-if="isVisible('brand')" class="col-brand">Brand</th>
@@ -26,6 +36,14 @@
           </tr>
         </template>
         <tr v-else v-for="(order, index) in orders" :key="order.id" class="order-row" @click="$emit('view', order.id)">
+          <td v-if="selectable" class="select-cell" @click.stop>
+            <input
+              type="checkbox"
+              :checked="selectedOrderIds.includes(order.id)"
+              :aria-label="`Select order ${order.order_name || order.id}`"
+              @change="$emit('toggle-select', order.id, $event.target.checked)"
+            >
+          </td>
           <td v-if="isVisible('serial')" class="serial">{{ serialStart + index }}</td>
           <td v-if="isVisible('order')">
             <div class="strong">{{ order.order_name || '—' }}</div>
@@ -129,15 +147,31 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  selectedOrderIds: {
+    type: Array,
+    default: () => [],
+  },
+  selectable: {
+    type: Boolean,
+    default: false,
+  },
+  allPageSelected: {
+    type: Boolean,
+    default: false,
+  },
+  somePageSelected: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'toggle-select', 'select-page']);
 
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
 const visibleColumnSet = computed(() => new Set([...props.visibleColumns, ...lockedColumns]));
 const isVisible = column => visibleColumnSet.value.has(column);
-const visibleColumnCount = computed(() => visibleColumnSet.value.size);
+const visibleColumnCount = computed(() => visibleColumnSet.value.size + (props.selectable ? 1 : 0));
 const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
@@ -220,6 +254,7 @@ td {
   background: #f8fbff;
 }
 
+.col-select { width: 44px; text-align: center; }
 .col-serial { width: 52px; }
 .col-order { width: 170px; }
 .col-brand { width: 132px; }
@@ -234,6 +269,18 @@ td {
 .col-payment { width: 140px; }
 .col-products { width: 190px; }
 .col-actions { width: 132px; text-align: center; }
+
+.select-cell {
+  text-align: center;
+}
+
+.col-select input,
+.select-cell input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
 
 td:first-child,
 th:first-child {

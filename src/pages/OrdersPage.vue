@@ -46,6 +46,23 @@
               @page-change="changePage"
             />
             <div ref="columnMenuRef" class="table-tools">
+              <div v-if="canBulkDeleteOrders && selectedOrderIds.length" class="bulk-actions">
+                <span class="selected-count">{{ selectedOrderIds.length }} selected</span>
+                <button
+                  class="bulk-delete-btn"
+                  type="button"
+                  @click="openBulkDeleteDialog"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                    <path d="M6 7l1 13h10l1-13" />
+                    <path d="M9 7V4h6v3" />
+                  </svg>
+                  Delete Selected
+                </button>
+              </div>
               <div class="column-menu">
                 <button
                   class="column-menu-trigger"
@@ -79,11 +96,17 @@
               :loading="orderStore.loading"
               :serial-start="serialStart"
               :visible-columns="visibleOrderColumns"
+              :selectable="canBulkDeleteOrders"
+              :selected-order-ids="selectedOrderIds"
+              :all-page-selected="allVisibleOrdersSelected"
+              :some-page-selected="someVisibleOrdersSelected"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
               @delete="handleDelete"
               @track="handleTrack"
+              @toggle-select="toggleOrderSelection"
+              @select-page="toggleVisibleOrderSelection"
             />
             <OrderPagination
               :pagination="orderStore.pagination"
@@ -113,6 +136,20 @@
       :loading="deleteLoading"
       @cancel="closeDeleteDialog"
       @confirm="confirmDelete"
+    />
+
+    <ConfirmDialog
+      :show="showBulkDeleteDialog"
+      title="Delete Selected Orders?"
+      message="The selected orders will be removed from Zyro Automation. This action cannot be undone."
+      :details="bulkDeleteDetails"
+      eyebrow="Bulk order deletion"
+      confirmText="Delete Selected"
+      cancelText="Keep Orders"
+      variant="danger"
+      :loading="deleteLoading"
+      @cancel="closeBulkDeleteDialog"
+      @confirm="confirmBulkDelete"
     />
 
     <ConfirmDialog
@@ -160,6 +197,8 @@ const toast = ref('');
 const showDeleteDialog = ref(false);
 const deleteLoading = ref(false);
 const selectedOrder = ref(null);
+const showBulkDeleteDialog = ref(false);
+const selectedOrderIds = ref([]);
 const showCancelDialog = ref(false);
 const cancelLoading = ref(false);
 const selectedCancelOrder = ref(null);
@@ -223,6 +262,23 @@ const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.source ||
   orderStore.filters.status
 ));
+
+const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+
+const visibleOrderIds = computed(() => orderStore.orders.map(order => order.id));
+
+const allVisibleOrdersSelected = computed(() => (
+  visibleOrderIds.value.length > 0 && visibleOrderIds.value.every(id => selectedOrderIds.value.includes(id))
+));
+
+const someVisibleOrdersSelected = computed(() => (
+  visibleOrderIds.value.some(id => selectedOrderIds.value.includes(id))
+));
+
+const bulkDeleteDetails = computed(() => {
+  const count = selectedOrderIds.value.length;
+  return `${count} ${count === 1 ? 'order' : 'orders'} selected`;
+});
 
 const serialStart = computed(() => {
   const pagination = orderStore.pagination;
@@ -328,6 +384,33 @@ const handleDelete = (id) => {
   showDeleteDialog.value = true;
 };
 
+const toggleOrderSelection = (id, checked) => {
+  const selected = new Set(selectedOrderIds.value);
+  if (checked) {
+    selected.add(id);
+  } else {
+    selected.delete(id);
+  }
+  selectedOrderIds.value = [...selected];
+};
+
+const toggleVisibleOrderSelection = (checked) => {
+  const selected = new Set(selectedOrderIds.value);
+  visibleOrderIds.value.forEach(id => {
+    if (checked) {
+      selected.add(id);
+    } else {
+      selected.delete(id);
+    }
+  });
+  selectedOrderIds.value = [...selected];
+};
+
+const openBulkDeleteDialog = () => {
+  if (!selectedOrderIds.value.length) return;
+  showBulkDeleteDialog.value = true;
+};
+
 const handleCancel = (id) => {
   selectedCancelOrder.value = orderStore.orders.find(order => order.id === id) || { id };
   showCancelDialog.value = true;
@@ -356,6 +439,11 @@ const closeDeleteDialog = () => {
   selectedOrder.value = null;
 };
 
+const closeBulkDeleteDialog = () => {
+  if (deleteLoading.value) return;
+  showBulkDeleteDialog.value = false;
+};
+
 const confirmDelete = async () => {
   if (!selectedOrder.value) return;
   deleteLoading.value = true;
@@ -367,6 +455,23 @@ const confirmDelete = async () => {
   } catch (error) {
     console.error(error);
     showToast(error.response?.data?.message || 'Failed to delete order.');
+  } finally {
+    deleteLoading.value = false;
+  }
+};
+
+const confirmBulkDelete = async () => {
+  const ids = [...selectedOrderIds.value];
+  if (!ids.length) return;
+  deleteLoading.value = true;
+  try {
+    await orderStore.bulkDeleteOrders(ids);
+    showToast(`${ids.length} ${ids.length === 1 ? 'order' : 'orders'} deleted.`);
+    selectedOrderIds.value = [];
+    showBulkDeleteDialog.value = false;
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to delete selected orders.');
   } finally {
     deleteLoading.value = false;
   }
@@ -402,6 +507,11 @@ watch(() => ({ ...route.query }), async () => {
   if (syncingQuery) return;
   hydrateFiltersFromRoute();
   await orderStore.fetchOrders();
+});
+
+watch(() => orderStore.orders.map(order => order.id), (ids) => {
+  const visible = new Set(ids);
+  selectedOrderIds.value = selectedOrderIds.value.filter(id => visible.has(id));
 });
 
 onMounted(async () => {
@@ -504,8 +614,56 @@ onBeforeUnmount(() => {
 
 .table-tools {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.bulk-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.selected-count {
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bulk-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  color: #dc2626;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.bulk-delete-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.bulk-delete-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.bulk-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .column-menu {

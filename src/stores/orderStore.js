@@ -118,6 +118,12 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const bulkDeleteOrders = async (ids) => {
+    await OrderService.bulkDeleteOrders(ids);
+    if (ids.includes(selectedOrder.value?.id)) closePanel();
+    await fetchOrders();
+  };
+
   const cancelByShipper = async (id) => {
     await OrderService.cancelByShipper(id);
     if (selectedOrder.value?.id === id) closePanel();
@@ -146,5 +152,6 @@ export const useOrderStore = defineStore('order', () => {
     updateBooking,
     cancelByShipper,
     deleteOrder,
+    bulkDeleteOrders,
   };
 });

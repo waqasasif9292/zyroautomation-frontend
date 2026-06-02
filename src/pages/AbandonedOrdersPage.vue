@@ -74,10 +74,38 @@
             <button class="clear-filters-btn" type="button" @click="clearFilters">Clear</button>
           </div>
 
+          <div v-if="selectedOrderIds.length" class="bulk-toolbar">
+            <span>{{ selectedOrderIds.length }} selected</span>
+            <button
+              class="bulk-delete-btn"
+              type="button"
+              :disabled="actionLoading"
+              @click="openBulkDeleteConfirm"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6 18 20H6L5 6" />
+                <path d="M10 11v5" />
+                <path d="M14 11v5" />
+              </svg>
+              Delete Selected
+            </button>
+          </div>
+
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
+                  <th class="select-col">
+                    <input
+                      type="checkbox"
+                      :checked="allVisibleOrdersSelected"
+                      :indeterminate.prop="someVisibleOrdersSelected && !allVisibleOrdersSelected"
+                      aria-label="Select all abandoned orders on this page"
+                      @change="toggleVisibleOrderSelection($event.target.checked)"
+                    >
+                  </th>
                   <th>#</th>
                   <th>Date</th>
                   <th>Brand</th>
@@ -92,12 +120,20 @@
               </thead>
               <tbody>
                 <tr v-if="store.loading">
-                  <td colspan="10" class="state-cell">Loading abandoned orders...</td>
+                  <td colspan="11" class="state-cell">Loading abandoned orders...</td>
                 </tr>
                 <tr v-else-if="store.orders.length === 0">
-                  <td colspan="10" class="state-cell">No abandoned orders found.</td>
+                  <td colspan="11" class="state-cell">No abandoned orders found.</td>
                 </tr>
                 <tr v-for="(order, index) in store.orders" v-else :key="order.id">
+                  <td class="select-cell">
+                    <input
+                      type="checkbox"
+                      :checked="selectedOrderIds.includes(order.id)"
+                      :aria-label="`Select abandoned order ${order.order_name || order.id}`"
+                      @change="toggleOrderSelection(order.id, $event.target.checked)"
+                    >
+                  </td>
                   <td>{{ serialStart + index }}</td>
                   <td>
                     <strong>{{ order.order_name || '-' }}</strong>
@@ -359,6 +395,20 @@
         @cancel="deleteConfirm = null"
         @confirm="confirmDeleteOrder"
       />
+
+      <ConfirmDialog
+        :show="showBulkDeleteConfirm"
+        title="Delete Selected Abandoned Orders?"
+        message="The selected abandoned orders will be removed from the list. This does not affect Shopify."
+        :details="bulkDeleteDetails"
+        eyebrow="Bulk Abandoned Order Deletion"
+        confirmText="Delete Selected"
+        cancelText="Keep Orders"
+        variant="danger"
+        :loading="actionLoading"
+        @cancel="showBulkDeleteConfirm = false"
+        @confirm="confirmBulkDeleteOrders"
+      />
     </main>
   </AppLayout>
 </template>
@@ -379,6 +429,8 @@ const selectedOrder = ref(null);
 const actionLoading = ref(false);
 const statusConfirm = ref(null);
 const deleteConfirm = ref(null);
+const selectedOrderIds = ref([]);
+const showBulkDeleteConfirm = ref(false);
 const draftFilters = ref({
   date_from: '',
   date_to: '',
@@ -411,6 +463,21 @@ const serialStart = computed(() => {
   const pagination = store.pagination;
   if (!pagination) return 1;
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
+});
+
+const visibleOrderIds = computed(() => store.orders.map(order => order.id));
+
+const allVisibleOrdersSelected = computed(() => (
+  visibleOrderIds.value.length > 0 && visibleOrderIds.value.every(id => selectedOrderIds.value.includes(id))
+));
+
+const someVisibleOrdersSelected = computed(() => (
+  visibleOrderIds.value.some(id => selectedOrderIds.value.includes(id))
+));
+
+const bulkDeleteDetails = computed(() => {
+  const count = selectedOrderIds.value.length;
+  return `${count} ${count === 1 ? 'abandoned order' : 'abandoned orders'} selected`;
 });
 
 const statusLabels = {
@@ -518,6 +585,33 @@ const openDeleteConfirm = (order) => {
   deleteConfirm.value = order;
 };
 
+const toggleOrderSelection = (id, checked) => {
+  const selected = new Set(selectedOrderIds.value);
+  if (checked) {
+    selected.add(id);
+  } else {
+    selected.delete(id);
+  }
+  selectedOrderIds.value = [...selected];
+};
+
+const toggleVisibleOrderSelection = (checked) => {
+  const selected = new Set(selectedOrderIds.value);
+  visibleOrderIds.value.forEach(id => {
+    if (checked) {
+      selected.add(id);
+    } else {
+      selected.delete(id);
+    }
+  });
+  selectedOrderIds.value = [...selected];
+};
+
+const openBulkDeleteConfirm = () => {
+  if (!selectedOrderIds.value.length) return;
+  showBulkDeleteConfirm.value = true;
+};
+
 const confirmDeleteOrder = async () => {
   if (!deleteConfirm.value) return;
   const orderId = deleteConfirm.value.id;
@@ -528,6 +622,23 @@ const confirmDeleteOrder = async () => {
       selectedOrder.value = null;
     }
     deleteConfirm.value = null;
+    await store.fetchOrders();
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
+const confirmBulkDeleteOrders = async () => {
+  const ids = [...selectedOrderIds.value];
+  if (!ids.length) return;
+  actionLoading.value = true;
+  try {
+    await store.bulkDeleteOrders(ids);
+    if (selectedOrder.value && ids.includes(selectedOrder.value.id)) {
+      selectedOrder.value = null;
+    }
+    selectedOrderIds.value = [];
+    showBulkDeleteConfirm.value = false;
     await store.fetchOrders();
   } finally {
     actionLoading.value = false;
@@ -585,6 +696,11 @@ const addressCards = (order) => [
   { key: 'billing', label: 'Billing', value: order.addresses?.billing?.formatted, phone: order.addresses?.billing?.phone },
   { key: 'customer_default', label: 'Customer Default', value: order.addresses?.customer_default?.formatted, phone: order.addresses?.customer_default?.phone },
 ];
+
+watch(() => store.orders.map(order => order.id), (ids) => {
+  const visible = new Set(ids);
+  selectedOrderIds.value = selectedOrderIds.value.filter(id => visible.has(id));
+});
 
 onMounted(() => {
   hydrateFiltersFromRoute();
@@ -829,11 +945,75 @@ th {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.select-col {
+  width: 44px;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+}
+
 td {
   padding: 13px 12px;
   color: #334155;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: top;
+}
+
+.select-cell {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: center;
+  vertical-align: top;
+}
+
+.select-col input,
+.select-cell input {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  accent-color: #4f46e5;
+  cursor: pointer;
+}
+
+.bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.bulk-toolbar span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bulk-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  color: #be123c;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.bulk-delete-btn:hover:not(:disabled) {
+  background: #fff1f2;
+  border-color: #fda4af;
+}
+
+.bulk-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 tr:last-child td {
