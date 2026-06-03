@@ -140,7 +140,7 @@ const payload = () => ({
   password: form.password,
   password_confirmation: form.password_confirmation,
   role: form.role,
-  permissions: form.role === 'admin' ? permissionOptions.value.map(item => item.key) : form.permissions,
+  permissions: form.role === 'admin' ? [] : form.permissions,
 });
 
 const saveMember = async () => {
