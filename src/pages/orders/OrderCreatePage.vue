@@ -297,7 +297,7 @@
             </div>
             <button type="button" class="add-item-btn" @click="addItem">Add</button>
           </div>
-          <span v-if="errors.items || !hasOrderProducts" class="field-error items-error">
+          <span v-if="errors.items || !canSaveDraft" class="field-error items-error">
             {{ errors.items || 'Select at least one product to continue.' }}
           </span>
 
@@ -322,7 +322,7 @@
 
           <div class="actions">
             <button type="button" class="cancel-btn" @click="router.push('/orders')">Cancel</button>
-            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('draft')">
+            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
               {{ saving ? 'Saving...' : 'Save Draft' }}
             </button>
             <button type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
@@ -468,7 +468,9 @@ const closeErrorPopup = () => {
 };
 
 const isEditMode = computed(() => Boolean(route.params.id));
+const isShopifyEditOrder = ref(false);
 const hasOrderProducts = computed(() => items.value.length > 0);
+const canSaveDraft = computed(() => hasOrderProducts.value || isShopifyEditOrder.value);
 const filteredProducts = computed(() => {
   const search = productSearch.value.trim().toLowerCase();
   if (!search) return productStore.products;
@@ -755,6 +757,7 @@ const loadOrderForEdit = async (id) => {
   const order = await orderStore.fetchOrder(id);
   orderStore.closePanel();
   const manual = order.manual_order || {};
+  isShopifyEditOrder.value = Boolean(order.shopify_order_id);
 
   hydratingOrder.value = true;
   form.brand_id = order.brand_id || '';
@@ -781,13 +784,16 @@ const loadOrderForEdit = async (id) => {
   await nextTick();
   hydratingOrder.value = false;
 
-  items.value = (order.line_items || []).map((line, index) => ({
-    product_id: line.product_id || line.id || `existing-${index}`,
-    name: line.title || line.name,
-    picture_url: line.picture_url,
-    sale_price: line.price,
-    quantity: line.quantity || 1,
-  }));
+  const productIds = new Set(productStore.products.map(product => String(product.id)));
+  items.value = (order.line_items || [])
+    .filter(line => productIds.has(String(line.product_id || line.id || '')))
+    .map(line => ({
+      product_id: line.product_id || line.id,
+      name: line.title || line.name,
+      picture_url: line.picture_url,
+      sale_price: line.price,
+      quantity: line.quantity || 1,
+    }));
 
   const savedCourierSlug = manual.courier_slug || selectedIntegration.value?.courier_slug;
   if (savedCourierSlug === 'postex') {
@@ -1311,7 +1317,9 @@ const handleSave = async (mode) => {
     errors.origin_city = 'Origin city is required.';
   }
 
-  if (!hasOrderProducts.value) {
+  if (mode === 'create' && !hasOrderProducts.value) {
+    errors.items = 'At least one order item is required for booking.';
+  } else if (mode !== 'create' && !canSaveDraft.value) {
     errors.items = 'At least one order item is required.';
   }
 
