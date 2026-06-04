@@ -136,6 +136,10 @@ const fetchStats = async () => {
   };
 };
 
+defineExpose({
+  refresh: fetchStats,
+});
+
 onMounted(fetchStats);
 </script>
 

@@ -95,12 +95,12 @@
                   <circle cx="12" cy="12" r="2.5" />
                 </svg>
               </button>
-              <button v-if="canEdit(order)" class="action-btn" type="button" aria-label="Edit order" title="Edit order" @click.stop="$emit('edit', order.id)">
+              <RouterLink v-if="canEdit(order)" class="action-btn" :to="`/orders/${order.id}/edit`" aria-label="Edit order" title="Edit order" @click.stop>
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m14.5 5.5 4 4" />
                   <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
                 </svg>
-              </button>
+              </RouterLink>
               <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" aria-label="Cancel order" title="Cancel order" @click.stop="$emit('cancel', order.id)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" />
@@ -418,6 +418,7 @@ th:last-child {
   padding: 0;
   box-shadow: none;
   cursor: pointer;
+  text-decoration: none;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
