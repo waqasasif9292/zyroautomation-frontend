@@ -17,7 +17,23 @@
             <span v-for="item in 12" :key="item"></span>
           </div>
           <template v-else-if="order">
-            <OrderDetailSection title="Customer" :rows="customerRows" />
+            <section class="detail-section customer-section">
+              <div class="section-title-row">
+                <h3>Customer</h3>
+                <button class="copy-detail-btn" type="button" title="Copy customer details" aria-label="Copy customer details" @click="copyCustomerDetails">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="8" y="8" width="11" height="11" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="rows">
+                <div v-for="row in customerRows" :key="row.label" class="detail-row">
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value || '—' }}</strong>
+                </div>
+              </div>
+            </section>
             <OrderDetailSection title="Order Summary" :rows="summaryRows" />
 
             <section v-if="hasTrackingNumber" class="detail-section">
@@ -73,10 +89,11 @@ import { useRouter } from 'vue-router';
 import OrderDetailSection from './OrderDetailSection.vue';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 import { useAuthStore } from '../../stores/authStore';
-import { formatPhone } from '../../utils/phoneNormalizer';
+import { useNotificationStore } from '../../stores/notificationStore';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
 
 const props = defineProps({
   open: {
@@ -107,9 +124,11 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
+const customerPhone = computed(() => props.order?.customer?.phone_local || props.order?.customer?.phone_intl || '');
+
 const customerRows = computed(() => [
   { label: 'Name', value: props.order.customer?.name },
-  { label: 'Phone', value: formatPhone(props.order.customer?.phone_local || props.order.customer?.phone_intl) },
+  { label: 'Phone', value: customerPhone.value },
   { label: 'City', value: [props.order.customer?.city, props.order.customer?.country_code].filter(Boolean).join(', ') },
   { label: 'Address', value: props.order.customer?.address },
 ]);
@@ -161,6 +180,27 @@ const openTracking = () => {
   if (!props.order?.id) return;
   authStore.prepareTabHandoff();
   window.open(router.resolve(`/orders/${props.order.id}/tracking`).href, '_blank', 'noopener');
+};
+
+const copyCustomerDetails = async () => {
+  const lines = [
+    props.order?.customer?.name,
+    customerPhone.value,
+    props.order?.customer?.address,
+    [props.order?.customer?.city, props.order?.customer?.country_code].filter(Boolean).join(', '),
+  ].map(value => String(value ?? '').trim()).filter(Boolean);
+
+  if (!lines.length || !navigator.clipboard) {
+    notificationStore.show('Unable to copy customer details.', { type: 'error' });
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    notificationStore.show('Customer details copied.');
+  } catch (error) {
+    notificationStore.show('Unable to copy customer details.', { type: 'error' });
+  }
 };
 
 const utmRows = computed(() => [
@@ -263,11 +303,80 @@ const formatDate = (value) => {
   border-top: 1px solid #f1f5f9;
 }
 
+.customer-section {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
 .detail-section h3 {
   margin: 0 0 12px;
   color: #1e293b;
   font-size: 14px;
   font-weight: 800;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+}
+
+.copy-detail-btn {
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  background: #fff;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.copy-detail-btn:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.copy-detail-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.rows {
+  display: grid;
+  gap: 9px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.detail-row strong {
+  color: #1e293b;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .product-row {
