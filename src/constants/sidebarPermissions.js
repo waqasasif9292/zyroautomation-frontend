@@ -46,10 +46,43 @@ export const routePermissionMap = {
   '/settings/team-members': 'team',
 };
 
+export const permissionLandingPaths = {
+  dashboard: '/dashboard',
+  orders: '/orders',
+  'abandoned-orders': '/abandoned-orders',
+  customers: '/customers',
+  vendors: '/vendors',
+  'status-updates': '/status-updates',
+  'delivery-charges': '/delivery-charges',
+  'packing-logs': '/packing-logs/pending',
+  returns: '/returns/pending',
+  reports: '/reports/overview',
+  products: '/products',
+  financials: '/projections',
+  brands: '/brands',
+  integrations: '/integrations',
+  'whatsapp-automation': '/settings/whatsapp',
+  'courier-statuses': '/settings/statuses',
+  billing: '/settings/billing',
+  'activity-logs': '/settings/activity-logs',
+  team: '/settings/team-members',
+};
+
 export const permissionForPath = (path) => {
   const match = Object.entries(routePermissionMap)
     .sort((a, b) => b[0].length - a[0].length)
     .find(([prefix]) => path.startsWith(prefix));
 
   return match?.[1] || null;
+};
+
+export const isTeamAdmin = (user) => ['admin', 'owner'].includes(user?.team_role || 'admin');
+
+export const firstAccessiblePath = (user) => {
+  if (isTeamAdmin(user)) return '/dashboard';
+
+  const permissions = Array.isArray(user?.team_permissions) ? user.team_permissions : [];
+  const permission = sidebarPermissions.find(item => permissions.includes(item.key));
+
+  return permission ? permissionLandingPaths[permission.key] || '/dashboard' : '/access-denied';
 };

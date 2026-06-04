@@ -2,7 +2,7 @@
   <aside :class="['sidebar', { collapsed: isCollapsed }]">
     <!-- Brand -->
     <div class="sidebar-header">
-      <button class="sidebar-brand" type="button" title="Dashboard" @click="router.push('/dashboard')">
+      <button class="sidebar-brand" type="button" title="Home" @click="router.push(homePath)">
         <div class="brand-logo">Z</div>
         <span class="brand-name">Zyro Automation</span>
       </button>
@@ -71,7 +71,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
-import { permissionForPath } from '../constants/sidebarPermissions';
+import { firstAccessiblePath, isTeamAdmin as userIsTeamAdmin, permissionForPath } from '../constants/sidebarPermissions';
 
 const router    = useRouter();
 const route     = useRoute();
@@ -108,7 +108,8 @@ const handleLogout = async () => {
   await authStore.logout();
 };
 
-const isTeamAdmin = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const homePath = computed(() => firstAccessiblePath(authStore.user));
+const isTeamAdmin = computed(() => userIsTeamAdmin(authStore.user));
 const hasPermission = (item) => {
   const permission = permissionForPath(item.to);
   return !permission || isTeamAdmin.value || authStore.user?.team_permissions?.includes(permission);

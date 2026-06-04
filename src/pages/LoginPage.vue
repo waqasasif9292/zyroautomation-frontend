@@ -76,6 +76,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
+import { firstAccessiblePath } from '../constants/sidebarPermissions';
 import AuthLayout from '../layouts/AuthLayout.vue';
 
 const router = useRouter();
@@ -96,7 +97,7 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(form.value);
-    router.push('/dashboard');
+    router.push(firstAccessiblePath(authStore.user));
   } catch (error) {
     if (error.response?.status === 429) {
       errors.value.general = 'Too many login attempts. Please try again later.';

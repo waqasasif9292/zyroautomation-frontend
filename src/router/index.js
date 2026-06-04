@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
-import { permissionForPath } from '../constants/sidebarPermissions';
+import { firstAccessiblePath, isTeamAdmin, permissionForPath } from '../constants/sidebarPermissions';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -8,6 +8,7 @@ const routes = [
   { path: '/register', component: () => import('../pages/RegisterPage.vue'), meta: { requiresGuest: true } },
   { path: '/forgot-password', component: () => import('../pages/ForgotPasswordPage.vue'), meta: { requiresGuest: true } },
   { path: '/reset-password', component: () => import('../pages/ResetPasswordPage.vue'), meta: { requiresGuest: true } },
+  { path: '/access-denied', component: () => import('../pages/AccessDeniedPage.vue'), meta: { requiresAuth: true } },
   { path: '/dashboard', component: () => import('../pages/DashboardPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/statuses', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true, settingsTab: 'statuses' } },
@@ -98,18 +99,19 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return next('/dashboard');
+    return next(firstAccessiblePath(authStore.user));
   }
 
   const user = authStore.user;
-  const isAdmin = ['admin', 'owner'].includes(user?.team_role || 'admin');
+  const isAdmin = isTeamAdmin(user);
+  const fallbackPath = firstAccessiblePath(user);
   if (to.meta.adminOnly && !isAdmin) {
-    return next('/dashboard');
+    return next(fallbackPath === to.path ? '/access-denied' : fallbackPath);
   }
 
   const requiredPermission = to.meta.requiresAuth ? permissionForPath(to.path) : null;
   if (requiredPermission && !isAdmin && !user?.team_permissions?.includes(requiredPermission)) {
-    return next('/dashboard');
+    return next(fallbackPath === to.path ? '/access-denied' : fallbackPath);
   }
 
   next();
