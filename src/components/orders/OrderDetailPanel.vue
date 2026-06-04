@@ -22,22 +22,25 @@
 
             <section v-if="hasTrackingNumber" class="detail-section">
               <h3>Courier Tracking</h3>
-              <div class="rows">
-                <div class="detail-row">
-                  <span>Tracking</span>
-                  <strong>
-                    <button
-                      class="tracking-button"
-                      type="button"
-                      @click="openTracking"
-                    >
-                      {{ trackingNumber }}
-                    </button>
-                  </strong>
+              <div class="courier-card">
+                <div class="courier-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M3 7h11v10H3z" />
+                    <path d="M14 10h4l3 3v4h-7z" />
+                    <circle cx="7" cy="18" r="2" />
+                    <circle cx="17" cy="18" r="2" />
+                  </svg>
                 </div>
-                <div class="detail-row">
-                  <span>Courier status</span>
-                  <strong>{{ props.order.status || '—' }}</strong>
+                <div class="courier-copy">
+                  <span class="courier-label">{{ courierName || 'Courier shipment' }}</span>
+                  <button
+                    class="tracking-button"
+                    type="button"
+                    @click="openTracking"
+                  >
+                    {{ trackingNumber }}
+                  </button>
+                  <span class="courier-status">{{ props.order.status || '—' }}</span>
                 </div>
               </div>
             </section>
@@ -46,11 +49,12 @@
               <h3>Products</h3>
               <div class="product-row" v-for="item in order.line_items" :key="item.shopify_line_item_id">
                 <div class="product-top">
-                  <strong>{{ item.title || item.name }}</strong>
+                  <strong>{{ productTitle(item) }}</strong>
                   <span>{{ formatMoney(order.currency, item.price) }}</span>
                 </div>
-                <p>Qty: {{ item.quantity }} · Vendor: {{ item.vendor || '—' }}</p>
-                <p>SKU: {{ item.sku || '—' }} · Variant: {{ item.variant_title || '—' }}</p>
+                <div v-if="productMeta(item).length" class="product-meta">
+                  <span v-for="meta in productMeta(item)" :key="meta.label">{{ meta.label }}: {{ meta.value }}</span>
+                </div>
               </div>
             </section>
 
@@ -128,6 +132,30 @@ const hasUtm = computed(() => Object.values(props.order?.utm || {}).some(Boolean
 
 const trackingNumber = computed(() => props.order?.tracking_number || '');
 const hasTrackingNumber = computed(() => Boolean(trackingNumber.value));
+const courierName = computed(() => (
+  props.order?.courier_name
+  || props.order?.manual_order?.courier_name
+  || props.order?.shipping_method
+  || ''
+));
+
+const presentValue = value => {
+  const normalized = String(value ?? '').trim();
+  return normalized && normalized !== '—' ? normalized : '';
+};
+
+const productTitle = (item) => {
+  const quantity = Number(item.quantity || 1);
+  const title = presentValue(item.title) || presentValue(item.name) || 'Product';
+
+  return `${quantity} X ${title}`;
+};
+
+const productMeta = (item) => [
+  { label: 'Vendor', value: presentValue(item.vendor) },
+  { label: 'SKU', value: presentValue(item.sku) },
+  { label: 'Variant', value: presentValue(item.variant_title || item.variant) },
+].filter(meta => meta.value);
 
 const openTracking = () => {
   if (!props.order?.id) return;
@@ -253,6 +281,7 @@ const formatDate = (value) => {
 
 .product-top {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
@@ -261,6 +290,7 @@ const formatDate = (value) => {
   color: #1e293b;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.35;
 }
 
 .product-top span {
@@ -274,6 +304,21 @@ const formatDate = (value) => {
   margin: 5px 0 0;
   color: #64748b;
   font-size: 13px;
+}
+
+.product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.product-meta span {
+  display: inline-flex;
+  align-items: center;
 }
 
 .detail-skeleton {
@@ -302,14 +347,80 @@ const formatDate = (value) => {
   border: none;
   background: transparent;
   color: #1d4ed8;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   cursor: pointer;
   padding: 0;
+  text-align: left;
+  word-break: break-all;
+}
+
+.tracking-button:hover {
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 .tracking-button:disabled {
   color: #94a3b8;
   cursor: default;
+}
+
+.courier-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 13px;
+}
+
+.courier-icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.courier-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.courier-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.courier-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.courier-status {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .error-text,
