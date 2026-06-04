@@ -5,15 +5,24 @@
     </transition>
 
     <main class="orders-page">
-      <OrderStatsStrip class="orders-stats" @select="applyStatsFilter" />
+      <OrderStatsStrip ref="statsRef" class="orders-stats" @select="applyStatsFilter" />
 
       <section class="orders-card">
         <div class="card-header">
           <div>
             <h1>Orders</h1>
-            <p>Incoming orders from your Shopify stores.</p>
+            <p>Incoming orders from your websites and manual entries.</p>
           </div>
           <div class="header-actions">
+            <button class="refresh-btn" type="button" :disabled="refreshing || orderStore.loading" @click="reloadOrdersAndStats">
+              <svg :class="{ spinning: refreshing || orderStore.loading }" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 0 1-15.5 6.3" />
+                <path d="M3 12a9 9 0 0 1 15.5-6.3" />
+                <path d="M18 3v4h-4" />
+                <path d="M6 21v-4h4" />
+              </svg>
+              Reload
+            </button>
             <button class="new-order-btn" type="button" @click="handleNewOrder">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14" />
@@ -192,6 +201,7 @@ const integrationStore = useIntegrationStore();
 const router = useRouter();
 const route = useRoute();
 const tableRef = ref(null);
+const statsRef = ref(null);
 const columnMenuRef = ref(null);
 const toast = ref('');
 const showDeleteDialog = ref(false);
@@ -204,6 +214,7 @@ const cancelLoading = ref(false);
 const selectedCancelOrder = ref(null);
 const savingColumns = ref(false);
 const showColumnMenu = ref(false);
+const refreshing = ref(false);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
@@ -353,21 +364,34 @@ const replaceFilterQuery = async () => {
   }
 };
 
+const reloadOrdersAndStats = async () => {
+  refreshing.value = true;
+  try {
+    await Promise.all([
+      orderStore.fetchOrders(),
+      statsRef.value?.refresh?.(),
+    ]);
+  } finally {
+    refreshing.value = false;
+  }
+};
+
 const applyFilters = async (values) => {
   await orderStore.applyFilters(values);
   await replaceFilterQuery();
+  await statsRef.value?.refresh?.();
 };
 
 const clearFilters = async () => {
   orderStore.hydrateFilters(orderQueryDefaults);
   await replaceFilterQuery();
-  await orderStore.fetchOrders();
+  await reloadOrdersAndStats();
 };
 
 const applyStatsFilter = async (filter) => {
   orderStore.hydrateFilters(exactOrderFilters(filter));
   await replaceFilterQuery();
-  await orderStore.fetchOrders();
+  await reloadOrdersAndStats();
 };
 
 const handleEdit = (id) => {
@@ -449,6 +473,7 @@ const confirmDelete = async () => {
   deleteLoading.value = true;
   try {
     await orderStore.deleteOrder(selectedOrder.value.id);
+    await statsRef.value?.refresh?.();
     showToast('Order deleted.');
     showDeleteDialog.value = false;
     selectedOrder.value = null;
@@ -466,6 +491,7 @@ const confirmBulkDelete = async () => {
   deleteLoading.value = true;
   try {
     await orderStore.bulkDeleteOrders(ids);
+    await statsRef.value?.refresh?.();
     showToast(`${ids.length} ${ids.length === 1 ? 'order' : 'orders'} deleted.`);
     selectedOrderIds.value = [];
     showBulkDeleteDialog.value = false;
@@ -488,6 +514,7 @@ const confirmCancel = async () => {
   cancelLoading.value = true;
   try {
     await orderStore.cancelByShipper(selectedCancelOrder.value.id);
+    await statsRef.value?.refresh?.();
     showToast('Order cancelled by shipper.');
     showCancelDialog.value = false;
     selectedCancelOrder.value = null;
@@ -506,7 +533,7 @@ const handleNewOrder = () => {
 watch(() => ({ ...route.query }), async () => {
   if (syncingQuery) return;
   hydrateFiltersFromRoute();
-  await orderStore.fetchOrders();
+  await reloadOrdersAndStats();
 });
 
 watch(() => orderStore.orders.map(order => order.id), (ids) => {
@@ -582,6 +609,7 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+.refresh-btn,
 .new-order-btn {
   display: inline-flex;
   align-items: center;
@@ -597,8 +625,32 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.refresh-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1e293b;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.refresh-btn svg.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
 .new-order-btn:hover {
   background: #334155;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .card-body {
