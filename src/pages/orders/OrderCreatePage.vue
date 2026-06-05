@@ -260,8 +260,8 @@
               <h2>Order Items</h2>
             </div>
             <div v-if="items.length" class="copy-action">
-              <button type="button" class="copy-btn" :disabled="!items.length" @click="copyItems">
-                Copy
+              <button type="button" class="copy-btn" :disabled="!items.length" @click="addItemsToSpecialInstructions">
+                Add Product Details in Special Instruction
               </button>
             </div>
           </div>
@@ -881,16 +881,15 @@ const decrementItemQuantity = (row) => {
   row.quantity = Math.max(Number(row.quantity || 1) - 1, 1);
 };
 
-const copyItems = async () => {
-  const text = items.value.map(row => `${row.quantity || 1} X ${row.name}`).join(' , ');
-  if (!navigator.clipboard || !text) return;
+const productInstructionText = () => items.value.map(row => `${row.quantity || 1} X ${row.name}`).join(' , ');
 
-  try {
-    await navigator.clipboard.writeText(text);
-    notificationStore.show('Products copied to clipboard.');
-  } catch (error) {
-    notificationStore.show('Unable to copy products.', { type: 'error' });
-  }
+const addItemsToSpecialInstructions = () => {
+  const text = productInstructionText();
+  if (!text) return;
+
+  form.special_instructions = text;
+  delete errors.special_instructions;
+  notificationStore.show('Product details added to special instructions.');
 };
 
 const getPostexApiToken = () => selectedIntegration.value?.courier_options?.api_token;
@@ -1749,6 +1748,7 @@ select:disabled {
 }
 
 .copy-btn {
+  max-width: min(100%, 270px);
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #fff;
@@ -1756,6 +1756,8 @@ select:disabled {
   padding: 7px 11px;
   font-size: 12px;
   font-weight: 850;
+  line-height: 1.25;
+  text-align: center;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.15s;
 }

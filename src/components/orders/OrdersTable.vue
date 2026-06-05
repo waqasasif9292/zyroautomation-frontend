@@ -95,7 +95,17 @@
                   <circle cx="12" cy="12" r="2.5" />
                 </svg>
               </button>
-              <RouterLink v-if="canEdit(order)" class="action-btn" :to="`/orders/${order.id}/edit`" aria-label="Edit order" title="Edit order" @click.stop>
+              <RouterLink
+                v-if="canEdit(order)"
+                class="action-btn"
+                :to="`/orders/${order.id}/edit`"
+                aria-label="Edit order"
+                title="Edit order"
+                @click.stop
+                @mousedown.stop="authStore.prepareTabHandoff"
+                @auxclick.stop="authStore.prepareTabHandoff"
+                @contextmenu.stop="authStore.prepareTabHandoff"
+              >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="m14.5 5.5 4 4" />
                   <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
