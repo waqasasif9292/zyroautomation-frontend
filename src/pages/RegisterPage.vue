@@ -58,26 +58,6 @@
           </div>
           <p v-if="errors.password" class="text-red-500 text-sm mt-1">{{ errors.password[0] }}</p>
 
-          <!-- Password Strength Indicator -->
-          <div v-if="form.password" class="mt-3">
-            <div class="flex gap-1 h-2">
-              <div
-                class="flex-1 rounded-full transition-colors"
-                :style="{ backgroundColor: passwordStrength === 'weak' ? '#EF4444' : '#E2E8F0' }"
-              ></div>
-              <div
-                class="flex-1 rounded-full transition-colors"
-                :style="{ backgroundColor: ['fair', 'strong'].includes(passwordStrength) ? (passwordStrength === 'fair' ? '#F59E0B' : '#22C55E') : '#E2E8F0' }"
-              ></div>
-              <div
-                class="flex-1 rounded-full transition-colors"
-                :style="{ backgroundColor: passwordStrength === 'strong' ? '#22C55E' : '#E2E8F0' }"
-              ></div>
-            </div>
-            <p class="text-xs mt-2" :style="{ color: getPasswordStrengthColor(passwordStrength) }">
-              {{ passwordStrength.charAt(0).toUpperCase() + passwordStrength.slice(1) }}
-            </p>
-          </div>
         </div>
 
         <div>
@@ -116,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import { useAuthValidation } from '../composables/useAuthValidation.js';
@@ -124,7 +104,7 @@ import AuthLayout from '../layouts/AuthLayout.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
-const { validatePasswordStrength, getPasswordStrengthColor, validatePasswordMatch } = useAuthValidation();
+const { validatePasswordMatch } = useAuthValidation();
 
 const loading = ref(false);
 const showPassword = ref(false);
@@ -138,8 +118,6 @@ const form = ref({
   password_confirmation: '',
 });
 
-const passwordStrength = computed(() => validatePasswordStrength(form.value.password));
-
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(form.value.email)) {
@@ -150,10 +128,8 @@ const validateEmail = () => {
 };
 
 const validatePassword = () => {
-  if (form.value.password.length < 8) {
-    errors.value.password = ['Password must be at least 8 characters'];
-  } else if (!/[A-Z]/.test(form.value.password) || !/\d/.test(form.value.password) || !/[@$!%*?&]/.test(form.value.password)) {
-    errors.value.password = ['Password must contain uppercase, number, and special character'];
+  if (form.value.password.length < 6) {
+    errors.value.password = ['Password must be at least 6 characters'];
   } else {
     delete errors.value.password;
   }
