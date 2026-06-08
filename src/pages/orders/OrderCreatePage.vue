@@ -166,23 +166,32 @@
             </div>
             <div v-if="hasCourierSelected" class="field">
               <label>Destination City</label>
-              <select
-                v-model="destinationCitySelection"
-                :class="{ invalid: errors.destination_city }"
-                :disabled="(isPostexSelected && postexCityLoading) || (isLeopardSelected && leopardCityLoading) || (isDastaqSelected && dastaqCityLoading) || (isArgoSelected && argoCityLoading)"
-                @focus="ensureDestinationCities"
-              >
-                <option value="">
-                  {{ citySelectPlaceholder }}
-                </option>
-                <option
-                  v-for="city in destinationCityOptions"
-                  :key="city.value"
-                  :value="city.value"
+              <div class="city-combobox" :class="{ invalid: errors.destination_city, disabled: citySelectDisabled }">
+                <input
+                  v-model="citySearch"
+                  type="text"
+                  autocomplete="off"
+                  :disabled="citySelectDisabled"
+                  :placeholder="citySelectPlaceholder"
+                  @focus="openCityCombobox"
+                  @input="handleCitySearch"
+                  @keydown.enter.prevent="selectFirstFilteredCity"
+                  @keydown.esc="closeCityCombobox"
+                  @blur="closeCityCombobox"
                 >
-                  {{ city.label }}
-                </option>
-              </select>
+                <div v-if="isCityComboboxOpen" class="city-options">
+                  <button
+                    v-for="city in filteredDestinationCityOptions"
+                    :key="city.value"
+                    type="button"
+                    class="city-option"
+                    @mousedown.prevent="selectDestinationCity(city)"
+                  >
+                    {{ city.label }}
+                  </button>
+                  <div v-if="!filteredDestinationCityOptions.length" class="city-option-empty">No cities found</div>
+                </div>
+              </div>
               <span v-if="postexCityLoading" class="helper-text">Fetching delivery cities from PostEx...</span>
               <span v-if="leopardCityLoading" class="helper-text">Loading Leopard cities...</span>
               <span v-if="dastaqCityLoading" class="helper-text">Fetching allowed cities from Dastaq...</span>
@@ -372,6 +381,8 @@ const productStore = useProductStore();
 const items = ref([]);
 const productSearch = ref('');
 const isProductComboboxOpen = ref(false);
+const citySearch = ref('');
+const isCityComboboxOpen = ref(false);
 const errors = reactive({});
 const phoneWarnings = reactive({});
 const saving = ref(false);
@@ -551,9 +562,30 @@ const destinationCityOptions = computed(() => {
     label: city,
   }));
 });
+const selectedDestinationCityLabel = computed(() => {
+  const selectedValue = String(destinationCitySelection.value || '');
+  if (!selectedValue) return '';
+
+  const selectedOption = destinationCityOptions.value.find((city) => String(city.value) === selectedValue);
+  return selectedOption?.label || form.destination_city || selectedValue;
+});
+const filteredDestinationCityOptions = computed(() => {
+  const search = citySearch.value.trim().toLowerCase();
+  if (!search) return destinationCityOptions.value;
+
+  return destinationCityOptions.value.filter((city) => {
+    return [city.label, city.value].filter(Boolean).join(' ').toLowerCase().includes(search);
+  });
+});
+const citySelectDisabled = computed(() => (
+  (isPostexSelected.value && postexCityLoading.value)
+    || (isLeopardSelected.value && leopardCityLoading.value)
+    || (isDastaqSelected.value && dastaqCityLoading.value)
+    || (isArgoSelected.value && argoCityLoading.value)
+));
 const citySelectPlaceholder = computed(() => {
   if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value || argoCityLoading.value) return 'Fetching cities...';
-  return 'Select Destination City';
+  return 'Search Destination City';
 });
 const shipmentTypeOptions = computed(() => {
   if (isLeopardSelected.value) {
@@ -575,6 +607,12 @@ const defaultShipmentTypeForSelectedCourier = () => {
   return '';
 };
 
+watch(selectedDestinationCityLabel, (label) => {
+  if (!isCityComboboxOpen.value) {
+    citySearch.value = label;
+  }
+});
+
 watch(() => form.brand_id, () => {
   if (hydratingOrder.value) return;
 
@@ -585,6 +623,8 @@ watch(() => form.brand_id, () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  citySearch.value = '';
+  isCityComboboxOpen.value = false;
   delete errors.brand_id;
   delete errors.source;
   delete errors.courier_integration_id;
@@ -604,6 +644,8 @@ const resetCourierDependentFields = () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  citySearch.value = '';
+  isCityComboboxOpen.value = false;
   postexPickupAddresses.value = [];
   postexPickupError.value = '';
   postexDeliveryCities.value = [];
@@ -870,6 +912,43 @@ const selectProduct = (product) => {
 const selectFirstFilteredProduct = () => {
   if (filteredProducts.value.length) {
     selectProduct(filteredProducts.value[0]);
+  }
+};
+
+const openCityCombobox = () => {
+  if (citySelectDisabled.value) return;
+  citySearch.value = selectedDestinationCityLabel.value;
+  isCityComboboxOpen.value = true;
+  ensureDestinationCities();
+};
+
+const closeCityCombobox = () => {
+  setTimeout(() => {
+    isCityComboboxOpen.value = false;
+    citySearch.value = selectedDestinationCityLabel.value;
+  }, 120);
+};
+
+const handleCitySearch = () => {
+  isCityComboboxOpen.value = true;
+  ensureDestinationCities();
+  delete errors.destination_city;
+
+  if (citySearch.value !== selectedDestinationCityLabel.value) {
+    destinationCitySelection.value = '';
+  }
+};
+
+const selectDestinationCity = (city) => {
+  destinationCitySelection.value = city.value;
+  citySearch.value = city.label;
+  isCityComboboxOpen.value = false;
+  delete errors.destination_city;
+};
+
+const selectFirstFilteredCity = () => {
+  if (filteredDestinationCityOptions.value.length) {
+    selectDestinationCity(filteredDestinationCityOptions.value[0]);
   }
 };
 
@@ -1798,19 +1877,28 @@ select:disabled {
   padding: 14px;
 }
 
-.product-combobox {
+.product-combobox,
+.city-combobox {
   position: relative;
 }
 
-.product-combobox input {
+.product-combobox input,
+.city-combobox input {
   background: #fff;
 }
 
-.product-combobox.invalid input {
+.product-combobox.invalid input,
+.city-combobox.invalid input {
   border-color: #ef4444;
 }
 
-.product-options {
+.city-combobox.disabled input {
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.product-options,
+.city-options {
   position: absolute;
   z-index: 20;
   top: calc(100% + 6px);
@@ -1824,7 +1912,8 @@ select:disabled {
   box-shadow: 0 18px 34px rgba(15, 23, 42, 0.14);
 }
 
-.product-option {
+.product-option,
+.city-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1840,7 +1929,9 @@ select:disabled {
 }
 
 .product-option:hover,
-.product-option:focus-visible {
+.product-option:focus-visible,
+.city-option:hover,
+.city-option:focus-visible {
   background: #eff6ff;
 }
 
@@ -1859,7 +1950,14 @@ select:disabled {
   font-weight: 750;
 }
 
-.product-option-empty {
+.city-option {
+  justify-content: flex-start;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.product-option-empty,
+.city-option-empty {
   padding: 12px;
   color: #64748b;
   font-size: 12px;
