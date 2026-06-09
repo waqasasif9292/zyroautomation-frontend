@@ -86,16 +86,39 @@
                   Customize Columns
                 </button>
                 <div v-if="showColumnMenu" class="column-menu-panel">
-                  <label v-for="column in orderTableColumns" :key="column.key" class="column-option">
-                    <input
-                      type="checkbox"
-                      :checked="isColumnVisible(column.key)"
+                  <div
+                    v-for="column in orderTableColumns"
+                    :key="column.key"
+                    class="column-option"
+                    :class="{ dragging: draggedColumn === column.key, 'drag-over': dragOverColumn === column.key, locked: column.locked }"
+                    :draggable="!column.locked && !savingColumns"
+                    @dragstart="startColumnDrag(column, $event)"
+                    @dragover.prevent="markColumnDropTarget(column)"
+                    @dragleave="clearColumnDropTarget(column)"
+                    @drop.prevent="dropColumn(column)"
+                    @dragend="endColumnDrag"
+                  >
+                    <button
+                      class="column-drag-handle"
+                      type="button"
                       :disabled="column.locked || savingColumns"
-                      @change="toggleColumn(column.key, $event.target.checked)"
+                      aria-label="Drag column to reorder"
                     >
-                    <span>{{ column.label }}</span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />
+                      </svg>
+                    </button>
+                    <label class="column-check">
+                      <input
+                        type="checkbox"
+                        :checked="isColumnVisible(column.key)"
+                        :disabled="column.locked || savingColumns"
+                        @change="toggleColumn(column.key, $event.target.checked)"
+                      >
+                      <span>{{ column.label }}</span>
+                    </label>
                     <small v-if="column.locked">Locked</small>
-                  </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -215,6 +238,9 @@ const selectedCancelOrder = ref(null);
 const savingColumns = ref(false);
 const showColumnMenu = ref(false);
 const refreshing = ref(false);
+const columnOrder = ref([]);
+const draggedColumn = ref(null);
+const dragOverColumn = ref(null);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
@@ -222,7 +248,7 @@ const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', '
 const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'city', 'status', 'total', 'payment', 'products', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
-const orderTableColumns = [
+const orderTableColumnDefinitions = [
   { key: 'serial', label: 'Serial Number', locked: true },
   { key: 'order', label: 'Order' },
   { key: 'brand', label: 'Brand' },
@@ -238,10 +264,27 @@ const orderTableColumns = [
   { key: 'products', label: 'Product(s)' },
   { key: 'actions', label: 'Actions', locked: true },
 ];
+const orderTableColumnMap = new Map(orderTableColumnDefinitions.map(column => [column.key, column]));
 
 const normalizeOrderColumns = (columns = []) => {
   const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
-  return allowedOrderColumns.filter(column => requested.includes(column) || lockedOrderColumns.includes(column));
+  const validColumns = requested.filter(column => allowedOrderColumns.includes(column));
+  const orderedColumns = [
+    ...new Set([
+      ...validColumns,
+      ...defaultOrderColumns.filter(column => !validColumns.includes(column)),
+      ...allowedOrderColumns.filter(column => !validColumns.includes(column)),
+    ]),
+  ].filter(column => !lockedOrderColumns.includes(column));
+
+  return ['serial', ...orderedColumns, 'actions'];
+};
+
+const normalizeVisibleOrderColumns = (columns = []) => {
+  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  const visibleSet = new Set([...requested.filter(column => allowedOrderColumns.includes(column)), ...lockedOrderColumns]);
+  return normalizeOrderColumns(columnOrder.value.length ? columnOrder.value : requested)
+    .filter(column => visibleSet.has(column));
 };
 
 const orderQueryDefaults = {
@@ -297,10 +340,29 @@ const serialStart = computed(() => {
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
 });
 
+const orderedColumnKeys = computed(() => normalizeOrderColumns(columnOrder.value));
+
+const orderTableColumns = computed(() => orderedColumnKeys.value.map(column => orderTableColumnMap.get(column)).filter(Boolean));
+
 const isColumnVisible = column => visibleOrderColumns.value.includes(column) || lockedOrderColumns.includes(column);
 
 const hydrateOrderColumns = () => {
-  visibleOrderColumns.value = normalizeOrderColumns(authStore.user?.ui_preferences?.orders_table_columns);
+  const savedColumns = authStore.user?.ui_preferences?.orders_table_columns;
+  columnOrder.value = normalizeOrderColumns(savedColumns);
+  visibleOrderColumns.value = normalizeVisibleOrderColumns(savedColumns);
+};
+
+const saveColumnPreferences = async (message = 'Column preferences saved.') => {
+  savingColumns.value = true;
+  try {
+    await authStore.updateOrdersTableColumns(visibleOrderColumns.value);
+    showToast(message);
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to save column preferences.');
+  } finally {
+    savingColumns.value = false;
+  }
 };
 
 const toggleColumn = async (column, checked) => {
@@ -313,17 +375,54 @@ const toggleColumn = async (column, checked) => {
     selected.delete(column);
   }
 
-  visibleOrderColumns.value = normalizeOrderColumns([...selected]);
-  savingColumns.value = true;
-  try {
-    await authStore.updateOrdersTableColumns(visibleOrderColumns.value);
-    showToast('Column preferences saved.');
-  } catch (error) {
-    console.error(error);
-    showToast(error.response?.data?.message || 'Failed to save column preferences.');
-  } finally {
-    savingColumns.value = false;
+  visibleOrderColumns.value = normalizeOrderColumns(columnOrder.value).filter(key => selected.has(key) || lockedOrderColumns.includes(key));
+  await saveColumnPreferences();
+};
+
+const startColumnDrag = (column, event) => {
+  if (column.locked || savingColumns.value) return;
+  draggedColumn.value = column.key;
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', column.key);
+};
+
+const markColumnDropTarget = (column) => {
+  if (!draggedColumn.value || column.locked || column.key === draggedColumn.value) return;
+  dragOverColumn.value = column.key;
+};
+
+const clearColumnDropTarget = (column) => {
+  if (dragOverColumn.value === column.key) {
+    dragOverColumn.value = null;
   }
+};
+
+const dropColumn = async (column) => {
+  const fromColumn = draggedColumn.value;
+  if (!fromColumn || column.locked || fromColumn === column.key) {
+    endColumnDrag();
+    return;
+  }
+
+  const unlockedColumns = normalizeOrderColumns(columnOrder.value).filter(key => !lockedOrderColumns.includes(key));
+  const fromIndex = unlockedColumns.indexOf(fromColumn);
+  const toIndex = unlockedColumns.indexOf(column.key);
+  if (fromIndex === -1 || toIndex === -1) {
+    endColumnDrag();
+    return;
+  }
+
+  unlockedColumns.splice(toIndex, 0, ...unlockedColumns.splice(fromIndex, 1));
+  columnOrder.value = normalizeOrderColumns(['serial', ...unlockedColumns, 'actions']);
+  const visibleSet = new Set(visibleOrderColumns.value);
+  visibleOrderColumns.value = normalizeOrderColumns(columnOrder.value).filter(key => visibleSet.has(key) || lockedOrderColumns.includes(key));
+  endColumnDrag();
+  await saveColumnPreferences('Column order saved.');
+};
+
+const endColumnDrag = () => {
+  draggedColumn.value = null;
+  dragOverColumn.value = null;
 };
 
 const closeColumnMenu = () => {
@@ -758,7 +857,7 @@ onBeforeUnmount(() => {
   z-index: 30;
   top: calc(100% + 8px);
   right: 0;
-  width: 268px;
+  width: 306px;
   max-height: 330px;
   overflow: auto;
   border: 1px solid #d6deea;
@@ -788,21 +887,78 @@ onBeforeUnmount(() => {
 .column-option {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   min-height: 36px;
   border-radius: 7px;
   color: #1f2937;
-  padding: 8px 9px;
+  padding: 6px 8px;
   font-size: 13px;
   font-weight: 750;
-  cursor: pointer;
+  cursor: grab;
+  transition: background 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 
 .column-option:hover {
   background: #f1f5f9;
 }
 
+.column-option.locked {
+  cursor: default;
+}
+
+.column-option.dragging {
+  opacity: 0.55;
+}
+
+.column-option.drag-over {
+  background: #e0f2fe;
+  box-shadow: inset 0 0 0 1px #7dd3fc;
+}
+
+.column-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  padding: 0;
+  cursor: grab;
+}
+
+.column-drag-handle:disabled {
+  cursor: not-allowed;
+  color: #cbd5e1;
+}
+
+.column-drag-handle svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.column-option:hover .column-drag-handle:not(:disabled) {
+  border-color: #dbe3ee;
+  background: #fff;
+}
+
+.column-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
 .column-option input {
+  flex: 0 0 auto;
   width: 16px;
   height: 16px;
   accent-color: #1e293b;
@@ -812,8 +968,12 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-.column-option span {
+.column-check span {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .column-option small {

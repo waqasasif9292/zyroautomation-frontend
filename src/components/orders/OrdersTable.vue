@@ -13,20 +13,13 @@
               @change="$emit('select-page', $event.target.checked)"
             >
           </th>
-          <th v-if="isVisible('serial')" class="col-serial">#</th>
-          <th v-if="isVisible('order')" class="col-order">Order</th>
-          <th v-if="isVisible('brand')" class="col-brand">Brand</th>
-          <th v-if="isVisible('source')" class="col-source">Source</th>
-          <th v-if="isVisible('tracking')" class="col-tracking">Tracking</th>
-          <th v-if="isVisible('created_by')" class="col-created-by">Created By</th>
-          <th v-if="isVisible('customer')" class="col-customer">Customer Name</th>
-          <th v-if="isVisible('phone')" class="col-phone">Phone</th>
-          <th v-if="isVisible('city')" class="col-city">City</th>
-          <th v-if="isVisible('status')" class="col-status">Status</th>
-          <th v-if="isVisible('total')" class="col-total">Total</th>
-          <th v-if="isVisible('payment')" class="col-payment">Payment</th>
-          <th v-if="isVisible('products')" class="col-products">Product(s)</th>
-          <th v-if="isVisible('actions')" class="col-actions">Actions</th>
+          <th
+            v-for="column in displayedColumns"
+            :key="column.key"
+            :class="column.class"
+          >
+            {{ column.header }}
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -44,90 +37,108 @@
               @change="$emit('toggle-select', order.id, $event.target.checked)"
             >
           </td>
-          <td v-if="isVisible('serial')" class="serial">{{ serialStart + index }}</td>
-          <td v-if="isVisible('order')">
-            <div class="strong">{{ order.order_name || '—' }}</div>
-            <div class="muted order-time">{{ formatDate(order.shopify_created_at) }}</div>
-          </td>
-          <td v-if="isVisible('brand')">{{ order.brand_name || '—' }}</td>
-          <td v-if="isVisible('source')">
-            <span class="source-badge">{{ order.source || '—' }}</span>
-          </td>
-          <td v-if="isVisible('tracking')">
-            <button
-              v-if="order.tracking_number"
-              type="button"
-              class="tracking-code"
-              :title="order.tracking_number"
-              @click.stop="$emit('track', order.id)"
-            >
-              {{ order.tracking_number }}
-            </button>
-            <span v-else class="tracking-empty">—</span>
-          </td>
-          <td v-if="isVisible('created_by')">
-            <div class="strong">{{ order.created_by?.name || '—' }}</div>
-            <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
-              Last: {{ order.last_saved_by.name }}
-            </div>
-          </td>
-          <td v-if="isVisible('customer')">
-            <div class="strong">{{ order.customer?.name || '—' }}</div>
-          </td>
-          <td v-if="isVisible('phone')" class="phone-cell">{{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}</td>
-          <td v-if="isVisible('city')">{{ order.customer?.city || '—' }}</td>
-          <td v-if="isVisible('status')"><OrderStatusBadge :status="order.status" /></td>
-          <td v-if="isVisible('total')" class="total">{{ formatMoney(order.currency, order.total_price) }}</td>
-          <td v-if="isVisible('payment')">
-            <div class="payment-cell">
-              <span class="truncate" :title="order.payment_method">{{ order.payment_method || '—' }}</span>
-              <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
-            </div>
-          </td>
-          <td v-if="isVisible('products')">
-            <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
-          </td>
-          <td v-if="isVisible('actions')">
-            <div class="action-buttons">
-              <button class="action-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-                  <circle cx="12" cy="12" r="2.5" />
-                </svg>
-              </button>
-              <RouterLink
-                v-if="canEdit(order)"
-                class="action-btn"
-                :to="`/orders/${order.id}/edit`"
-                aria-label="Edit order"
-                title="Edit order"
-                @click.stop
-                @mousedown.stop="authStore.prepareTabHandoff"
-                @auxclick.stop="authStore.prepareTabHandoff"
-                @contextmenu.stop="authStore.prepareTabHandoff"
+          <td
+            v-for="column in displayedColumns"
+            :key="column.key"
+            :class="[{ serial: column.key === 'serial', total: column.key === 'total', 'phone-cell': column.key === 'phone' }, column.cellClass]"
+          >
+            <template v-if="column.key === 'serial'">
+              {{ serialStart + index }}
+            </template>
+            <template v-else-if="column.key === 'order'">
+              <div class="strong">{{ order.order_name || '—' }}</div>
+              <div class="muted order-time">{{ formatDate(order.shopify_created_at) }}</div>
+            </template>
+            <template v-else-if="column.key === 'brand'">
+              {{ order.brand_name || '—' }}
+            </template>
+            <template v-else-if="column.key === 'source'">
+              <span class="source-badge">{{ order.source || '—' }}</span>
+            </template>
+            <template v-else-if="column.key === 'tracking'">
+              <button
+                v-if="order.tracking_number"
+                type="button"
+                class="tracking-code"
+                :title="order.tracking_number"
+                @click.stop="$emit('track', order.id)"
               >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m14.5 5.5 4 4" />
-                  <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
-                </svg>
-              </RouterLink>
-              <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" aria-label="Cancel order" title="Cancel order" @click.stop="$emit('cancel', order.id)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="m9 9 6 6" />
-                  <path d="m15 9-6 6" />
-                </svg>
+                {{ order.tracking_number }}
               </button>
-              <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7h16" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                  <path d="M6 7l1 13h10l1-13" />
-                  <path d="M9 7V4h6v3" />
-                </svg>
-              </button>
-            </div>
+              <span v-else class="tracking-empty">—</span>
+            </template>
+            <template v-else-if="column.key === 'created_by'">
+              <div class="strong">{{ order.created_by?.name || '—' }}</div>
+              <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
+                Last: {{ order.last_saved_by.name }}
+              </div>
+            </template>
+            <template v-else-if="column.key === 'customer'">
+              <div class="strong">{{ order.customer?.name || '—' }}</div>
+            </template>
+            <template v-else-if="column.key === 'phone'">
+              {{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}
+            </template>
+            <template v-else-if="column.key === 'city'">
+              {{ order.customer?.city || '—' }}
+            </template>
+            <template v-else-if="column.key === 'status'">
+              <OrderStatusBadge :status="order.status" />
+            </template>
+            <template v-else-if="column.key === 'total'">
+              {{ formatMoney(order.currency, order.total_price) }}
+            </template>
+            <template v-else-if="column.key === 'payment'">
+              <div class="payment-cell">
+                <span class="truncate" :title="order.payment_method">{{ order.payment_method || '—' }}</span>
+                <span v-if="isCod(order.payment_method)" class="cod-badge">COD</span>
+              </div>
+            </template>
+            <template v-else-if="column.key === 'products'">
+              <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <div class="action-buttons">
+                <button class="action-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                    <circle cx="12" cy="12" r="2.5" />
+                  </svg>
+                </button>
+                <RouterLink
+                  v-if="canEdit(order)"
+                  class="action-btn"
+                  :to="`/orders/${order.id}/edit`"
+                  aria-label="Edit order"
+                  title="Edit order"
+                  @click.stop
+                  @mousedown.stop="authStore.prepareTabHandoff"
+                  @auxclick.stop="authStore.prepareTabHandoff"
+                  @contextmenu.stop="authStore.prepareTabHandoff"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m14.5 5.5 4 4" />
+                    <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
+                  </svg>
+                </RouterLink>
+                <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" aria-label="Cancel order" title="Cancel order" @click.stop="$emit('cancel', order.id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="m9 9 6 6" />
+                    <path d="m15 9-6 6" />
+                  </svg>
+                </button>
+                <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                    <path d="M6 7l1 13h10l1-13" />
+                    <path d="M9 7V4h6v3" />
+                  </svg>
+                </button>
+              </div>
+            </template>
           </td>
         </tr>
       </tbody>
@@ -179,9 +190,31 @@ defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'toggle-select', 'sele
 
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
-const visibleColumnSet = computed(() => new Set([...props.visibleColumns, ...lockedColumns]));
-const isVisible = column => visibleColumnSet.value.has(column);
-const visibleColumnCount = computed(() => visibleColumnSet.value.size + (props.selectable ? 1 : 0));
+const columnDefinitions = [
+  { key: 'serial', header: '#', class: 'col-serial' },
+  { key: 'order', header: 'Order', class: 'col-order' },
+  { key: 'brand', header: 'Brand', class: 'col-brand' },
+  { key: 'source', header: 'Source', class: 'col-source' },
+  { key: 'tracking', header: 'Tracking', class: 'col-tracking' },
+  { key: 'created_by', header: 'Created By', class: 'col-created-by' },
+  { key: 'customer', header: 'Customer Name', class: 'col-customer' },
+  { key: 'phone', header: 'Phone', class: 'col-phone' },
+  { key: 'city', header: 'City', class: 'col-city' },
+  { key: 'status', header: 'Status', class: 'col-status' },
+  { key: 'total', header: 'Total', class: 'col-total' },
+  { key: 'payment', header: 'Payment', class: 'col-payment' },
+  { key: 'products', header: 'Product(s)', class: 'col-products' },
+  { key: 'actions', header: 'Actions', class: 'col-actions', cellClass: 'col-actions' },
+];
+const columnDefinitionMap = new Map(columnDefinitions.map(column => [column.key, column]));
+const displayedColumns = computed(() => {
+  const requested = Array.isArray(props.visibleColumns) ? props.visibleColumns : [];
+  const orderedKeys = [...new Set([...requested, ...lockedColumns])];
+  return orderedKeys
+    .map(column => columnDefinitionMap.get(column))
+    .filter(Boolean);
+});
+const visibleColumnCount = computed(() => displayedColumns.value.length + (props.selectable ? 1 : 0));
 const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const isCod = (payment) => (payment || '').toLowerCase().includes('cash on delivery');
