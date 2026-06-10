@@ -1448,7 +1448,12 @@ const handleSave = async (mode) => {
       ? `${fallback} (${error.message})`
       : fallback;
     const message = error.response?.data?.message || networkMessage;
-    const courierDetails = formatApiErrorDetails(error.response?.data?.argo_response || error.response?.data?.dastaq_response);
+    const courierDetails = formatApiErrorDetails(
+      error.response?.data?.postex_response ||
+      error.response?.data?.leopard_response ||
+      error.response?.data?.argo_response ||
+      error.response?.data?.dastaq_response
+    );
     const errorDetails = formatApiErrorDetails(error.response?.data?.errors);
 
     if (responseErrors && typeof responseErrors === 'object' && !Array.isArray(responseErrors)) {
