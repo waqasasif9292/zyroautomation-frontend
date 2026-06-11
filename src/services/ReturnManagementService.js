@@ -13,6 +13,11 @@ const ReturnManagementService = {
   markReceived(id) {
     return axiosInstance.put(`/returns/${id}/mark-received`);
   },
+  markReceivedByTracking(trackingNumber) {
+    return axiosInstance.post('/returns/scan/mark-received', {
+      tracking_number: trackingNumber,
+    });
+  },
   markUnreceived(id) {
     return axiosInstance.put(`/returns/${id}/mark-unreceived`);
   },
