@@ -1,20 +1,36 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 import ProductService from '../services/ProductService';
+
+const defaultFilters = () => ({
+  search: '',
+  page: 1,
+});
 
 export const useProductStore = defineStore('product', () => {
   const products = ref([]);
+  const pagination = ref(null);
+  const filters = reactive(defaultFilters());
   const loading = ref(false);
   const formLoading = ref(false);
 
-  const fetchProducts = async () => {
+  const paginatedParams = () => Object.fromEntries(
+    Object.entries({ ...filters, per_page: 100 }).filter(([, value]) => value !== null && value !== '')
+  );
+
+  const fetchProducts = async (params = {}) => {
     loading.value = true;
     try {
-      const res = await ProductService.getProducts();
+      const res = await ProductService.getProducts(params);
       products.value = res.data.data.products;
+      pagination.value = res.data.data.pagination || null;
     } finally {
       loading.value = false;
     }
+  };
+
+  const fetchProductPage = async () => {
+    await fetchProducts(paginatedParams());
   };
 
   const fetchProduct = async (id) => {
@@ -51,14 +67,30 @@ export const useProductStore = defineStore('product', () => {
     products.value = products.value.filter(product => product.id !== id);
   };
 
+  const setSearch = async (value) => {
+    filters.search = value || '';
+    filters.page = 1;
+    await fetchProductPage();
+  };
+
+  const setPage = async (page) => {
+    filters.page = page;
+    await fetchProductPage();
+  };
+
   return {
     products,
+    pagination,
+    filters,
     loading,
     formLoading,
     fetchProducts,
+    fetchProductPage,
     fetchProduct,
     createProduct,
     updateProduct,
     deleteProduct,
+    setSearch,
+    setPage,
   };
 });

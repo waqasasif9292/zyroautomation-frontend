@@ -21,16 +21,45 @@
         </div>
 
         <div class="card-body">
+          <div class="products-toolbar">
+            <label class="search-field">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                v-model="searchDraft"
+                type="search"
+                placeholder="Search products"
+                aria-label="Search products"
+              >
+            </label>
+          </div>
+
           <ProductEmptyState
-            v-if="!loading && products.length === 0"
+            v-if="!loading && products.length === 0 && !hasActiveSearch"
             @add="router.push('/products/create')"
           />
+          <div v-else-if="!loading && products.length === 0" class="no-results">
+            <h2>No products found</h2>
+            <p>Try another product name, SKU, or Shopify ID.</p>
+            <button type="button" @click="clearSearch">Clear Search</button>
+          </div>
           <ProductTable
             v-else
             :products="products"
             :loading="loading"
+            :serial-start="serialStart"
             @edit="id => router.push(`/products/${id}/edit`)"
+            @orders="openProductOrders"
             @delete="confirmDelete"
+          />
+          <OrderPagination
+            v-if="products.length > 0"
+            class="products-pagination"
+            :pagination="pagination"
+            item-label="products"
+            @page-change="changePage"
           />
         </div>
       </section>
@@ -53,23 +82,34 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
+import OrderPagination from '../../components/orders/OrderPagination.vue';
 import ProductEmptyState from '../../components/products/ProductEmptyState.vue';
 import ProductTable from '../../components/products/ProductTable.vue';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
+import { useAuthStore } from '../../stores/authStore';
 import { useProductStore } from '../../stores/productStore';
 
 const router = useRouter();
 const route = useRoute();
 const productStore = useProductStore();
-const { products, loading } = storeToRefs(productStore);
+const authStore = useAuthStore();
+const { products, pagination, filters, loading } = storeToRefs(productStore);
 const toast = ref('');
 const showDeleteDialog = ref(false);
 const deleteLoading = ref(false);
 const selectedProduct = ref(null);
+const searchDraft = ref(filters.value.search || '');
+let searchTimer = null;
+
+const hasActiveSearch = computed(() => Boolean(filters.value.search));
+const serialStart = computed(() => {
+  if (!pagination.value) return 1;
+  return ((pagination.value.current_page - 1) * pagination.value.per_page) + 1;
+});
 
 const showToast = (message) => {
   toast.value = message;
@@ -87,11 +127,21 @@ const closeDeleteDialog = () => {
   selectedProduct.value = null;
 };
 
+const openProductOrders = (product) => {
+  authStore.prepareTabHandoff();
+  const target = router.resolve({
+    path: '/orders',
+    query: { product_id: product.id },
+  });
+  window.open(target.href, '_blank', 'noopener');
+};
+
 const handleDelete = async () => {
   if (!selectedProduct.value) return;
   deleteLoading.value = true;
   try {
     await productStore.deleteProduct(selectedProduct.value.id);
+    await productStore.fetchProductPage();
     showToast('Product deleted.');
     showDeleteDialog.value = false;
     selectedProduct.value = null;
@@ -103,8 +153,24 @@ const handleDelete = async () => {
   }
 };
 
+const changePage = async (page) => {
+  await productStore.setPage(page);
+};
+
+const clearSearch = async () => {
+  searchDraft.value = '';
+  await productStore.setSearch('');
+};
+
+watch(searchDraft, (value) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    productStore.setSearch(value.trim());
+  }, 300);
+});
+
 onMounted(async () => {
-  await productStore.fetchProducts();
+  await productStore.fetchProductPage();
 
   if (route.query.toast === 'created') {
     showToast('Product created.');
@@ -113,6 +179,10 @@ onMounted(async () => {
     showToast('Product updated.');
     router.replace({ query: {} });
   }
+});
+
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer);
 });
 </script>
 
@@ -171,6 +241,78 @@ onMounted(async () => {
   padding: 0;
 }
 
+.products-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  width: min(100%, 360px);
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+}
+
+.search-field input {
+  width: 100%;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  color: #1e293b;
+  font-size: 14px;
+  background: transparent;
+}
+
+.search-field input::placeholder {
+  color: #94a3b8;
+}
+
+.no-results {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.no-results h2 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 18px;
+}
+
+.no-results p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.no-results button {
+  margin-top: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.products-pagination {
+  margin: 0 20px;
+  padding: 18px 0;
+}
+
 .toast {
   position: fixed;
   top: 18px;
@@ -194,5 +336,24 @@ onMounted(async () => {
 .toast-fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+@media (max-width: 640px) {
+  .products-page {
+    padding: 18px;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .products-toolbar {
+    justify-content: stretch;
+  }
+
+  .search-field {
+    width: 100%;
+  }
 }
 </style>

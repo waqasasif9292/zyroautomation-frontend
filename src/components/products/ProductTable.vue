@@ -24,7 +24,7 @@
           </tr>
         </template>
         <tr v-else v-for="(product, index) in products" :key="product.id">
-          <td class="serial">{{ index + 1 }}</td>
+          <td class="serial">{{ serialStart + index }}</td>
           <td>
             <img
               v-if="product.picture_url && !brokenImages[product.id]"
@@ -52,6 +52,13 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+              </button>
+              <button class="icon-btn" type="button" title="View product orders" aria-label="View product orders" @click="$emit('orders', product)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+                  <path d="M3 6h18" />
+                  <path d="M16 10a4 4 0 0 1-8 0" />
                 </svg>
               </button>
               <button class="icon-btn danger" type="button" title="Delete product" aria-label="Delete product" @click="$emit('delete', product)">
@@ -83,9 +90,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  serialStart: {
+    type: Number,
+    default: 1,
+  },
 });
 
-defineEmits(['edit', 'delete']);
+defineEmits(['edit', 'orders', 'delete']);
 
 const brokenImages = reactive({});
 const markBroken = (id) => {
@@ -139,7 +150,7 @@ tbody tr:hover {
 }
 
 .col-actions {
-  width: 110px;
+  width: 146px;
 }
 
 .serial,

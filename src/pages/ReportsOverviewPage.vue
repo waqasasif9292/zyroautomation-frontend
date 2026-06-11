@@ -55,6 +55,10 @@
           <span>Return Report</span>
           <strong>Review product, city, courier, and order returns</strong>
         </button>
+        <button type="button" @click="router.push('/reports/products')">
+          <span>Product Report</span>
+          <strong>Analyze selected products by status, courier, brand, and source</strong>
+        </button>
       </section>
     </main>
   </AppLayout>

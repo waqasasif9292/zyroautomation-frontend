@@ -294,6 +294,7 @@ const orderQueryDefaults = {
   date_from: null,
   date_to: null,
   financial_status: null,
+  product_id: null,
   search: '',
   source: null,
   sort: 'created_id_desc',
@@ -312,6 +313,7 @@ const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.customer_id ||
   orderStore.filters.date_from ||
   orderStore.filters.date_to ||
+  orderStore.filters.product_id ||
   orderStore.filters.search ||
   orderStore.filters.source ||
   orderStore.filters.status

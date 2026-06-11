@@ -10,7 +10,7 @@
           <span class="status-pill">{{ isEditMode ? 'Draft update' : 'Manual entry' }}</span>
         </header>
 
-        <form class="order-form" @submit.prevent="handleSave">
+        <form ref="formRef" class="order-form" @submit.prevent="handleSave">
           <div class="section-title">
             <span>01</span>
             <h2>Brand & Source</h2>
@@ -378,6 +378,7 @@ const integrationStore = useIntegrationStore();
 const notificationStore = useNotificationStore();
 const orderStore = useOrderStore();
 const productStore = useProductStore();
+const formRef = ref(null);
 const items = ref([]);
 const productSearch = ref('');
 const isProductComboboxOpen = ref(false);
@@ -1256,6 +1257,23 @@ const formatApiErrorDetails = (value) => {
   return String(value);
 };
 
+const scrollToFirstValidationError = async () => {
+  await nextTick();
+  const firstInvalid = formRef.value?.querySelector('.invalid, .items-error');
+
+  if (!firstInvalid) {
+    return;
+  }
+
+  firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const focusTarget = firstInvalid.matches('input, select, textarea, button')
+    ? firstInvalid
+    : firstInvalid.querySelector('input, select, textarea, button');
+
+  focusTarget?.focus?.({ preventScroll: true });
+};
+
 const buildPayload = () => ({
   ...form,
   customer_contact: phoneNormalizer(form.customer_contact),
@@ -1401,7 +1419,10 @@ const handleSave = async (mode) => {
     errors.items = 'At least one order item is required.';
   }
 
-  if (Object.keys(errors).length) return;
+  if (Object.keys(errors).length) {
+    await scrollToFirstValidationError();
+    return;
+  }
 
   saving.value = true;
   try {
@@ -1460,6 +1481,7 @@ const handleSave = async (mode) => {
       Object.assign(errors, Object.fromEntries(
         Object.entries(responseErrors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
       ));
+      await scrollToFirstValidationError();
     }
 
     submitError.value = {
