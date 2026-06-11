@@ -5,16 +5,17 @@
         <header class="card-header">
           <div>
             <p class="eyebrow">Orders</p>
-            <h1>{{ isEditMode ? 'Edit Order' : 'Create Order' }}</h1>
+            <h1>{{ pageTitle }}</h1>
           </div>
-          <span class="status-pill">{{ isEditMode ? 'Draft update' : 'Manual entry' }}</span>
+          <span class="status-pill">{{ pageStatus }}</span>
         </header>
 
-        <form ref="formRef" class="order-form" @submit.prevent="handleSave">
-          <div class="section-title">
-            <span>01</span>
-            <h2>Brand & Source</h2>
-          </div>
+        <form ref="formRef" class="order-form" :class="{ 'readonly-form': isReadonlyMode }" @submit.prevent="handleSave">
+          <fieldset class="form-fields" :disabled="isReadonlyMode">
+            <div class="section-title">
+              <span>01</span>
+              <h2>Brand & Source</h2>
+            </div>
 
           <div class="grid two">
             <div class="field">
@@ -306,7 +307,7 @@
             </div>
             <button type="button" class="add-item-btn" @click="addItem">Add</button>
           </div>
-          <span v-if="errors.items || !canSaveDraft" class="field-error items-error">
+          <span v-if="!isReadonlyMode && (errors.items || !canSaveDraft)" class="field-error items-error">
             {{ errors.items || 'Select at least one product to continue.' }}
           </span>
 
@@ -329,12 +330,14 @@
             </div>
           </div>
 
+          </fieldset>
+
           <div class="actions">
-            <button type="button" class="cancel-btn" @click="router.push('/orders')">Cancel</button>
-            <button type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
+            <button type="button" class="cancel-btn" @click="router.push('/orders')">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
+            <button v-if="!isReadonlyMode" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
               {{ saving ? 'Saving...' : 'Save Draft' }}
             </button>
-            <button type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
+            <button v-if="!isReadonlyMode" type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
               {{ creatingShipment ? 'Creating...' : 'Create Order' }}
             </button>
           </div>
@@ -480,6 +483,15 @@ const closeErrorPopup = () => {
 };
 
 const isEditMode = computed(() => Boolean(route.params.id));
+const isReadonlyMode = computed(() => Boolean(route.meta.readonlyOrder));
+const pageTitle = computed(() => {
+  if (isReadonlyMode.value) return 'View Order';
+  return isEditMode.value ? 'Edit Order' : 'Create Order';
+});
+const pageStatus = computed(() => {
+  if (isReadonlyMode.value) return 'Read only';
+  return isEditMode.value ? 'Draft update' : 'Manual entry';
+});
 const isShopifyEditOrder = ref(false);
 const hasOrderProducts = computed(() => items.value.length > 0);
 const canSaveDraft = computed(() => hasOrderProducts.value || isShopifyEditOrder.value);
@@ -1288,6 +1300,8 @@ const buildPayload = () => ({
 });
 
 const handleSave = async (mode) => {
+  if (isReadonlyMode.value) return;
+
   Object.keys(errors).forEach(key => delete errors[key]);
   Object.keys(phoneWarnings).forEach(key => delete phoneWarnings[key]);
   submitError.value = null;
@@ -1559,6 +1573,36 @@ const handleSave = async (mode) => {
   display: grid;
   gap: 18px;
   padding: 28px 30px 30px;
+}
+
+.form-fields {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.readonly-form input,
+.readonly-form select,
+.readonly-form textarea,
+.readonly-form .amount-input {
+  background: #f8fafc;
+}
+
+.readonly-form input,
+.readonly-form select,
+.readonly-form textarea,
+.readonly-form button {
+  cursor: default;
+}
+
+.readonly-form .copy-btn,
+.readonly-form .add-item-btn,
+.readonly-form .qty-stepper button,
+.readonly-form .remove-item-btn {
+  opacity: 0.62;
 }
 
 .grid {

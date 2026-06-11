@@ -47,6 +47,7 @@ const routes = [
   { path: '/customers', component: () => import('../pages/CustomersPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/create', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/:id/edit', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },
+  { path: '/orders/:id/view', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true, readonlyOrder: true } },
   { path: '/orders/:id/tracking', component: () => import('../pages/orders/OrderTrackingPage.vue'), meta: { requiresAuth: true } },
   { path: '/products', component: () => import('../pages/products/ProductsListPage.vue'), meta: { requiresAuth: true } },
   { path: '/products/create', component: () => import('../pages/products/ProductCreatePage.vue'), meta: { requiresAuth: true } },
