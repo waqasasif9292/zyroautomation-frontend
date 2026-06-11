@@ -11,15 +11,28 @@
             <h1>{{ pageTitle }} ({{ totalReturns }})</h1>
             <p>{{ pageDescription }}</p>
           </div>
-          <button class="refresh-btn" type="button" :disabled="loading" @click="fetchReturns">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M3 21v-5h5" />
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M16 8h5V3" />
-            </svg>
-            Refresh
-          </button>
+          <div class="header-actions">
+            <RouterLink
+              v-if="!isReceivedView"
+              class="scan-link-btn"
+              to="/returns/scan"
+              @click="authStore.prepareTabHandoff"
+              @mousedown="authStore.prepareTabHandoff"
+              @auxclick="authStore.prepareTabHandoff"
+              @contextmenu="authStore.prepareTabHandoff"
+            >
+              Scan Returns
+            </RouterLink>
+            <button class="refresh-btn" type="button" :disabled="loading" @click="fetchReturns">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M16 8h5V3" />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </header>
 
         <section class="returns-stats-grid">
@@ -485,6 +498,12 @@ onMounted(async () => {
   font-size: 13px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .returns-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -647,6 +666,7 @@ select.filter-control {
 }
 
 .refresh-btn,
+.scan-link-btn,
 .mark-btn,
 .pager button {
   display: inline-flex;
@@ -661,6 +681,14 @@ select.filter-control {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.scan-link-btn {
+  min-height: 34px;
+  background: #1e293b;
+  color: #fff;
+  padding: 8px 12px;
+  text-decoration: none;
 }
 
 .refresh-btn {
@@ -823,6 +851,11 @@ tbody tr:hover {
   .returns-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .returns-stats-grid,

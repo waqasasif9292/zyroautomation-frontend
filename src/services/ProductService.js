@@ -1,8 +1,8 @@
 import axiosInstance from './AuthService';
 
 const ProductService = {
-  getProducts() {
-    return axiosInstance.get('/products');
+  getProducts(params = {}) {
+    return axiosInstance.get('/products', { params });
   },
   getProduct(id) {
     return axiosInstance.get(`/products/${id}`);

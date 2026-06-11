@@ -10,6 +10,7 @@ const defaultFilters = () => ({
   date_from: null,
   date_to: null,
   financial_status: null,
+  product_id: null,
   search: '',
   source: null,
   sort: 'created_id_desc',

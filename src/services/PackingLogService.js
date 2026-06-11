@@ -13,6 +13,11 @@ const PackingLogService = {
   markShipped(id) {
     return axiosInstance.put(`/packing-logs/${id}/mark-shipped`);
   },
+  markShippedByTracking(trackingNumber) {
+    return axiosInstance.post('/packing-logs/scan/mark-shipped', {
+      tracking_number: trackingNumber,
+    });
+  },
   markUnshipped(id) {
     return axiosInstance.put(`/packing-logs/${id}/mark-unshipped`);
   },

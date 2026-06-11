@@ -9,7 +9,7 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Picture</label>
+          <label class="form-label">Picture <span class="optional-label">Optional</span></label>
           <input class="file-input" :class="{ 'input-error': errors.picture }" type="file" accept="image/png,image/jpeg,image/webp" @change="setPicture">
           <span v-if="errors.picture" class="field-error">{{ errors.picture }}</span>
         </div>

@@ -121,6 +121,25 @@
                     <path d="M4 20h4.5L19 9.5a2.8 2.8 0 0 0-4-4L4.5 16V20Z" />
                   </svg>
                 </RouterLink>
+                <RouterLink
+                  v-else
+                  class="action-btn"
+                  :to="`/orders/${order.id}/view`"
+                  aria-label="View order form"
+                  title="View order form"
+                  @click.stop
+                  @mousedown.stop="authStore.prepareTabHandoff"
+                  @auxclick.stop="authStore.prepareTabHandoff"
+                  @contextmenu.stop="authStore.prepareTabHandoff"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M7 3.5h7l3 3V20H7Z" />
+                    <path d="M14 3.5V7h3.5" />
+                    <path d="M9.5 11h5" />
+                    <path d="M9.5 14h5" />
+                    <path d="M9.5 17h3" />
+                  </svg>
+                </RouterLink>
                 <button v-if="canCancel(order)" class="action-btn cancel-btn" type="button" aria-label="Cancel order" title="Cancel order" @click.stop="$emit('cancel', order.id)">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <circle cx="12" cy="12" r="9" />
