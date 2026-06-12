@@ -2,22 +2,30 @@
   <aside class="settings-sidebar">
     <nav class="sidebar-nav">
       <template v-for="item in navItems" :key="item.key">
-        <button
+        <a
           :class="['nav-item', { active: effectiveActive === item.key || childKeys(item).includes(effectiveActive) }]"
-          @click="handleClick(item)"
+          :href="itemHref(item)"
+          @click="handleClick($event, item)"
+          @mousedown="authStore.prepareTabHandoff"
+          @auxclick="authStore.prepareTabHandoff"
+          @contextmenu="authStore.prepareTabHandoff"
         >
           <span class="nav-icon" v-html="item.icon"></span>
           {{ item.label }}
-        </button>
+        </a>
         <div v-if="item.children && (effectiveActive === item.key || childKeys(item).includes(effectiveActive))" class="nav-children">
-          <button
+          <a
             v-for="child in item.children"
             :key="child.key"
             :class="['nav-item nav-child', { active: effectiveActive === child.key }]"
-            @click="handleClick(child)"
+            :href="itemHref(child)"
+            @click="handleClick($event, child)"
+            @mousedown="authStore.prepareTabHandoff"
+            @auxclick="authStore.prepareTabHandoff"
+            @contextmenu="authStore.prepareTabHandoff"
           >
             {{ child.label }}
-          </button>
+          </a>
         </div>
       </template>
     </nav>
@@ -61,7 +69,24 @@ const effectiveActive = computed(() => {
 
 const childKeys = (item) => item.children?.map(child => child.key) ?? [];
 
-const handleClick = (item) => {
+const itemTarget = (item) => {
+  if (item.to) return item.to;
+  return item.key === 'profile'
+    ? '/settings'
+    : { path: '/settings', query: { tab: item.key } };
+};
+
+const itemHref = (item) => router.resolve(itemTarget(item)).href;
+
+const handleClick = (event, item) => {
+  authStore.prepareTabHandoff();
+
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+
   if (item.to) {
     router.push(item.to);
   } else if (route.path === '/settings') {
@@ -156,6 +181,7 @@ const navItems = computed(() => baseNavItems
   font-size: 13.5px;
   color: #334155;
   font-weight: 700;
+  text-decoration: none;
   text-align: left;
   width: 100%;
   transition: background 0.15s, color 0.15s;

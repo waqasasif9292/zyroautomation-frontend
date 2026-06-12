@@ -1301,6 +1301,7 @@ const buildPayload = () => ({
 
 const handleSave = async (mode) => {
   if (isReadonlyMode.value) return;
+  const isCreateMode = mode === 'create';
 
   Object.keys(errors).forEach(key => delete errors[key]);
   Object.keys(phoneWarnings).forEach(key => delete phoneWarnings[key]);
@@ -1320,18 +1321,21 @@ const handleSave = async (mode) => {
   const requiredFields = {
     customer_contact: 'Customer contact is required.',
     customer_address: 'Customer address is required.',
-    courier_integration_id: 'Courier is required.',
-    destination_city: 'Destination city is required.',
-    packet_weight: 'Packet weight is required.',
     total_price: 'Total amount is required.',
-    special_instructions: 'Special instructions are required.',
   };
 
-  if (mode === 'create') {
+  if (isCreateMode) {
     requiredFields.customer_name = 'Customer name is required for label generation.';
+    requiredFields.courier_integration_id = 'Courier is required.';
+    requiredFields.special_instructions = 'Special instructions are required.';
   }
 
-  if (!isArgoSelected.value) {
+  if (isCreateMode || hasCourierSelected.value) {
+    requiredFields.destination_city = 'Destination city is required.';
+    requiredFields.packet_weight = 'Packet weight is required.';
+  }
+
+  if ((isCreateMode || hasCourierSelected.value) && !isArgoSelected.value) {
     requiredFields.shipment_type = 'Shipment type is required.';
   }
 
@@ -1423,13 +1427,13 @@ const handleSave = async (mode) => {
     } else if (!form.destination_city) {
       errors.destination_city = 'Destination city is required.';
     }
-  } else if (!form.origin_city) {
+  } else if (hasCourierSelected.value && !form.origin_city) {
     errors.origin_city = 'Origin city is required.';
   }
 
-  if (mode === 'create' && !hasOrderProducts.value) {
+  if (isCreateMode && !hasOrderProducts.value) {
     errors.items = 'At least one order item is required for booking.';
-  } else if (mode !== 'create' && !canSaveDraft.value) {
+  } else if (!isCreateMode && !canSaveDraft.value) {
     errors.items = 'At least one order item is required.';
   }
 

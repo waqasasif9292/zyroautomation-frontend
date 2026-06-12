@@ -170,19 +170,23 @@
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     </button>
-                    <button
+                    <a
                       v-if="(order.status || 'pending') === 'pending'"
                       class="action-btn create-order-btn"
-                      type="button"
+                      :href="createOrderHref(order)"
+                      rel="noopener"
                       title="Create order"
                       aria-label="Create order"
-                      @click="createOrderFromAbandoned(order)"
+                      @click="openCreateOrder($event, order)"
+                      @mousedown="authStore.prepareTabHandoff"
+                      @auxclick="authStore.prepareTabHandoff"
+                      @contextmenu="authStore.prepareTabHandoff"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 5v14" />
                         <path d="M5 12h14" />
                       </svg>
-                    </button>
+                    </a>
                     <button
                       class="action-btn complete-btn"
                       type="button"
@@ -419,11 +423,13 @@ import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import ConfirmDialog from '../components/shared/ConfirmDialog.vue';
 import { useAbandonedOrderStore } from '../stores/abandonedOrderStore';
+import { useAuthStore } from '../stores/authStore';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const router = useRouter();
 const route = useRoute();
 const store = useAbandonedOrderStore();
+const authStore = useAuthStore();
 const localSearch = ref(store.filters.search || '');
 const selectedOrder = ref(null);
 const actionLoading = ref(false);
@@ -672,7 +678,19 @@ const openMainOrders = (order) => {
   });
 };
 
-const createOrderFromAbandoned = (order) => {
+const createOrderHref = (order) => router.resolve({
+  path: '/orders/create',
+  query: { abandoned_order_id: order.id },
+}).href;
+
+const openCreateOrder = (event, order) => {
+  authStore.prepareTabHandoff();
+
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
   router.push({
     path: '/orders/create',
     query: { abandoned_order_id: order.id },
