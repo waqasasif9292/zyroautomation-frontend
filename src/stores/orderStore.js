@@ -131,6 +131,11 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
+  const sendAddressConfirmation = async (id) => {
+    const res = await OrderService.sendAddressConfirmation(id);
+    return res.data;
+  };
+
   return {
     orders,
     pagination,
@@ -151,6 +156,7 @@ export const useOrderStore = defineStore('order', () => {
     updateDraft,
     createBooking,
     updateBooking,
+    sendAddressConfirmation,
     cancelByShipper,
     deleteOrder,
     bulkDeleteOrders,

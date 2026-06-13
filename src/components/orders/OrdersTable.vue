@@ -79,6 +79,9 @@
             <template v-else-if="column.key === 'phone'">
               {{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}
             </template>
+            <template v-else-if="column.key === 'address'">
+              <span class="truncate" :title="order.customer?.address">{{ order.customer?.address || '—' }}</span>
+            </template>
             <template v-else-if="column.key === 'city'">
               {{ order.customer?.city || '—' }}
             </template>
@@ -147,6 +150,22 @@
                     <path d="m15 9-6 6" />
                   </svg>
                 </button>
+                <button
+                  v-if="showAddressConfirmationAction && canSendAddressConfirmation(order)"
+                  class="action-btn"
+                  :class="{ sent: addressConfirmationSent(order) }"
+                  type="button"
+                  :aria-label="addressConfirmationActionLabel(order)"
+                  :title="addressConfirmationActionLabel(order)"
+                  :disabled="addressConfirmationLoadingId === order.id"
+                  @click.stop="$emit('address-confirmation', order.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+                    <path d="M8 8h8" />
+                    <path d="M8 12h5" />
+                  </svg>
+                </button>
                 <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 7h16" />
@@ -203,9 +222,17 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  showAddressConfirmationAction: {
+    type: Boolean,
+    default: false,
+  },
+  addressConfirmationLoadingId: {
+    type: String,
+    default: '',
+  },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'toggle-select', 'select-page']);
 
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
@@ -218,6 +245,7 @@ const columnDefinitions = [
   { key: 'created_by', header: 'Created By', class: 'col-created-by' },
   { key: 'customer', header: 'Customer Name', class: 'col-customer' },
   { key: 'phone', header: 'Phone', class: 'col-phone' },
+  { key: 'address', header: 'Address', class: 'col-address' },
   { key: 'city', header: 'City', class: 'col-city' },
   { key: 'status', header: 'Status', class: 'col-status' },
   { key: 'total', header: 'Total', class: 'col-total' },
@@ -253,6 +281,15 @@ const canCancel = (order) => {
 
   return canManageDestructiveActions.value && (!hasTrackingNumber || isMerchantWarehouse) && !isCancelledByShipper;
 };
+const canSendAddressConfirmation = (order) => Boolean(
+  !String(order.tracking_number || '').trim()
+    && (order.customer?.phone_local || order.customer?.phone_intl)
+    && order.customer?.address
+);
+const addressConfirmationSent = (order) => order.whatsapp_address_confirmation?.status === 'sent';
+const addressConfirmationActionLabel = (order) => (
+  addressConfirmationSent(order) ? 'Resend address confirmation' : 'Send address confirmation'
+);
 const formatDate = (value) => {
   if (!value) return '—';
   return new Intl.DateTimeFormat('en-GB', {
@@ -325,6 +362,7 @@ td {
 .col-created-by { width: 138px; }
 .col-customer { width: 150px; }
 .col-phone { width: 132px; }
+.col-address { width: 220px; }
 .col-city { width: 132px; }
 .col-status { width: 164px; }
 .col-total { width: 118px; }
@@ -497,6 +535,15 @@ th:last-child {
 .action-btn:hover {
   border-color: #bfdbfe;
   background: #eff6ff;
+}
+
+.action-btn.sent {
+  color: #15803d;
+}
+
+.action-btn.sent:hover {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
 .cancel-btn {
