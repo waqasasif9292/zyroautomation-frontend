@@ -23,25 +23,33 @@
     <!-- Nav -->
     <nav class="sidebar-nav">
       <div v-for="item in navItems" :key="item.key" class="nav-group">
-        <button
+        <a
           :class="['nav-item', { active: isActive(item) }]"
+          :href="navHref(item.to)"
           :title="item.label"
-          @click="router.push(item.to)"
+          @click="navigateInApp($event, item.to)"
+          @mousedown="authStore.prepareTabHandoff"
+          @auxclick="authStore.prepareTabHandoff"
+          @contextmenu="authStore.prepareTabHandoff"
         >
           <span class="nav-icon" v-html="item.icon"></span>
           <span class="nav-label">{{ item.label }}</span>
-        </button>
+        </a>
         <div v-if="!isCollapsed && item.children?.length && isActive(item)" class="nav-submenu">
-          <button
+          <a
             v-for="child in item.children"
             :key="child.key"
             :class="['nav-subitem', { active: isChildActive(child) }]"
+            :href="navHref(child.to)"
             :title="child.label"
-            @click="router.push(child.to)"
+            @click="navigateInApp($event, child.to)"
+            @mousedown="authStore.prepareTabHandoff"
+            @auxclick="authStore.prepareTabHandoff"
+            @contextmenu="authStore.prepareTabHandoff"
           >
             <span class="nav-subicon" v-html="child.icon"></span>
             <span class="nav-label">{{ child.label }}</span>
-          </button>
+          </a>
         </div>
       </div>
     </nav>
@@ -85,6 +93,19 @@ watch(isCollapsed, (value) => {
 
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value;
+};
+
+const navHref = (to) => router.resolve(to).href;
+
+const navigateInApp = (event, to) => {
+  authStore.prepareTabHandoff();
+
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+
+  event.preventDefault();
+  router.push(to);
 };
 
 const userInitial = computed(() => {
@@ -461,6 +482,7 @@ const navItems = computed(() => baseNavItems
   font-size: 13.5px;
   color: #94a3b8;
   font-weight: 500;
+  text-decoration: none;
   text-align: left;
   width: 100%;
   overflow: hidden;
@@ -513,6 +535,7 @@ const navItems = computed(() => baseNavItems
   cursor: pointer;
   font-size: 12.5px;
   font-weight: 700;
+  text-decoration: none;
   padding: 8px 10px;
   text-align: left;
   overflow: hidden;

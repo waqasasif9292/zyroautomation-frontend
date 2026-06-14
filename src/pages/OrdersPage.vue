@@ -132,9 +132,12 @@
               :selected-order-ids="selectedOrderIds"
               :all-page-selected="allVisibleOrdersSelected"
               :some-page-selected="someVisibleOrdersSelected"
+              :show-address-confirmation-action="showAddressConfirmationInList"
+              :address-confirmation-loading-id="addressConfirmationLoadingId"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
+              @address-confirmation="handleAddressConfirmation"
               @delete="handleDelete"
               @track="handleTrack"
               @toggle-select="toggleOrderSelection"
@@ -215,6 +218,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
+import SettingsService from '../services/SettingsService';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const orderStore = useOrderStore();
@@ -238,6 +242,8 @@ const selectedCancelOrder = ref(null);
 const savingColumns = ref(false);
 const showColumnMenu = ref(false);
 const refreshing = ref(false);
+const whatsappSettings = ref(null);
+const addressConfirmationLoadingId = ref('');
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -245,7 +251,7 @@ let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
 const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumnDefinitions = [
@@ -257,6 +263,7 @@ const orderTableColumnDefinitions = [
   { key: 'created_by', label: 'Created By' },
   { key: 'customer', label: 'Customer Name' },
   { key: 'phone', label: 'Phone Number' },
+  { key: 'address', label: 'Address' },
   { key: 'city', label: 'City' },
   { key: 'status', label: 'Status' },
   { key: 'total', label: 'Total' },
@@ -320,6 +327,10 @@ const hasActiveFilters = computed(() => Boolean(
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const showAddressConfirmationInList = computed(() => {
+  const settings = whatsappSettings.value?.address_confirmation;
+  return Boolean(settings?.enabled && settings?.show_in_order_list);
+});
 
 const visibleOrderIds = computed(() => orderStore.orders.map(order => order.id));
 
@@ -504,6 +515,29 @@ const handleTrack = (id) => {
   window.open(router.resolve(`/orders/${id}/tracking`).href, '_blank', 'noopener');
 };
 
+const loadWhatsAppSettings = async () => {
+  try {
+    const res = await SettingsService.fetchWhatsAppAutomation();
+    whatsappSettings.value = res.data.data.settings || null;
+  } catch (error) {
+    whatsappSettings.value = null;
+  }
+};
+
+const handleAddressConfirmation = async (id) => {
+  addressConfirmationLoadingId.value = id;
+  const wasSent = orderStore.orders.find(order => order.id === id)?.whatsapp_address_confirmation?.status === 'sent';
+  try {
+    await orderStore.sendAddressConfirmation(id);
+    showToast(wasSent ? 'Address confirmation resent.' : 'Address confirmation sent.');
+    await orderStore.fetchOrders();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to send address confirmation.');
+  } finally {
+    addressConfirmationLoadingId.value = '';
+  }
+};
+
 const handleDelete = (id) => {
   selectedOrder.value = orderStore.orders.find(order => order.id === id) || { id };
   showDeleteDialog.value = true;
@@ -650,6 +684,7 @@ onMounted(async () => {
   await Promise.all([
     orderStore.fetchOrders(),
     authStore.fetchUser(),
+    loadWhatsAppSettings(),
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
   ]);

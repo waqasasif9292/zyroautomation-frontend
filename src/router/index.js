@@ -85,6 +85,19 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
+  const impersonationToken = to.query.impersonation_token;
+
+  if (typeof impersonationToken === 'string' && impersonationToken) {
+    sessionStorage.setItem('zyro_token', impersonationToken);
+    localStorage.removeItem('zyro_token');
+    authStore.hydrateTokenFromStorage();
+
+    return next({
+      path: to.path === '/login' || to.path === '/' ? '/dashboard' : to.path,
+      query: {},
+      replace: true,
+    });
+  }
 
   if (!authStore.isAuthenticated) {
     authStore.hydrateTokenFromStorage();
