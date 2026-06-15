@@ -28,7 +28,7 @@
             <td v-for="col in visibleColumnCount" :key="col"><span class="skeleton"></span></td>
           </tr>
         </template>
-        <tr v-else v-for="(order, index) in orders" :key="order.id" class="order-row" @click="$emit('view', order.id)">
+        <tr v-else v-for="(order, index) in orders" :key="order.id" class="order-row">
           <td v-if="selectable" class="select-cell" @click.stop>
             <input
               type="checkbox"
@@ -343,10 +343,6 @@ td {
   line-height: 1.35;
   vertical-align: middle;
   border-bottom: 1px solid #eaf0f6;
-}
-
-.order-row {
-  cursor: pointer;
 }
 
 .order-row:hover {

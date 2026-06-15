@@ -5,8 +5,8 @@
         <header class="status-header">
           <div>
             <p class="eyebrow">Update Statuses</p>
-            <h1>Orders Not Updated In The Last 2 Hours ({{ dueCount }})</h1>
-            <p>Showing orders with tracking IDs whose courier status update time has passed 2 hours.</p>
+            <h1>Orders Not Updated In The Last {{ thresholdHours }} Hours ({{ dueCount }})</h1>
+            <p>Showing orders with tracking IDs whose courier status update time has passed {{ thresholdHours }} hours.</p>
           </div>
           <div class="header-actions">
             <button class="secondary-btn" type="button" :disabled="loading" @click="fetchOrders">
@@ -185,7 +185,7 @@ const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const orders = ref([]);
 const pagination = ref(null);
-const summary = ref({ due_count: 0, threshold_hours: 2, couriers: [] });
+const summary = ref({ due_count: 0, threshold_hours: 6, couriers: [] });
 const page = ref(1);
 const loading = ref(false);
 const syncingOrderId = ref('');
@@ -210,6 +210,7 @@ const queryDefaults = () => ({
 });
 
 const dueCount = computed(() => pagination.value?.total ?? summary.value.due_count ?? 0);
+const thresholdHours = computed(() => summary.value.threshold_hours || 6);
 const courierButtons = computed(() => summary.value.couriers || []);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
