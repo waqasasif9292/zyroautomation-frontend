@@ -363,7 +363,7 @@ const selectProduct = (product) => {
     selectedProductIds.value = [...selectedProductIds.value, product.id];
   }
   productSearch.value = '';
-  productSearchFocused.value = false;
+  productSearchFocused.value = true;
 };
 
 const removeProduct = (id) => {
