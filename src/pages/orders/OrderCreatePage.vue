@@ -429,6 +429,7 @@ const argoCityError = ref('');
 const whatsappSettings = ref(null);
 const addressConfirmationSending = ref(false);
 const addressConfirmationStatus = ref(null);
+const failedSavedOrderId = ref(null);
 
 const form = reactive({
   brand_id: '',
@@ -496,7 +497,8 @@ const closeErrorPopup = () => {
   errorPopup.value = null;
 };
 
-const isEditMode = computed(() => Boolean(route.params.id));
+const currentOrderId = computed(() => route.params.id || failedSavedOrderId.value);
+const isEditMode = computed(() => Boolean(currentOrderId.value));
 const isReadonlyMode = computed(() => Boolean(route.meta.readonlyOrder));
 const showAddressConfirmationInForm = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
@@ -797,7 +799,7 @@ onMounted(async () => {
 
   if (isEditMode.value) {
     try {
-      await loadOrderForEdit(route.params.id);
+      await loadOrderForEdit(currentOrderId.value);
     } catch (error) {
       const message = error.response?.status === 404
         ? 'This order no longer exists or you do not have access to it.'
@@ -1044,12 +1046,12 @@ const loadWhatsAppSettings = async () => {
 };
 
 const sendAddressConfirmation = async () => {
-  if (!route.params.id) return;
+  if (!currentOrderId.value) return;
 
   addressConfirmationSending.value = true;
   const wasSent = addressConfirmationSent.value;
   try {
-    const response = await orderStore.sendAddressConfirmation(route.params.id);
+    const response = await orderStore.sendAddressConfirmation(currentOrderId.value);
     addressConfirmationStatus.value = response?.data?.address_confirmation || {
       status: 'sent',
       sent_at: new Date().toISOString(),
@@ -1532,9 +1534,9 @@ const handleSave = async (mode) => {
 
     let result;
     if (isEditMode.value && shouldBookShipment) {
-      result = await orderStore.updateBooking(route.params.id, payload);
+      result = await orderStore.updateBooking(currentOrderId.value, payload);
     } else if (isEditMode.value) {
-      result = await orderStore.updateDraft(route.params.id, payload);
+      result = await orderStore.updateDraft(currentOrderId.value, payload);
     } else if (shouldBookShipment) {
       result = await orderStore.createBooking(payload);
     } else {
@@ -1578,6 +1580,17 @@ const handleSave = async (mode) => {
         Object.entries(responseErrors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
       ));
       await scrollToFirstValidationError();
+    }
+
+    const savedOrderId = error.response?.data?.order_saved
+      ? error.response?.data?.data?.order?.id
+      : null;
+
+    if (savedOrderId) {
+      failedSavedOrderId.value = savedOrderId;
+      if (!route.params.id) {
+        await router.replace(`/orders/${savedOrderId}/edit`);
+      }
     }
 
     submitError.value = {

@@ -7,6 +7,9 @@ const BillingService = {
   getTransactions(params = {}) {
     return axiosInstance.get('/billing/transactions', { params });
   },
+  recoverBlockedOrders() {
+    return axiosInstance.post('/billing/recover-blocked-orders');
+  },
 };
 
 export default BillingService;

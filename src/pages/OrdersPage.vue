@@ -7,6 +7,43 @@
     <main class="orders-page">
       <OrderStatsStrip ref="statsRef" class="orders-stats" @select="applyStatsFilter" />
 
+      <section v-if="showBillingBar" class="billing-bar" :class="{ low: isCreditsLow, exhausted: isCreditsExhausted }">
+        <div class="billing-main">
+          <div class="billing-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path d="M4 7h16v10H4z" />
+              <path d="M4 10h16" />
+              <path d="M8 15h3" />
+            </svg>
+          </div>
+          <div class="billing-copy">
+            <span class="billing-label">Order Credits</span>
+            <strong>{{ billingStatusText }}</strong>
+            <span>{{ formatNumber(authStore.user?.used_credits) }} used from {{ formatNumber(authStore.user?.total_credits) }} total</span>
+          </div>
+        </div>
+        <div class="billing-progress">
+          <div class="billing-meter" aria-hidden="true">
+            <span :style="{ width: `${billingMeterWidth}%` }"></span>
+          </div>
+          <span>{{ billingMeterWidth }}%</span>
+        </div>
+        <div class="billing-actions">
+          <button
+            v-if="blockedOrdersCount > 0"
+            type="button"
+            class="billing-btn secondary"
+            :disabled="recoveringBlocked"
+            @click="recoverBlockedOrders"
+          >
+            {{ recoveringBlocked ? 'Recovering...' : `Recover ${formatNumber(blockedOrdersCount)}` }}
+          </button>
+          <button type="button" class="billing-btn" @click="router.push('/settings/billing')">
+            Top Up
+          </button>
+        </div>
+      </section>
+
       <section class="orders-card">
         <div class="card-header">
           <div>
@@ -219,6 +256,7 @@ import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
 import SettingsService from '../services/SettingsService';
+import BillingService from '../services/BillingService';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const orderStore = useOrderStore();
@@ -242,6 +280,7 @@ const selectedCancelOrder = ref(null);
 const savingColumns = ref(false);
 const showColumnMenu = ref(false);
 const refreshing = ref(false);
+const recoveringBlocked = ref(false);
 const whatsappSettings = ref(null);
 const addressConfirmationLoadingId = ref('');
 const columnOrder = ref([]);
@@ -331,6 +370,17 @@ const showAddressConfirmationInList = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
   return Boolean(settings?.enabled && settings?.show_in_order_list);
 });
+const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
+const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
+const billingMeterWidth = computed(() => Math.min(Math.max(Number(authStore.user?.remaining_percentage || 0), 0), 100));
+const isCreditsLow = computed(() => Boolean(authStore.user?.is_low));
+const isCreditsExhausted = computed(() => Boolean(authStore.user?.is_exhausted));
+const blockedOrdersCount = computed(() => Number(authStore.user?.blocked_orders_count || 0));
+const billingStatusText = computed(() => {
+  if (isCreditsExhausted.value) return 'No credits remaining';
+  if (isCreditsLow.value) return `${formatNumber(remainingCredits.value)} credits left`;
+  return `${formatNumber(remainingCredits.value)} credits available`;
+});
 
 const visibleOrderIds = computed(() => orderStore.orders.map(order => order.id));
 
@@ -352,6 +402,8 @@ const serialStart = computed(() => {
   if (!pagination) return 1;
   return ((pagination.current_page - 1) * pagination.per_page) + 1;
 });
+
+const formatNumber = value => Number(value || 0).toLocaleString();
 
 const orderedColumnKeys = computed(() => normalizeOrderColumns(columnOrder.value));
 
@@ -665,6 +717,23 @@ const handleNewOrder = () => {
   router.push('/orders/create');
 };
 
+const recoverBlockedOrders = async () => {
+  recoveringBlocked.value = true;
+  try {
+    const response = await BillingService.recoverBlockedOrders();
+    showToast(response.data?.message || 'Blocked orders recovered.');
+    await Promise.all([
+      authStore.fetchUser(),
+      orderStore.fetchOrders(),
+      statsRef.value?.refresh?.(),
+    ]);
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to recover blocked orders.');
+  } finally {
+    recoveringBlocked.value = false;
+  }
+};
+
 watch(() => ({ ...route.query }), async () => {
   if (syncingQuery) return;
   hydrateFiltersFromRoute();
@@ -707,6 +776,159 @@ onBeforeUnmount(() => {
 
 .orders-stats {
   margin: -32px -32px 24px;
+}
+
+.billing-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 240px) auto;
+  align-items: center;
+  gap: 20px;
+  margin: 0 0 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  padding: 14px 16px;
+}
+
+.billing-bar.low {
+  border-color: #facc15;
+}
+
+.billing-bar.exhausted {
+  border-color: #fca5a5;
+}
+
+.billing-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.billing-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.billing-icon svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.billing-bar.low .billing-icon {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #a16207;
+}
+
+.billing-bar.exhausted .billing-icon {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.billing-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.billing-copy strong {
+  color: #1e293b;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.billing-label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.billing-progress {
+  display: grid;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.billing-meter {
+  overflow: hidden;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.billing-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #16a34a;
+}
+
+.billing-bar.low .billing-meter span {
+  background: #f59e0b;
+}
+
+.billing-bar.exhausted .billing-meter span {
+  background: #dc2626;
+}
+
+.billing-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.billing-btn {
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 9px 14px;
+}
+
+.billing-btn:hover {
+  background: #0f172a;
+}
+
+.billing-btn.secondary {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #1e293b;
+}
+
+.billing-btn.secondary:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.billing-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .orders-card {
@@ -1054,6 +1276,19 @@ onBeforeUnmount(() => {
 
   .orders-stats {
     margin: -16px -16px 18px;
+  }
+
+  .billing-bar {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .billing-progress {
+    text-align: left;
+  }
+
+  .billing-actions {
+    justify-self: flex-start;
   }
 
   .card-header,
