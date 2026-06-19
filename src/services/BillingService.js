@@ -10,6 +10,9 @@ const BillingService = {
   recoverBlockedOrders() {
     return axiosInstance.post('/billing/recover-blocked-orders');
   },
+  discardBlockedOrders() {
+    return axiosInstance.post('/billing/discard-blocked-orders');
+  },
 };
 
 export default BillingService;

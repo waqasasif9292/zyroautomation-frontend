@@ -40,15 +40,24 @@
                 <h2>Manual Top Up</h2>
                 <p>1 credit costs PKR {{ summary.price_per_credit || 5 }}. Send payment screenshot on WhatsApp after transfer.</p>
               </div>
-              <button
-                v-if="summary.blocked_orders_count"
-                type="button"
-                class="recover-btn"
-                :disabled="recoveringBlocked"
-                @click="recoverBlockedOrders"
-              >
-                {{ recoveringBlocked ? 'Recovering...' : `Recover ${formatNumber(summary.blocked_orders_count)} Blocked Orders` }}
-              </button>
+              <div v-if="summary.blocked_orders_count" class="blocked-actions">
+                <button
+                  type="button"
+                  class="recover-btn"
+                  :disabled="recoveringBlocked || discardingBlocked"
+                  @click="recoverBlockedOrders"
+                >
+                  {{ recoveringBlocked ? 'Recovering...' : `Recover ${formatNumber(summary.blocked_orders_count)} Blocked Orders` }}
+                </button>
+                <button
+                  type="button"
+                  class="discard-btn"
+                  :disabled="recoveringBlocked || discardingBlocked"
+                  @click="discardBlockedOrders"
+                >
+                  {{ discardingBlocked ? 'Discarding...' : 'Discard Blocked Orders' }}
+                </button>
+              </div>
             </div>
 
             <div class="topup-grid">
@@ -190,6 +199,7 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const transactionsLoading = ref(false);
 const recoveringBlocked = ref(false);
+const discardingBlocked = ref(false);
 const transactions = ref([]);
 const pagination = ref(null);
 const billingMessage = ref('');
@@ -331,6 +341,13 @@ const loadBilling = async () => {
 };
 
 const recoverBlockedOrders = async () => {
+  const blockedCount = Number(summary.value.blocked_orders_count || 0);
+  const message = blockedCount === 1
+    ? 'Recover 1 blocked Shopify order now? This will create the order and use 1 billing credit.'
+    : `Recover blocked Shopify orders now? This will create up to ${formatNumber(blockedCount)} orders and use 1 billing credit for each recovered order.`;
+
+  if (!window.confirm(message)) return;
+
   recoveringBlocked.value = true;
   billingMessage.value = '';
 
@@ -343,6 +360,29 @@ const recoverBlockedOrders = async () => {
     billingMessage.value = error.response?.data?.message || 'Unable to recover blocked orders.';
   } finally {
     recoveringBlocked.value = false;
+  }
+};
+
+const discardBlockedOrders = async () => {
+  const blockedCount = Number(summary.value.blocked_orders_count || 0);
+  const message = blockedCount === 1
+    ? 'Discard 1 blocked Shopify order? This will permanently remove it from recovery and will not create an order.'
+    : `Discard ${formatNumber(blockedCount)} blocked Shopify orders? This will permanently remove them from recovery and will not create orders.`;
+
+  if (!window.confirm(message)) return;
+
+  discardingBlocked.value = true;
+  billingMessage.value = '';
+
+  try {
+    const response = await BillingService.discardBlockedOrders();
+    billingMessage.value = response.data?.message || 'Blocked orders discarded.';
+    page.value = 1;
+    await loadBilling();
+  } catch (error) {
+    billingMessage.value = error.response?.data?.message || 'Unable to discard blocked orders.';
+  } finally {
+    discardingBlocked.value = false;
   }
 };
 
@@ -440,7 +480,8 @@ onMounted(loadBilling);
 
 .refresh-btn,
 .pager button,
-.recover-btn {
+.recover-btn,
+.discard-btn {
   border: 1px solid #d1d5db;
   border-radius: 8px;
   background: #fff;
@@ -453,15 +494,34 @@ onMounted(loadBilling);
 
 .refresh-btn:disabled,
 .pager button:disabled,
-.recover-btn:disabled {
+.recover-btn:disabled,
+.discard-btn:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.blocked-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .recover-btn {
   border-color: #1e293b;
   background: #1e293b;
   color: #fff;
+}
+
+.discard-btn {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.discard-btn:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
 }
 
 .summary-grid {

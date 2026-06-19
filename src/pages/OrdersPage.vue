@@ -33,10 +33,19 @@
             v-if="blockedOrdersCount > 0"
             type="button"
             class="billing-btn secondary"
-            :disabled="recoveringBlocked"
+            :disabled="recoveringBlocked || discardingBlocked"
             @click="recoverBlockedOrders"
           >
             {{ recoveringBlocked ? 'Recovering...' : `Recover ${formatNumber(blockedOrdersCount)}` }}
+          </button>
+          <button
+            v-if="blockedOrdersCount > 0"
+            type="button"
+            class="billing-btn danger"
+            :disabled="recoveringBlocked || discardingBlocked"
+            @click="discardBlockedOrders"
+          >
+            {{ discardingBlocked ? 'Discarding...' : 'Discard' }}
           </button>
           <button type="button" class="billing-btn" @click="router.push('/settings/billing')">
             Top Up
@@ -281,6 +290,7 @@ const savingColumns = ref(false);
 const showColumnMenu = ref(false);
 const refreshing = ref(false);
 const recoveringBlocked = ref(false);
+const discardingBlocked = ref(false);
 const whatsappSettings = ref(null);
 const addressConfirmationLoadingId = ref('');
 const columnOrder = ref([]);
@@ -718,6 +728,12 @@ const handleNewOrder = () => {
 };
 
 const recoverBlockedOrders = async () => {
+  const message = blockedOrdersCount.value === 1
+    ? 'Recover 1 blocked Shopify order now? This will create the order and use 1 billing credit.'
+    : `Recover blocked Shopify orders now? This will create up to ${formatNumber(blockedOrdersCount.value)} orders and use 1 billing credit for each recovered order.`;
+
+  if (!window.confirm(message)) return;
+
   recoveringBlocked.value = true;
   try {
     const response = await BillingService.recoverBlockedOrders();
@@ -731,6 +747,29 @@ const recoverBlockedOrders = async () => {
     showToast(error.response?.data?.message || 'Unable to recover blocked orders.');
   } finally {
     recoveringBlocked.value = false;
+  }
+};
+
+const discardBlockedOrders = async () => {
+  const message = blockedOrdersCount.value === 1
+    ? 'Discard 1 blocked Shopify order? This will permanently remove it from recovery and will not create an order.'
+    : `Discard ${formatNumber(blockedOrdersCount.value)} blocked Shopify orders? This will permanently remove them from recovery and will not create orders.`;
+
+  if (!window.confirm(message)) return;
+
+  discardingBlocked.value = true;
+  try {
+    const response = await BillingService.discardBlockedOrders();
+    showToast(response.data?.message || 'Blocked orders discarded.');
+    await Promise.all([
+      authStore.fetchUser(),
+      orderStore.fetchOrders(),
+      statsRef.value?.refresh?.(),
+    ]);
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to discard blocked orders.');
+  } finally {
+    discardingBlocked.value = false;
   }
 };
 
@@ -924,6 +963,17 @@ onBeforeUnmount(() => {
 .billing-btn.secondary:hover {
   border-color: #94a3b8;
   background: #f8fafc;
+}
+
+.billing-btn.danger {
+  border-color: #fecaca;
+  background: #fff;
+  color: #b91c1c;
+}
+
+.billing-btn.danger:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
 }
 
 .billing-btn:disabled {
