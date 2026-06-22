@@ -427,6 +427,7 @@ const argoCities = ref([]);
 const argoCityLoading = ref(false);
 const argoCityError = ref('');
 const whatsappSettings = ref(null);
+const whatsappConnection = ref(null);
 const addressConfirmationSending = ref(false);
 const addressConfirmationStatus = ref(null);
 const failedSavedOrderId = ref(null);
@@ -500,9 +501,10 @@ const closeErrorPopup = () => {
 const currentOrderId = computed(() => route.params.id || failedSavedOrderId.value);
 const isEditMode = computed(() => Boolean(currentOrderId.value));
 const isReadonlyMode = computed(() => Boolean(route.meta.readonlyOrder));
+const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
 const showAddressConfirmationInForm = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
-  return Boolean(isEditMode.value && !isReadonlyMode.value && settings?.enabled && settings?.show_in_order_form);
+  return Boolean(isWhatsAppConnected.value && isEditMode.value && !isReadonlyMode.value && settings?.enabled && settings?.show_in_order_form);
 });
 const addressConfirmationSent = computed(() => addressConfirmationStatus.value?.status === 'sent');
 const formatAddressConfirmationTime = (value) => {
@@ -1040,8 +1042,10 @@ const loadWhatsAppSettings = async () => {
   try {
     const res = await SettingsService.fetchWhatsAppAutomation();
     whatsappSettings.value = res.data.data.settings || null;
+    whatsappConnection.value = res.data.data.connection || null;
   } catch (error) {
     whatsappSettings.value = null;
+    whatsappConnection.value = null;
   }
 };
 

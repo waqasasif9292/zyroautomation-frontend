@@ -136,6 +136,11 @@ export const useOrderStore = defineStore('order', () => {
     return res.data;
   };
 
+  const sendOutForDelivery = async (id) => {
+    const res = await OrderService.sendOutForDelivery(id);
+    return res.data;
+  };
+
   return {
     orders,
     pagination,
@@ -157,6 +162,7 @@ export const useOrderStore = defineStore('order', () => {
     createBooking,
     updateBooking,
     sendAddressConfirmation,
+    sendOutForDelivery,
     cancelByShipper,
     deleteOrder,
     bulkDeleteOrders,

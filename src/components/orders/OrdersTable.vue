@@ -181,6 +181,23 @@
                     <path d="M8 12h5" />
                   </svg>
                 </button>
+                <button
+                  v-if="showOutForDeliveryAction && canSendOutForDelivery(order)"
+                  class="action-btn"
+                  :class="{ sent: outForDeliverySent(order) }"
+                  type="button"
+                  :aria-label="outForDeliveryActionLabel(order)"
+                  :title="outForDeliveryActionLabel(order)"
+                  :disabled="outForDeliveryLoadingId === order.id"
+                  @click.stop="$emit('out-for-delivery', order.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 7h11v9H3Z" />
+                    <path d="M14 10h3l4 4v2h-7Z" />
+                    <circle cx="7" cy="18" r="2" />
+                    <circle cx="17" cy="18" r="2" />
+                  </svg>
+                </button>
                 <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 7h16" />
@@ -246,9 +263,17 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  showOutForDeliveryAction: {
+    type: Boolean,
+    default: false,
+  },
+  outForDeliveryLoadingId: {
+    type: String,
+    default: '',
+  },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'toggle-select', 'select-page']);
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -317,6 +342,14 @@ const canSendAddressConfirmation = (order) => Boolean(
 const addressConfirmationSent = (order) => order.whatsapp_address_confirmation?.status === 'sent';
 const addressConfirmationActionLabel = (order) => (
   addressConfirmationSent(order) ? 'Resend address confirmation' : 'Send address confirmation'
+);
+const canSendOutForDelivery = (order) => Boolean(
+  order.status_category === 'out_for_delivery'
+    && (order.customer?.phone_local || order.customer?.phone_intl)
+);
+const outForDeliverySent = (order) => order.whatsapp_out_for_delivery?.status === 'sent';
+const outForDeliveryActionLabel = (order) => (
+  outForDeliverySent(order) ? 'Resend out for delivery message' : 'Send out for delivery message'
 );
 const formatDate = (value) => {
   if (!value) return '—';

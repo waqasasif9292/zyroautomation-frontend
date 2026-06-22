@@ -205,6 +205,60 @@
                     <button class="btn-save" type="submit" :disabled="saving">{{ saving ? 'Saving...' : 'Save settings' }}</button>
                   </div>
                 </form>
+
+                <form v-if="activeTab === 'out_for_delivery'" class="automation-form" @submit.prevent="saveSettings">
+                  <div class="automation-header">
+                    <div>
+                      <p class="section-kicker">Automation rule</p>
+                      <h2>Out for delivery</h2>
+                    </div>
+                    <label class="switch-row">
+                      <input type="checkbox" v-model="form.out_for_delivery.enabled">
+                      <span class="switch-control"></span>
+                      <strong>{{ form.out_for_delivery.enabled ? 'Enabled' : 'Disabled' }}</strong>
+                    </label>
+                  </div>
+
+                  <div :class="['source-options', { disabled: !form.out_for_delivery.enabled }]">
+                    <label class="source-option">
+                      <input type="checkbox" v-model="form.out_for_delivery.send_automatically" :disabled="!form.out_for_delivery.enabled">
+                      <span>
+                        <strong>Send automatically</strong>
+                        <small>Send once when an order status moves to the Out For Delivery main category.</small>
+                      </span>
+                    </label>
+                    <label class="source-option">
+                      <input type="checkbox" v-model="form.out_for_delivery.show_in_order_list" :disabled="!form.out_for_delivery.enabled">
+                      <span>
+                        <strong>Show action in order list</strong>
+                        <small>Add a send or resend action for out for delivery orders.</small>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Out for delivery message</label>
+                    <div class="variable-reference" aria-label="Available message variables">
+                      <button
+                        v-for="variable in outForDeliveryVariables"
+                        :key="variable.token"
+                        class="variable-chip"
+                        type="button"
+                        :title="variable.description"
+                        @click="insertOutForDeliveryVariable(variable.token)"
+                      >
+                        <strong>{{ variable.token }}</strong>
+                        <span>{{ variable.label }}</span>
+                      </button>
+                    </div>
+                    <textarea class="form-textarea" v-model="form.out_for_delivery.message_template" rows="7"></textarea>
+                  </div>
+
+                  <div class="panel-actions">
+                    <button class="btn-cancel" type="button" @click="resetOutForDeliveryTemplate">Reset template</button>
+                    <button class="btn-save" type="submit" :disabled="saving">{{ saving ? 'Saving...' : 'Save settings' }}</button>
+                  </div>
+                </form>
               </section>
             </div>
           </section>
@@ -251,6 +305,16 @@ This is {brand_name}. Please confirm your delivery address:
 
 Reply YES if this address is correct, or send the correct address.`;
 
+const defaultOutForDeliveryTemplate = `Assalam o Alaikum {customer_name},
+
+Your order from {brand_name} is out for delivery today.
+
+Items: {items}
+Order total: {currency} {total_price}
+Tracking ID: {tracking_number}
+
+Please keep your phone available. Thank you.`;
+
 const legacyAddressDefaultTemplate = `Assalam o Alaikum {customer_name},
 
 Please confirm your delivery address:
@@ -286,6 +350,11 @@ const tabs = [
     label: 'Address confirmation',
     helper: 'Address checks',
   },
+  {
+    key: 'out_for_delivery',
+    label: 'Out for delivery',
+    helper: 'Delivery alerts',
+  },
 ];
 
 const form = reactive({
@@ -297,6 +366,12 @@ const form = reactive({
     enabled: false,
     message_template: defaultAddressTemplate,
     show_in_order_form: false,
+    show_in_order_list: false,
+  },
+  out_for_delivery: {
+    enabled: false,
+    message_template: defaultOutForDeliveryTemplate,
+    send_automatically: false,
     show_in_order_list: false,
   },
 });
@@ -351,14 +426,47 @@ const addressVariables = [
     description: 'Store or brand name on the order.',
   },
   {
-    token: '{tracking_number}',
-    label: 'Tracking ID',
-    description: 'Courier tracking number, when available.',
+    token: '{items}',
+    label: 'Items',
+    description: 'Comma-separated product names and quantities.',
   },
   {
     token: '{total_price}',
     label: 'Order total',
     description: 'Total order amount without currency.',
+  },
+];
+
+const outForDeliveryVariables = [
+  {
+    token: '{customer_name}',
+    label: 'Customer name',
+    description: 'Name saved on the order customer profile.',
+  },
+  {
+    token: '{brand_name}',
+    label: 'Brand name',
+    description: 'Store or brand name on the order.',
+  },
+  {
+    token: '{items}',
+    label: 'Items',
+    description: 'Comma-separated product names and quantities.',
+  },
+  {
+    token: '{currency}',
+    label: 'Currency',
+    description: 'Order currency, such as PKR.',
+  },
+  {
+    token: '{total_price}',
+    label: 'Order total',
+    description: 'Total order amount without currency.',
+  },
+  {
+    token: '{tracking_number}',
+    label: 'Tracking ID',
+    description: 'Courier tracking number, when available.',
   },
 ];
 
@@ -419,6 +527,10 @@ const loadSettings = async () => {
         ...form.address_confirmation,
         ...(settings.address_confirmation || {}),
       },
+      out_for_delivery: {
+        ...form.out_for_delivery,
+        ...(settings.out_for_delivery || {}),
+      },
     });
     if ([legacyDefaultTemplate, trackingDefaultTemplate].includes(form.message_template)) {
       form.message_template = defaultTemplate;
@@ -463,6 +575,10 @@ const saveSettings = async () => {
       address_confirmation: {
         ...form.address_confirmation,
         ...(settings.address_confirmation || {}),
+      },
+      out_for_delivery: {
+        ...form.out_for_delivery,
+        ...(settings.out_for_delivery || {}),
       },
     });
     notificationStore.show('WhatsApp automation settings saved.');
@@ -514,6 +630,10 @@ const resetAddressTemplate = () => {
   form.address_confirmation.message_template = defaultAddressTemplate;
 };
 
+const resetOutForDeliveryTemplate = () => {
+  form.out_for_delivery.message_template = defaultOutForDeliveryTemplate;
+};
+
 const insertVariable = (token) => {
   const suffix = form.message_template.endsWith(' ') || form.message_template.endsWith('\n') || !form.message_template
     ? ''
@@ -525,6 +645,12 @@ const insertAddressVariable = (token) => {
   const template = form.address_confirmation.message_template || '';
   const suffix = template.endsWith(' ') || template.endsWith('\n') || !template ? '' : ' ';
   form.address_confirmation.message_template = `${template}${suffix}${token}`;
+};
+
+const insertOutForDeliveryVariable = (token) => {
+  const template = form.out_for_delivery.message_template || '';
+  const suffix = template.endsWith(' ') || template.endsWith('\n') || !template ? '' : ' ';
+  form.out_for_delivery.message_template = `${template}${suffix}${token}`;
 };
 
 onMounted(async () => {

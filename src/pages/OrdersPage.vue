@@ -180,10 +180,13 @@
               :some-page-selected="someVisibleOrdersSelected"
               :show-address-confirmation-action="showAddressConfirmationInList"
               :address-confirmation-loading-id="addressConfirmationLoadingId"
+              :show-out-for-delivery-action="showOutForDeliveryInList"
+              :out-for-delivery-loading-id="outForDeliveryLoadingId"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
               @address-confirmation="handleAddressConfirmation"
+              @out-for-delivery="handleOutForDelivery"
               @delete="handleDelete"
               @track="handleTrack"
               @toggle-select="toggleOrderSelection"
@@ -292,7 +295,9 @@ const refreshing = ref(false);
 const recoveringBlocked = ref(false);
 const discardingBlocked = ref(false);
 const whatsappSettings = ref(null);
+const whatsappConnection = ref(null);
 const addressConfirmationLoadingId = ref('');
+const outForDeliveryLoadingId = ref('');
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -376,9 +381,14 @@ const hasActiveFilters = computed(() => Boolean(
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
 const showAddressConfirmationInList = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
-  return Boolean(settings?.enabled && settings?.show_in_order_list);
+  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
+});
+const showOutForDeliveryInList = computed(() => {
+  const settings = whatsappSettings.value?.out_for_delivery;
+  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
 });
 const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
 const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
@@ -581,8 +591,10 @@ const loadWhatsAppSettings = async () => {
   try {
     const res = await SettingsService.fetchWhatsAppAutomation();
     whatsappSettings.value = res.data.data.settings || null;
+    whatsappConnection.value = res.data.data.connection || null;
   } catch (error) {
     whatsappSettings.value = null;
+    whatsappConnection.value = null;
   }
 };
 
@@ -597,6 +609,20 @@ const handleAddressConfirmation = async (id) => {
     showToast(error.response?.data?.message || 'Unable to send address confirmation.');
   } finally {
     addressConfirmationLoadingId.value = '';
+  }
+};
+
+const handleOutForDelivery = async (id) => {
+  outForDeliveryLoadingId.value = id;
+  const wasSent = orderStore.orders.find(order => order.id === id)?.whatsapp_out_for_delivery?.status === 'sent';
+  try {
+    await orderStore.sendOutForDelivery(id);
+    showToast(wasSent ? 'Out for delivery message resent.' : 'Out for delivery message sent.');
+    await orderStore.fetchOrders();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to send out for delivery message.');
+  } finally {
+    outForDeliveryLoadingId.value = '';
   }
 };
 
