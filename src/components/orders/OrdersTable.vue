@@ -77,7 +77,22 @@
               <div class="strong">{{ order.customer?.name || '—' }}</div>
             </template>
             <template v-else-if="column.key === 'phone'">
-              {{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}
+              <span class="phone-content">
+                <span>{{ orderPhone(order) }}</span>
+              </span>
+              <button
+                v-if="isDuplicateOrder(order) && orderPhone(order) !== '—'"
+                class="duplicate-orders-badge"
+                type="button"
+                aria-label="View duplicate orders"
+                title="View duplicate orders"
+                @click.stop="openDuplicateOrders(order)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="8" y="8" width="10" height="10" rx="2" />
+                  <path d="M6 16H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
             </template>
             <template v-else-if="column.key === 'address'">
               <span class="truncate" :title="order.customer?.address">{{ order.customer?.address || '—' }}</span>
@@ -186,6 +201,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -234,6 +250,7 @@ const props = defineProps({
 
 defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'toggle-select', 'select-page']);
 
+const router = useRouter();
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
 const columnDefinitions = [
@@ -272,6 +289,17 @@ const statusText = (status) => {
     return status.name || status.label || status.title || status.status || status.message || status.text || '';
   }
   return '';
+};
+const orderPhone = (order) => order.customer?.phone_local || order.customer?.phone_intl || '—';
+const isDuplicateOrder = (order) => statusText(order.status).toLowerCase() === 'duplicate';
+const openDuplicateOrders = (order) => {
+  const href = router.resolve({
+    path: '/orders',
+    query: { search: orderPhone(order) },
+  }).href;
+
+  authStore.prepareTabHandoff();
+  window.open(href, '_blank', 'noopener');
 };
 const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'error', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
 const canCancel = (order) => {
@@ -426,10 +454,49 @@ th:last-child {
 }
 
 .phone-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #566985;
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.phone-content {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.duplicate-orders-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 22px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.duplicate-orders-badge:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.duplicate-orders-badge svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .payment-cell {
