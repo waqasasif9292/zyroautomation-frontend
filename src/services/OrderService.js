@@ -40,6 +40,9 @@ const OrderService = {
   sendAddressConfirmation(id) {
     return axiosInstance.post(`/orders/${id}/whatsapp/address-confirmation`);
   },
+  sendOutForDelivery(id) {
+    return axiosInstance.post(`/orders/${id}/whatsapp/out-for-delivery`);
+  },
   bulkDeleteOrders(ids) {
     return axiosInstance.post('/orders/bulk-delete', { ids });
   },

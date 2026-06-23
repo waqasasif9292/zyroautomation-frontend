@@ -7,7 +7,7 @@ const defaultFilters = () => ({
   date_from: '',
   date_to: '',
   brand_id: '',
-  status: '',
+  status: 'pending',
   sort: 'received_desc',
   page: 1,
 });

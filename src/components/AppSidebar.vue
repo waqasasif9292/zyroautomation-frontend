@@ -251,6 +251,12 @@ const baseNavItems = [
         icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="m8 12-5-5 5-5"/></svg>`,
       },
       {
+        key: 'in-progress-report',
+        label: 'In Progress Report',
+        to: '/reports/in-progress',
+        icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3Z"/><path d="M14 10h3l4 4v2h-7Z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>`,
+      },
+      {
         key: 'product-report',
         label: 'Product Report',
         to: '/reports/products',

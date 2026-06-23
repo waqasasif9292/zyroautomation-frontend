@@ -33,10 +33,19 @@
             v-if="blockedOrdersCount > 0"
             type="button"
             class="billing-btn secondary"
-            :disabled="recoveringBlocked"
+            :disabled="recoveringBlocked || discardingBlocked"
             @click="recoverBlockedOrders"
           >
             {{ recoveringBlocked ? 'Recovering...' : `Recover ${formatNumber(blockedOrdersCount)}` }}
+          </button>
+          <button
+            v-if="blockedOrdersCount > 0"
+            type="button"
+            class="billing-btn danger"
+            :disabled="recoveringBlocked || discardingBlocked"
+            @click="discardBlockedOrders"
+          >
+            {{ discardingBlocked ? 'Discarding...' : 'Discard' }}
           </button>
           <button type="button" class="billing-btn" @click="router.push('/settings/billing')">
             Top Up
@@ -171,10 +180,13 @@
               :some-page-selected="someVisibleOrdersSelected"
               :show-address-confirmation-action="showAddressConfirmationInList"
               :address-confirmation-loading-id="addressConfirmationLoadingId"
+              :show-out-for-delivery-action="showOutForDeliveryInList"
+              :out-for-delivery-loading-id="outForDeliveryLoadingId"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
               @address-confirmation="handleAddressConfirmation"
+              @out-for-delivery="handleOutForDelivery"
               @delete="handleDelete"
               @track="handleTrack"
               @toggle-select="toggleOrderSelection"
@@ -281,16 +293,19 @@ const savingColumns = ref(false);
 const showColumnMenu = ref(false);
 const refreshing = ref(false);
 const recoveringBlocked = ref(false);
+const discardingBlocked = ref(false);
 const whatsappSettings = ref(null);
+const whatsappConnection = ref(null);
 const addressConfirmationLoadingId = ref('');
+const outForDeliveryLoadingId = ref('');
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
-const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'booking_date', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'booking_date', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumnDefinitions = [
@@ -299,6 +314,7 @@ const orderTableColumnDefinitions = [
   { key: 'brand', label: 'Brand' },
   { key: 'source', label: 'Source' },
   { key: 'tracking', label: 'Tracking' },
+  { key: 'booking_date', label: 'Booking Date' },
   { key: 'created_by', label: 'Created By' },
   { key: 'customer', label: 'Customer Name' },
   { key: 'phone', label: 'Phone Number' },
@@ -311,9 +327,18 @@ const orderTableColumnDefinitions = [
   { key: 'actions', label: 'Actions', locked: true },
 ];
 const orderTableColumnMap = new Map(orderTableColumnDefinitions.map(column => [column.key, column]));
+const withRequiredOrderColumns = (columns = []) => {
+  const normalized = Array.isArray(columns) ? [...columns] : [];
+  if (!normalized.includes('booking_date')) {
+    const trackingIndex = normalized.indexOf('tracking');
+    normalized.splice(trackingIndex === -1 ? normalized.length : trackingIndex + 1, 0, 'booking_date');
+  }
+
+  return normalized;
+};
 
 const normalizeOrderColumns = (columns = []) => {
-  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  const requested = Array.isArray(columns) && columns.length ? withRequiredOrderColumns(columns) : defaultOrderColumns;
   const validColumns = requested.filter(column => allowedOrderColumns.includes(column));
   const orderedColumns = [
     ...new Set([
@@ -327,7 +352,7 @@ const normalizeOrderColumns = (columns = []) => {
 };
 
 const normalizeVisibleOrderColumns = (columns = []) => {
-  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  const requested = Array.isArray(columns) && columns.length ? withRequiredOrderColumns(columns) : defaultOrderColumns;
   const visibleSet = new Set([...requested.filter(column => allowedOrderColumns.includes(column)), ...lockedOrderColumns]);
   return normalizeOrderColumns(columnOrder.value.length ? columnOrder.value : requested)
     .filter(column => visibleSet.has(column));
@@ -366,9 +391,14 @@ const hasActiveFilters = computed(() => Boolean(
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
 const showAddressConfirmationInList = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
-  return Boolean(settings?.enabled && settings?.show_in_order_list);
+  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
+});
+const showOutForDeliveryInList = computed(() => {
+  const settings = whatsappSettings.value?.out_for_delivery;
+  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
 });
 const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
 const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
@@ -571,8 +601,10 @@ const loadWhatsAppSettings = async () => {
   try {
     const res = await SettingsService.fetchWhatsAppAutomation();
     whatsappSettings.value = res.data.data.settings || null;
+    whatsappConnection.value = res.data.data.connection || null;
   } catch (error) {
     whatsappSettings.value = null;
+    whatsappConnection.value = null;
   }
 };
 
@@ -587,6 +619,20 @@ const handleAddressConfirmation = async (id) => {
     showToast(error.response?.data?.message || 'Unable to send address confirmation.');
   } finally {
     addressConfirmationLoadingId.value = '';
+  }
+};
+
+const handleOutForDelivery = async (id) => {
+  outForDeliveryLoadingId.value = id;
+  const wasSent = orderStore.orders.find(order => order.id === id)?.whatsapp_out_for_delivery?.status === 'sent';
+  try {
+    await orderStore.sendOutForDelivery(id);
+    showToast(wasSent ? 'Out for delivery message resent.' : 'Out for delivery message sent.');
+    await orderStore.fetchOrders();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to send out for delivery message.');
+  } finally {
+    outForDeliveryLoadingId.value = '';
   }
 };
 
@@ -718,6 +764,12 @@ const handleNewOrder = () => {
 };
 
 const recoverBlockedOrders = async () => {
+  const message = blockedOrdersCount.value === 1
+    ? 'Recover 1 blocked Shopify order now? This will create the order and use 1 billing credit.'
+    : `Recover blocked Shopify orders now? This will create up to ${formatNumber(blockedOrdersCount.value)} orders and use 1 billing credit for each recovered order.`;
+
+  if (!window.confirm(message)) return;
+
   recoveringBlocked.value = true;
   try {
     const response = await BillingService.recoverBlockedOrders();
@@ -731,6 +783,29 @@ const recoverBlockedOrders = async () => {
     showToast(error.response?.data?.message || 'Unable to recover blocked orders.');
   } finally {
     recoveringBlocked.value = false;
+  }
+};
+
+const discardBlockedOrders = async () => {
+  const message = blockedOrdersCount.value === 1
+    ? 'Discard 1 blocked Shopify order? This will permanently remove it from recovery and will not create an order.'
+    : `Discard ${formatNumber(blockedOrdersCount.value)} blocked Shopify orders? This will permanently remove them from recovery and will not create orders.`;
+
+  if (!window.confirm(message)) return;
+
+  discardingBlocked.value = true;
+  try {
+    const response = await BillingService.discardBlockedOrders();
+    showToast(response.data?.message || 'Blocked orders discarded.');
+    await Promise.all([
+      authStore.fetchUser(),
+      orderStore.fetchOrders(),
+      statsRef.value?.refresh?.(),
+    ]);
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to discard blocked orders.');
+  } finally {
+    discardingBlocked.value = false;
   }
 };
 
@@ -924,6 +999,17 @@ onBeforeUnmount(() => {
 .billing-btn.secondary:hover {
   border-color: #94a3b8;
   background: #f8fafc;
+}
+
+.billing-btn.danger {
+  border-color: #fecaca;
+  background: #fff;
+  color: #b91c1c;
+}
+
+.billing-btn.danger:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
 }
 
 .billing-btn:disabled {

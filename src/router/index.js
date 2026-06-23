@@ -45,6 +45,7 @@ const routes = [
   { path: '/reports/overview', component: () => import('../pages/ReportsOverviewPage.vue'), meta: { requiresAuth: true } },
   { path: '/reports/cancel', component: () => import('../pages/OrderPerformancePage.vue'), meta: { requiresAuth: true, performanceType: 'cancelled' } },
   { path: '/reports/returns', component: () => import('../pages/OrderPerformancePage.vue'), meta: { requiresAuth: true, performanceType: 'returns' } },
+  { path: '/reports/in-progress', component: () => import('../pages/InProgressOrderReportPage.vue'), meta: { requiresAuth: true } },
   { path: '/reports/products', component: () => import('../pages/ProductReportPage.vue'), meta: { requiresAuth: true } },
   { path: '/customers', component: () => import('../pages/CustomersPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders/create', component: () => import('../pages/orders/OrderCreatePage.vue'), meta: { requiresAuth: true } },

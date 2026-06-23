@@ -67,6 +67,9 @@
               </button>
               <span v-else class="tracking-empty">—</span>
             </template>
+            <template v-else-if="column.key === 'booking_date'">
+              <span class="booking-time">{{ formatDate(order.booking_created_at) }}</span>
+            </template>
             <template v-else-if="column.key === 'created_by'">
               <div class="strong">{{ order.created_by?.name || '—' }}</div>
               <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
@@ -77,7 +80,22 @@
               <div class="strong">{{ order.customer?.name || '—' }}</div>
             </template>
             <template v-else-if="column.key === 'phone'">
-              {{ order.customer?.phone_local || order.customer?.phone_intl || '—' }}
+              <span class="phone-content">
+                <span>{{ orderPhone(order) }}</span>
+              </span>
+              <button
+                v-if="isDuplicateOrder(order) && orderPhone(order) !== '—'"
+                class="duplicate-orders-badge"
+                type="button"
+                aria-label="View duplicate orders"
+                title="View duplicate orders"
+                @click.stop="openDuplicateOrders(order)"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="8" y="8" width="10" height="10" rx="2" />
+                  <path d="M6 16H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
             </template>
             <template v-else-if="column.key === 'address'">
               <span class="truncate" :title="order.customer?.address">{{ order.customer?.address || '—' }}</span>
@@ -166,6 +184,23 @@
                     <path d="M8 12h5" />
                   </svg>
                 </button>
+                <button
+                  v-if="showOutForDeliveryAction && canSendOutForDelivery(order)"
+                  class="action-btn"
+                  :class="{ sent: outForDeliverySent(order) }"
+                  type="button"
+                  :aria-label="outForDeliveryActionLabel(order)"
+                  :title="outForDeliveryActionLabel(order)"
+                  :disabled="outForDeliveryLoadingId === order.id"
+                  @click.stop="$emit('out-for-delivery', order.id)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 7h11v9H3Z" />
+                    <path d="M14 10h3l4 4v2h-7Z" />
+                    <circle cx="7" cy="18" r="2" />
+                    <circle cx="17" cy="18" r="2" />
+                  </svg>
+                </button>
                 <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 7h16" />
@@ -186,6 +221,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -230,10 +266,19 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  showOutForDeliveryAction: {
+    type: Boolean,
+    default: false,
+  },
+  outForDeliveryLoadingId: {
+    type: String,
+    default: '',
+  },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'toggle-select', 'select-page']);
 
+const router = useRouter();
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
 const columnDefinitions = [
@@ -242,6 +287,7 @@ const columnDefinitions = [
   { key: 'brand', header: 'Brand', class: 'col-brand' },
   { key: 'source', header: 'Source', class: 'col-source' },
   { key: 'tracking', header: 'Tracking', class: 'col-tracking' },
+  { key: 'booking_date', header: 'Booking Date', class: 'col-booking-date' },
   { key: 'created_by', header: 'Created By', class: 'col-created-by' },
   { key: 'customer', header: 'Customer Name', class: 'col-customer' },
   { key: 'phone', header: 'Phone', class: 'col-phone' },
@@ -273,6 +319,17 @@ const statusText = (status) => {
   }
   return '';
 };
+const orderPhone = (order) => order.customer?.phone_local || order.customer?.phone_intl || '—';
+const isDuplicateOrder = (order) => statusText(order.status).toLowerCase() === 'duplicate';
+const openDuplicateOrders = (order) => {
+  const href = router.resolve({
+    path: '/orders',
+    query: { search: orderPhone(order) },
+  }).href;
+
+  authStore.prepareTabHandoff();
+  window.open(href, '_blank', 'noopener');
+};
 const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'error', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
 const canCancel = (order) => {
   const hasTrackingNumber = String(order.tracking_number || '').trim() !== '';
@@ -289,6 +346,14 @@ const canSendAddressConfirmation = (order) => Boolean(
 const addressConfirmationSent = (order) => order.whatsapp_address_confirmation?.status === 'sent';
 const addressConfirmationActionLabel = (order) => (
   addressConfirmationSent(order) ? 'Resend address confirmation' : 'Send address confirmation'
+);
+const canSendOutForDelivery = (order) => Boolean(
+  order.status_category === 'out_for_delivery'
+    && (order.customer?.phone_local || order.customer?.phone_intl)
+);
+const outForDeliverySent = (order) => order.whatsapp_out_for_delivery?.status === 'sent';
+const outForDeliveryActionLabel = (order) => (
+  outForDeliverySent(order) ? 'Resend out for delivery message' : 'Send out for delivery message'
 );
 const formatDate = (value) => {
   if (!value) return '—';
@@ -355,6 +420,7 @@ td {
 .col-brand { width: 132px; }
 .col-source { width: 112px; }
 .col-tracking { width: 112px; }
+.col-booking-date { width: 154px; }
 .col-created-by { width: 138px; }
 .col-customer { width: 150px; }
 .col-phone { width: 132px; }
@@ -411,6 +477,14 @@ th:last-child {
   white-space: nowrap;
 }
 
+.booking-time {
+  display: inline-block;
+  min-width: 132px;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .truncate {
   display: block;
   overflow: hidden;
@@ -426,10 +500,49 @@ th:last-child {
 }
 
 .phone-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #566985;
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.phone-content {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.duplicate-orders-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 22px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.duplicate-orders-badge:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.duplicate-orders-badge svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .payment-cell {

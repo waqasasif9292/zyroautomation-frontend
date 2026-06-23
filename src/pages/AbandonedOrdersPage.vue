@@ -441,7 +441,7 @@ const draftFilters = ref({
   date_from: '',
   date_to: '',
   brand_id: '',
-  status: '',
+  status: 'pending',
   sort: 'received_desc',
 });
 let syncingQuery = false;
@@ -452,7 +452,7 @@ const queryDefaults = {
   date_from: '',
   date_to: '',
   brand_id: '',
-  status: '',
+  status: 'pending',
   sort: 'received_desc',
   page: 1,
 };
@@ -559,7 +559,7 @@ const clearFilters = async () => {
     date_from: '',
     date_to: '',
     brand_id: '',
-    status: '',
+    status: 'pending',
     sort: 'received_desc',
   };
   Object.assign(store.filters, queryDefaults);
@@ -672,10 +672,13 @@ const openMainOrders = (order) => {
   const phone = orderPhone(order);
   if (!phone || phone === '-') return;
 
-  router.push({
+  const href = router.resolve({
     path: '/orders',
     query: { search: phone },
-  });
+  }).href;
+
+  authStore.prepareTabHandoff();
+  window.open(href, '_blank', 'noopener');
 };
 
 const createOrderHref = (order) => router.resolve({
