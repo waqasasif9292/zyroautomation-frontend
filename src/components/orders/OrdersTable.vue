@@ -67,6 +67,9 @@
               </button>
               <span v-else class="tracking-empty">—</span>
             </template>
+            <template v-else-if="column.key === 'booking_date'">
+              <span class="booking-time">{{ formatDate(order.booking_created_at) }}</span>
+            </template>
             <template v-else-if="column.key === 'created_by'">
               <div class="strong">{{ order.created_by?.name || '—' }}</div>
               <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
@@ -284,6 +287,7 @@ const columnDefinitions = [
   { key: 'brand', header: 'Brand', class: 'col-brand' },
   { key: 'source', header: 'Source', class: 'col-source' },
   { key: 'tracking', header: 'Tracking', class: 'col-tracking' },
+  { key: 'booking_date', header: 'Booking Date', class: 'col-booking-date' },
   { key: 'created_by', header: 'Created By', class: 'col-created-by' },
   { key: 'customer', header: 'Customer Name', class: 'col-customer' },
   { key: 'phone', header: 'Phone', class: 'col-phone' },
@@ -416,6 +420,7 @@ td {
 .col-brand { width: 132px; }
 .col-source { width: 112px; }
 .col-tracking { width: 112px; }
+.col-booking-date { width: 154px; }
 .col-created-by { width: 138px; }
 .col-customer { width: 150px; }
 .col-phone { width: 132px; }
@@ -469,6 +474,14 @@ th:last-child {
 }
 
 .order-time {
+  white-space: nowrap;
+}
+
+.booking-time {
+  display: inline-block;
+  min-width: 132px;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 

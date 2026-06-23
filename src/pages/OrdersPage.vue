@@ -304,8 +304,8 @@ const dragOverColumn = ref(null);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
-const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'booking_date', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'booking_date', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumnDefinitions = [
@@ -314,6 +314,7 @@ const orderTableColumnDefinitions = [
   { key: 'brand', label: 'Brand' },
   { key: 'source', label: 'Source' },
   { key: 'tracking', label: 'Tracking' },
+  { key: 'booking_date', label: 'Booking Date' },
   { key: 'created_by', label: 'Created By' },
   { key: 'customer', label: 'Customer Name' },
   { key: 'phone', label: 'Phone Number' },
@@ -326,9 +327,18 @@ const orderTableColumnDefinitions = [
   { key: 'actions', label: 'Actions', locked: true },
 ];
 const orderTableColumnMap = new Map(orderTableColumnDefinitions.map(column => [column.key, column]));
+const withRequiredOrderColumns = (columns = []) => {
+  const normalized = Array.isArray(columns) ? [...columns] : [];
+  if (!normalized.includes('booking_date')) {
+    const trackingIndex = normalized.indexOf('tracking');
+    normalized.splice(trackingIndex === -1 ? normalized.length : trackingIndex + 1, 0, 'booking_date');
+  }
+
+  return normalized;
+};
 
 const normalizeOrderColumns = (columns = []) => {
-  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  const requested = Array.isArray(columns) && columns.length ? withRequiredOrderColumns(columns) : defaultOrderColumns;
   const validColumns = requested.filter(column => allowedOrderColumns.includes(column));
   const orderedColumns = [
     ...new Set([
@@ -342,7 +352,7 @@ const normalizeOrderColumns = (columns = []) => {
 };
 
 const normalizeVisibleOrderColumns = (columns = []) => {
-  const requested = Array.isArray(columns) && columns.length ? columns : defaultOrderColumns;
+  const requested = Array.isArray(columns) && columns.length ? withRequiredOrderColumns(columns) : defaultOrderColumns;
   const visibleSet = new Set([...requested.filter(column => allowedOrderColumns.includes(column)), ...lockedOrderColumns]);
   return normalizeOrderColumns(columnOrder.value.length ? columnOrder.value : requested)
     .filter(column => visibleSet.has(column));
