@@ -234,7 +234,8 @@ const fetchIntegrations = async () => {
     statusOptions.value = data.supported_statuses?.length ? data.supported_statuses : statusOptions.value;
 
     if (!selectedIntegrationId.value || !supportedIntegrations.value.some(item => item.id === selectedIntegrationId.value)) {
-      selectedIntegrationId.value = supportedIntegrations.value[0]?.id || '';
+      const defaultIntegration = supportedIntegrations.value.find(item => item.courier_slug === 'postex') || supportedIntegrations.value[0];
+      selectedIntegrationId.value = defaultIntegration?.id || '';
     }
   } finally {
     loadingIntegrations.value = false;
