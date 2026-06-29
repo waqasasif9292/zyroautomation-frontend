@@ -28,6 +28,7 @@ const routes = [
   { path: '/vendors/:id', component: () => import('../pages/vendors/VendorDetailPage.vue'), meta: { requiresAuth: true } },
   { path: '/status-updates', component: () => import('../pages/StatusUpdatesPage.vue'), meta: { requiresAuth: true } },
   { path: '/status-updates/fetch/:courierSlug', component: () => import('../pages/StatusUpdateFetchPage.vue'), meta: { requiresAuth: true } },
+  { path: '/shipper-advice', component: () => import('../pages/ShipperAdvicePage.vue'), meta: { requiresAuth: true } },
   { path: '/delivery-charges', component: () => import('../pages/DeliveryChargesPage.vue'), meta: { requiresAuth: true } },
   { path: '/delivery-charges/fetch/:courierSlug', component: () => import('../pages/DeliveryChargeFetchPage.vue'), meta: { requiresAuth: true } },
   { path: '/packing-logs', redirect: '/packing-logs/pending' },

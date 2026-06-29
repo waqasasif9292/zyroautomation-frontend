@@ -5,7 +5,7 @@
         <div>
           <p class="eyebrow">Reports</p>
           <h1>In Progress Orders</h1>
-          <p>Measure parcels currently handed over to couriers: COD, product value, returns, and courier exposure.</p>
+          <p>Measure parcels currently handed over to couriers: COD, product cost, returns, and courier exposure.</p>
         </div>
       </section>
 
@@ -53,7 +53,7 @@
 
       <section v-if="!hasRun && !errorMessage" class="empty-prompt">
         <h2>Create an in progress report</h2>
-        <p>Select optional filters, then create the report to see parcels, COD, product value, return exposure, and courier workload.</p>
+        <p>Select optional filters, then create the report to see parcels, COD, product cost, return exposure, and courier workload.</p>
       </section>
 
       <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
@@ -129,7 +129,7 @@
               <tr>
                 <th>Courier</th>
                 <th>Parcels</th>
-                <th>Product Value</th>
+                <th>Product Cost</th>
                 <th>Total COD</th>
                 <th>In Transit</th>
                 <th>Out For Delivery</th>
@@ -140,7 +140,7 @@
               <tr v-for="row in report.courier_breakdown" :key="row.courier_id || 'unassigned'">
                 <td>{{ row.courier_name }}</td>
                 <td>{{ formatNumber(row.parcels) }}</td>
-                <td>{{ formatMoney(row.product_value) }}</td>
+                <td>{{ formatMoney(row.product_cost) }}</td>
                 <td>{{ formatMoney(row.total_cod) }}</td>
                 <td>{{ formatNumber(row.in_transit) }}</td>
                 <td>{{ formatNumber(row.out_for_delivery) }}</td>
@@ -154,7 +154,7 @@
         <section class="panel">
           <div class="panel-head">
             <h2>Product Exposure</h2>
-            <span>COD is allocated by product value share</span>
+            <span>COD is allocated by product cost share</span>
           </div>
           <table>
             <thead>
@@ -162,7 +162,7 @@
                 <th>Product</th>
                 <th>Orders</th>
                 <th>Units</th>
-                <th>Product Value</th>
+                <th>Product Cost</th>
                 <th>Total COD</th>
               </tr>
             </thead>
@@ -174,7 +174,7 @@
                 </td>
                 <td>{{ formatNumber(row.orders) }}</td>
                 <td>{{ formatNumber(row.units) }}</td>
-                <td>{{ formatMoney(row.product_value) }}</td>
+                <td>{{ formatMoney(row.product_cost) }}</td>
                 <td>{{ formatMoney(row.total_cod) }}</td>
               </tr>
               <tr v-if="!report.product_breakdown.length"><td colspan="5">No product data.</td></tr>
@@ -221,7 +221,7 @@ const summaryMetrics = computed(() => {
   return [
     { key: 'orders', label: 'Remaining Parcels', value: formatNumber(summary.total_orders), note: 'Currently outside office' },
     { key: 'cod', label: 'Remaining COD', value: formatMoney(summary.total_cod), note: 'Cash value still open' },
-    { key: 'product_value', label: 'Product Value', value: formatMoney(summary.product_value), note: 'Inventory value in courier flow' },
+    { key: 'product_cost', label: 'Product Cost', value: formatMoney(summary.product_cost), note: 'Inventory cost in courier flow' },
     { key: 'ofd', label: 'Out For Delivery', value: formatNumber(ofd), note: 'Parcels with riders' },
     { key: 'returns', label: 'Ready For Return', value: formatNumber(readyReturn), note: 'Return exposure' },
   ];
@@ -298,7 +298,7 @@ const formatDateTime = (value) => {
 onMounted(async () => {
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
-    integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
+    integrationStore.fetchIntegrations(),
   ]);
 });
 </script>

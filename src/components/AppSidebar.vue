@@ -173,6 +173,12 @@ const baseNavItems = [
     icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`,
   },
   {
+    key: 'shipper-advice',
+    label: 'Shipper Advice',
+    to: '/shipper-advice',
+    icon: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8z"/><path d="M14 2v6h6"/><path d="m9 14 2 2 4-5"/></svg>`,
+  },
+  {
     key: 'delivery-charges',
     label: 'Delivery Charges',
     to: '/delivery-charges',

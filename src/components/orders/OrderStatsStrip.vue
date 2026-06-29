@@ -13,21 +13,62 @@
         <strong>{{ formatNumber(item.value) }}</strong>
       </div>
       <span :class="['stat-icon', item.icon]">
-        <svg v-if="item.icon === 'thumb'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <svg v-if="item.icon === 'today'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.5 3.8h11A2.5 2.5 0 0 1 20 6.3v11.2a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5V6.3a2.5 2.5 0 0 1 2.5-2.5Z" fill="currentColor" />
+          <path d="M4.8 8.4h14.4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
+          <path d="m8.4 14.1 2 2 5-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'yesterday'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 4.2a7.8 7.8 0 1 1-6.7 3.8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+          <path d="M5.1 4.8v3.5h3.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M12 8.5v4.2l3 1.7" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'week'" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 19V9" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          <path d="M12 19V5" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          <path d="M19 19v-7" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+          <path d="M4 19.5h16" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'month'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.5 3.8h11A2.5 2.5 0 0 1 20 6.3v11.2a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5V6.3a2.5 2.5 0 0 1 2.5-2.5Z" fill="currentColor" />
+          <path d="M4.8 8.4h14.4M8 3v3M16 3v3" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
+          <path d="M8 12h2.2M13.8 12H16M8 16h2.2M13.8 16H16" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'total'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11Z" fill="currentColor" />
+          <path d="M8 8h8M8 12h8M8 16h5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'hold'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" fill="currentColor" />
+          <path d="M9 8v8M15 8v8" stroke="#fff" stroke-width="2.6" stroke-linecap="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'pending'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 4h10M7 20h10M8 4c0 4 3.6 4.4 3.6 8S8 16 8 20M16 4c0 4-3.6 4.4-3.6 8S16 16 16 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M9.6 17.5h4.8L12 15.6l-2.4 1.9Z" fill="#fff" />
+        </svg>
+        <svg v-else-if="item.icon === 'duplicate'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 7.5A2.5 2.5 0 0 1 10.5 5h6A2.5 2.5 0 0 1 19 7.5v8A2.5 2.5 0 0 1 16.5 18h-6A2.5 2.5 0 0 1 8 15.5v-8Z" fill="currentColor" />
+          <path d="M5 8.5v7A3.5 3.5 0 0 0 8.5 19H15" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'warehouse'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 10.5 12 5l8.5 5.5v8A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5v-8Z" fill="currentColor" />
+          <path d="M7.5 20v-6.5h9V20M7.5 14h9M9.5 16.5h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'transit'" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h9.5v9H3.5V7.5Z" fill="currentColor" />
+          <path d="M14.5 9h3.2l2.8 3.2V15h-6V9Z" fill="currentColor" />
+          <path d="M7 18.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM17 18.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" fill="#fff" />
+        </svg>
+        <svg v-else-if="item.icon === 'delivery'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5 20 20l-8-3.2L4 20l8-16.5Z" fill="currentColor" />
+          <path d="M12 8.5v8" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <svg v-else width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M7 10.5h2.3l1.6-5.1c.2-.7.8-1.1 1.5-1.1 1.2 0 2.1 1 1.9 2.2l-.5 3.1h4.1c1.2 0 2.1 1.1 1.8 2.3l-1.2 5.4c-.3 1.4-1.5 2.3-2.9 2.3H7v-9.1Z"
             fill="currentColor"
           />
           <path d="M4 10.5h3v9.1H4a1 1 0 0 1-1-1v-7.1a1 1 0 0 1 1-1Z" fill="currentColor" />
-        </svg>
-        <svg v-else-if="item.icon === 'chart'" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3a9 9 0 1 0 9 9h-9V3Z" fill="currentColor" opacity="0.95" />
-          <path d="M14 3.3V10h6.7A9 9 0 0 0 14 3.3Z" fill="currentColor" opacity="0.7" />
-          <path d="M14 12h7a8.8 8.8 0 0 1-2.6 6.3L14 12Z" fill="#fff" opacity="0.9" />
-        </svg>
-        <svg v-else width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5v-13Z" fill="currentColor" />
-          <path d="M8 8h8M8 12h8M8 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
         </svg>
       </span>
     </button>
@@ -77,35 +118,35 @@ const statItems = computed(() => [
     key: 'today',
     label: 'Today',
     value: stats.value.today,
-    icon: 'thumb',
+    icon: 'today',
     filter: dateFilter(new Date(), new Date()),
   },
   {
     key: 'yesterday',
     label: 'Yesterday',
     value: stats.value.yesterday,
-    icon: 'thumb',
+    icon: 'yesterday',
     filter: dateFilter(addDays(new Date(), -1), addDays(new Date(), -1)),
   },
   {
     key: 'last_7_days',
     label: 'Last 7 Days',
     value: stats.value.last_7_days,
-    icon: 'chart',
+    icon: 'week',
     filter: dateFilter(addDays(new Date(), -6), new Date()),
   },
   {
     key: 'this_month',
     label: 'This Month',
     value: stats.value.this_month,
-    icon: 'chart',
+    icon: 'month',
     filter: dateFilter(startOfMonth(new Date()), new Date()),
   },
   {
     key: 'last_month',
     label: 'Last Month',
     value: stats.value.last_month,
-    icon: 'chart',
+    icon: 'month',
     filter: (() => {
       const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
       return dateFilter(startOfMonth(lastMonth), endOfMonth(lastMonth));
@@ -115,15 +156,15 @@ const statItems = computed(() => [
     key: 'total',
     label: 'Total',
     value: stats.value.total,
-    icon: 'chart',
+    icon: 'total',
     filter: { date_from: null, date_to: null, status: null },
   },
-  { key: 'hold', label: 'On Hold', value: stats.value.hold, icon: 'status', filter: statusFilter('hold') },
-  { key: 'pending_confirmation', label: 'Pending Confirmation', value: stats.value.pending_confirmation, icon: 'status', filter: statusFilter('pending_confirmation') },
-  { key: 'duplicate', label: 'Duplicate', value: stats.value.duplicate, icon: 'status', filter: statusFilter('duplicate') },
-  { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'status', filter: statusFilter('merchant_warehouse') },
-  { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'status', filter: statusFilter('dispatched') },
-  { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'status', filter: statusFilter('out_for_delivery') },
+  { key: 'hold', label: 'On Hold', value: stats.value.hold, icon: 'hold', filter: statusFilter('hold') },
+  { key: 'pending_confirmation', label: 'Pending Confirmation', value: stats.value.pending_confirmation, icon: 'pending', filter: statusFilter('pending_confirmation') },
+  { key: 'duplicate', label: 'Duplicate', value: stats.value.duplicate, icon: 'duplicate', filter: statusFilter('duplicate') },
+  { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'warehouse', filter: statusFilter('merchant_warehouse') },
+  { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
+  { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
 ]);
 
 const formatNumber = value => Number(value || 0).toLocaleString();
@@ -255,16 +296,36 @@ onMounted(fetchStats);
   box-shadow: 0 14px 28px rgba(248, 89, 55, 0.3);
 }
 
-.stat-icon.thumb {
+.stat-icon.today,
+.stat-icon.yesterday {
   background: linear-gradient(135deg, #f63764 0%, #ff5538 100%);
 }
 
-.stat-icon.chart {
+.stat-icon.week,
+.stat-icon.month,
+.stat-icon.total {
   background: linear-gradient(135deg, #ff6546 0%, #ffa729 100%);
 }
 
-.stat-icon.status {
+.stat-icon.hold,
+.stat-icon.pending {
   background: linear-gradient(135deg, #2f80ed 0%, #18a999 100%);
+}
+
+.stat-icon.duplicate {
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+}
+
+.stat-icon.warehouse {
+  background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%);
+}
+
+.stat-icon.transit {
+  background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+}
+
+.stat-icon.delivery {
+  background: linear-gradient(135deg, #ea580c 0%, #facc15 100%);
 }
 
 @media (max-width: 1180px) {

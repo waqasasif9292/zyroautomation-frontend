@@ -67,9 +67,6 @@
               </button>
               <span v-else class="tracking-empty">—</span>
             </template>
-            <template v-else-if="column.key === 'booking_date'">
-              <span class="booking-time">{{ formatDate(order.booking_created_at) }}</span>
-            </template>
             <template v-else-if="column.key === 'created_by'">
               <div class="strong">{{ order.created_by?.name || '—' }}</div>
               <div v-if="order.last_saved_by?.name && order.last_saved_by.name !== order.created_by?.name" class="muted">
@@ -287,7 +284,6 @@ const columnDefinitions = [
   { key: 'brand', header: 'Brand', class: 'col-brand' },
   { key: 'source', header: 'Source', class: 'col-source' },
   { key: 'tracking', header: 'Tracking', class: 'col-tracking' },
-  { key: 'booking_date', header: 'Booking Date', class: 'col-booking-date' },
   { key: 'created_by', header: 'Created By', class: 'col-created-by' },
   { key: 'customer', header: 'Customer Name', class: 'col-customer' },
   { key: 'phone', header: 'Phone', class: 'col-phone' },

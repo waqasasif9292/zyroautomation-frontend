@@ -56,6 +56,10 @@ export const useIntegrationStore = defineStore('integration', () => {
     }
   };
 
+  const resetIntegrations = () => {
+    integrations.value = [];
+  };
+
   const checkDuplicate = async (courierSlug) => {
     const res = await IntegrationService.checkDuplicate({ courier_slug: courierSlug });
     return res.data.data.exists;
@@ -82,6 +86,7 @@ export const useIntegrationStore = defineStore('integration', () => {
     createIntegration,
     updateIntegration,
     deleteIntegration,
+    resetIntegrations,
     checkDuplicate,
     fetchPostexPickupAddresses,
     fetchPostexOperationalCities,

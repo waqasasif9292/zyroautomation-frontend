@@ -137,7 +137,6 @@
               <tr>
                 <th>#</th>
                 <th>Created At</th>
-                <th>Booking Date</th>
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Courier</th>
@@ -149,11 +148,11 @@
             <tbody>
               <template v-if="loading">
                 <tr v-for="row in 7" :key="row">
-                  <td v-for="col in 9" :key="col"><span class="skeleton"></span></td>
+                  <td v-for="col in 8" :key="col"><span class="skeleton"></span></td>
                 </tr>
               </template>
               <tr v-else-if="orders.length === 0">
-                <td colspan="9" class="empty-cell">{{ emptyText }}</td>
+                <td colspan="8" class="empty-cell">{{ emptyText }}</td>
               </tr>
               <tr v-else v-for="(order, index) in orders" :key="order.id">
                 <td class="serial-cell">{{ serialStart + index }}</td>
@@ -161,7 +160,6 @@
                   <div>{{ formatDateTime(order.created_at || order.shopify_created_at) }}</div>
                   <div class="order-number-cell">{{ order.order_name || order.order_number || '—' }}</div>
                 </td>
-                <td>{{ formatDateTime(order.booking_created_at) }}</td>
                 <td>
                   <div class="name-cell">{{ order.customer_name || order.order_name || '—' }}</div>
                   <div v-if="order.brand_name" class="subtext">{{ order.brand_name }}</div>
@@ -454,7 +452,7 @@ onMounted(async () => {
   hydrateFiltersFromRoute();
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
-    integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
+    integrationStore.fetchIntegrations(),
     fetchShipments(),
     fetchPackingStats(),
   ]);
