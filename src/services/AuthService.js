@@ -12,7 +12,8 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('zyro_token') || sessionStorage.getItem('zyro_token');
+    const authStore = useAuthStore();
+    const token = authStore.token || sessionStorage.getItem('zyro_token') || localStorage.getItem('zyro_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -128,7 +128,6 @@
               <tr>
                 <th>#</th>
                 <th>Created At</th>
-                <th>Booking Date</th>
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Courier</th>
@@ -153,7 +152,6 @@
                   <div>{{ formatDateTime(order.created_at || order.shopify_created_at) }}</div>
                   <div class="order-number-cell">{{ order.order_name || order.order_number || '—' }}</div>
                 </td>
-                <td>{{ formatDateTime(order.booking_created_at) }}</td>
                 <td>
                   <div class="name-cell">{{ order.customer_name || order.order_name || '—' }}</div>
                   <div v-if="order.brand_name" class="subtext">{{ order.brand_name }}</div>
@@ -264,7 +262,7 @@ const emptyText = computed(() => isReceivedView.value ? 'No received returns.' :
 const actionLabel = computed(() => isReceivedView.value ? 'Mark As Unreceived' : 'Return Received');
 const statsTotalLabel = computed(() => isReceivedView.value ? 'Total Received' : 'Total Pending');
 const statsTotalValue = computed(() => isReceivedView.value ? returnStats.value.total_received : returnStats.value.total_pending);
-const tableColumnCount = computed(() => isReceivedView.value ? 10 : 9);
+const tableColumnCount = computed(() => isReceivedView.value ? 9 : 8);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
   return ((pagination.value.current_page - 1) * pagination.value.per_page) + 1;
@@ -457,7 +455,7 @@ onMounted(async () => {
   hydrateFiltersFromRoute();
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
-    integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
+    integrationStore.fetchIntegrations(),
     fetchReturns(),
     fetchReturnStats(),
   ]);

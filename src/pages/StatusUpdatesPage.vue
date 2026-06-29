@@ -322,7 +322,7 @@ onMounted(async () => {
   hydrateFiltersFromRoute();
   await Promise.all([
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
-    integrationStore.integrations.length ? Promise.resolve() : integrationStore.fetchIntegrations(),
+    integrationStore.fetchIntegrations(),
     fetchOrders(),
   ]);
 });

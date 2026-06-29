@@ -47,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
     return null;
   };
 
-  const tokenFromStorage = () => localStorage.getItem('zyro_token') || sessionStorage.getItem('zyro_token') || consumeTabHandoffToken();
+  const tokenFromStorage = () => sessionStorage.getItem('zyro_token') || consumeTabHandoffToken() || localStorage.getItem('zyro_token');
 
   const hydrateTokenFromStorage = () => {
     const storedToken = tokenFromStorage();
