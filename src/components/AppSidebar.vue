@@ -1,8 +1,8 @@
 <template>
-  <aside :class="['sidebar', { collapsed: isCollapsed }]">
+  <aside :class="['sidebar', { collapsed: isCollapsed, 'mobile-open': mobileOpen }]">
     <!-- Brand -->
     <div class="sidebar-header">
-      <button class="sidebar-brand" type="button" title="Home" @click="router.push(homePath)">
+      <button class="sidebar-brand" type="button" title="Home" @click="goHome">
         <div class="brand-logo">Z</div>
         <span class="brand-name">Zyro Automation</span>
       </button>
@@ -16,6 +16,16 @@
       >
         <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </button>
+      <button
+        class="sidebar-close"
+        type="button"
+        aria-label="Close navigation"
+        @click="$emit('close-mobile')"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
         </svg>
       </button>
     </div>
@@ -81,6 +91,15 @@ import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
 import { firstAccessiblePath, isTeamAdmin as userIsTeamAdmin, permissionForPath } from '../constants/sidebarPermissions';
 
+defineProps({
+  mobileOpen: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+const emit = defineEmits(['close-mobile']);
+
 const router    = useRouter();
 const route     = useRoute();
 const authStore = useAuthStore();
@@ -97,6 +116,11 @@ const toggleSidebar = () => {
 
 const navHref = (to) => router.resolve(to).href;
 
+const goHome = () => {
+  router.push(homePath.value);
+  emit('close-mobile');
+};
+
 const navigateInApp = (event, to) => {
   authStore.prepareTabHandoff();
 
@@ -106,6 +130,7 @@ const navigateInApp = (event, to) => {
 
   event.preventDefault();
   router.push(to);
+  emit('close-mobile');
 };
 
 const userInitial = computed(() => {
@@ -127,6 +152,7 @@ const isChildActive = (item) => {
 
 const handleLogout = async () => {
   await authStore.logout();
+  emit('close-mobile');
 };
 
 const homePath = computed(() => firstAccessiblePath(authStore.user));
@@ -438,6 +464,25 @@ const navItems = computed(() => baseNavItems
   background: rgba(255,255,255,0.08);
   border-color: rgba(148, 163, 184, 0.34);
   color: #e2e8f0;
+}
+
+.sidebar-close {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: #cbd5e1;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-close svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2.2;
 }
 
 .toggle-icon {
@@ -752,6 +797,90 @@ const navItems = computed(() => baseNavItems
   .nav-item,
   .logout-btn {
     transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    position: fixed;
+    z-index: 100;
+    top: 0;
+    left: 0;
+    width: min(86vw, 320px);
+    height: 100dvh;
+    min-height: 100dvh;
+    box-shadow: 24px 0 60px rgba(15, 23, 42, 0.34);
+    transform: translateX(-104%);
+    transition: transform 0.22s ease;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    width: min(86vw, 320px);
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .sidebar-close {
+    display: inline-flex;
+  }
+
+  .sidebar-header {
+    padding: 14px 12px;
+  }
+
+  .sidebar.collapsed .sidebar-header {
+    align-items: center;
+    flex-direction: row;
+    padding: 14px 12px;
+  }
+
+  .sidebar.collapsed .sidebar-brand {
+    width: auto;
+    flex: 1;
+    justify-content: flex-start;
+    padding: 4px 0 4px 4px;
+  }
+
+  .sidebar.collapsed .brand-name,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .user-info {
+    width: auto;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .sidebar.collapsed .sidebar-nav {
+    align-items: stretch;
+    padding: 12px 10px;
+  }
+
+  .sidebar.collapsed .nav-group {
+    display: block;
+  }
+
+  .sidebar.collapsed .nav-item,
+  .sidebar.collapsed .logout-btn {
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 10px 12px;
+  }
+
+  .sidebar.collapsed .user-row {
+    justify-content: flex-start;
+    padding: 8px 10px;
+  }
+
+  .sidebar.collapsed .sidebar-footer {
+    align-items: stretch;
   }
 }
 </style>

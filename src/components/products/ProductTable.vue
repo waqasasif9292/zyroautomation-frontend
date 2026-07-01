@@ -111,10 +111,12 @@ const stockClass = (value) => Number(value || 0) < 0 ? 'stock-negative' : 'stock
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .products-table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   table-layout: fixed;
 }
