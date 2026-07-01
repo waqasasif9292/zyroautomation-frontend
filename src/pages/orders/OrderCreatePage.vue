@@ -347,7 +347,7 @@
           </fieldset>
 
           <div class="actions">
-            <button type="button" class="cancel-btn" @click="router.push('/orders')">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
+            <button type="button" class="cancel-btn" @click="returnToOrders">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
             <button v-if="canEditReadonlyOrderFields" type="button" class="hold-btn" :disabled="saving" @click="handleReadonlyAdminSave">
               {{ saving ? 'Saving...' : 'Save Changes' }}
             </button>
@@ -510,6 +510,11 @@ const closeErrorPopup = () => {
 const currentOrderId = computed(() => route.params.id || failedSavedOrderId.value);
 const isEditMode = computed(() => Boolean(currentOrderId.value));
 const isReadonlyMode = computed(() => Boolean(route.meta.readonlyOrder));
+const orderListQuery = () => {
+  const { abandoned_order_id, ...query } = route.query;
+  return query;
+};
+const returnToOrders = () => router.push({ path: '/orders', query: orderListQuery() });
 const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && authStore.user?.team_role === 'owner'));
 const readonlyEditableFields = ['brand_id', 'source', 'total_price', 'advance_payment'];
 const readonlyLocksEntireForm = computed(() => isReadonlyMode.value && !canEditReadonlyOrderFields.value);
@@ -852,7 +857,7 @@ onMounted(async () => {
         ? 'This order no longer exists or you do not have access to it.'
         : apiErrorMessage(error, 'Unable to load order for editing.');
       showErrorPopup(message);
-      router.push('/orders');
+      returnToOrders();
     }
   } else if (route.query.abandoned_order_id) {
     try {
@@ -1668,12 +1673,12 @@ const handleSave = async (mode) => {
       const order = result.order || result;
       const tracking = result.tracking_number || order.tracking_number || 'created';
       notificationStore.show(`Order has been created. Tracking: ${tracking}`);
-      router.push('/orders');
+      returnToOrders();
       return;
     }
 
     notificationStore.show(isEditMode.value ? 'Order draft has been updated.' : 'Order has been saved as draft.');
-    router.push('/orders');
+    returnToOrders();
   } catch (error) {
     const responseErrors = error.response?.data?.errors;
     const fallback = mode === 'create' && creatingShipment.value
