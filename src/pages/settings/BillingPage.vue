@@ -190,12 +190,14 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import BillingService from '../../services/BillingService';
 import { useAuthStore } from '../../stores/authStore';
 
 const authStore = useAuthStore();
+const router = useRouter();
 const loading = ref(false);
 const transactionsLoading = ref(false);
 const recoveringBlocked = ref(false);
@@ -320,6 +322,9 @@ const loadSummary = async () => {
     summary.value = response.data.data.summary;
     payment.value = response.data.data.payment;
     await authStore.fetchUser();
+    if (summary.value.billing_enabled === false) {
+      router.replace('/settings');
+    }
   } finally {
     loading.value = false;
   }
@@ -337,7 +342,9 @@ const loadTransactions = async () => {
 };
 
 const loadBilling = async () => {
-  await Promise.all([loadSummary(), loadTransactions()]);
+  await loadSummary();
+  if (summary.value.billing_enabled === false) return;
+  await loadTransactions();
 };
 
 const recoverBlockedOrders = async () => {

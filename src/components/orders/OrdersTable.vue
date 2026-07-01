@@ -126,7 +126,7 @@
                 <RouterLink
                   v-if="canEdit(order)"
                   class="action-btn"
-                  :to="`/orders/${order.id}/edit`"
+                  :to="orderFormRoute(order.id, 'edit')"
                   aria-label="Edit order"
                   title="Edit order"
                   @click.stop
@@ -142,7 +142,7 @@
                 <RouterLink
                   v-else
                   class="action-btn"
-                  :to="`/orders/${order.id}/view`"
+                  :to="orderFormRoute(order.id, 'view')"
                   aria-label="View order form"
                   title="View order form"
                   @click.stop
@@ -218,7 +218,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import OrderStatusBadge from './OrderStatusBadge.vue';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -276,6 +276,7 @@ const props = defineProps({
 defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'toggle-select', 'select-page']);
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const lockedColumns = ['serial', 'actions'];
 const columnDefinitions = [
@@ -326,6 +327,10 @@ const openDuplicateOrders = (order) => {
   authStore.prepareTabHandoff();
   window.open(href, '_blank', 'noopener');
 };
+const orderFormRoute = (id, mode) => ({
+  path: `/orders/${id}/${mode}`,
+  query: route.query,
+});
 const canEdit = (order) => ['pending confirmation', 'duplicate', 'hold', 'on hold', 'error', 'cancel by shipper'].includes(statusText(order.status).toLowerCase());
 const canCancel = (order) => {
   const hasTrackingNumber = String(order.tracking_number || '').trim() !== '';

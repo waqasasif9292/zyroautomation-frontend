@@ -124,6 +124,10 @@ router.beforeEach(async (to, from, next) => {
   const user = authStore.user;
   const isAdmin = isTeamAdmin(user);
   const fallbackPath = firstAccessiblePath(user);
+  if (to.path.startsWith('/settings/billing') && user?.billing_enabled === false) {
+    return next('/settings');
+  }
+
   if (to.meta.adminOnly && !isAdmin) {
     return next(fallbackPath === to.path ? '/access-denied' : fallbackPath);
   }
