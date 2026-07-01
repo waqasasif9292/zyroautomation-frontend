@@ -83,9 +83,38 @@
           </div>
 
           <div class="field">
-            <label>Customer Address</label>
+            <div class="address-label-row">
+              <label>Customer Address</label>
+              <button
+                v-if="canUseAiAddressSuggestions"
+                type="button"
+                class="ai-address-btn"
+                :disabled="readonlyLocksPartialForm || addressAiLoading || !form.customer_address.trim()"
+                @click="improveAddressWithAi"
+              >
+                <span v-if="addressAiLoading" class="ai-spinner"></span>
+                {{ addressAiLoading ? 'Improving...' : '✨ Improve with AI' }}
+              </button>
+            </div>
             <input v-model="form.customer_address" :class="{ invalid: errors.customer_address }" type="text" placeholder="Billal colony, Pattoki" :disabled="readonlyLocksPartialForm">
             <span v-if="errors.customer_address" class="field-error">{{ errors.customer_address }}</span>
+          </div>
+
+          <div v-if="canUseAiAddressSuggestions && addressSuggestion.correctedAddress" class="ai-address-panel" :class="`confidence-${addressSuggestion.confidence || 'low'}`">
+            <div class="ai-address-panel-header">
+              <div>
+                <strong>Suggested Address</strong>
+                <span>{{ addressSuggestionMeta }}</span>
+              </div>
+              <div class="ai-address-actions">
+                <button type="button" class="copy-btn small" @click="copyAddressSuggestion">Copy</button>
+                <button type="button" class="copy-btn small primary" :disabled="readonlyLocksPartialForm" @click="replaceAddressWithSuggestion">
+                  Replace Original
+                </button>
+              </div>
+            </div>
+            <textarea v-model="addressSuggestion.correctedAddress" rows="2" :disabled="readonlyLocksPartialForm"></textarea>
+            <span v-if="addressSuggestionWarning" class="ai-address-warning">{{ addressSuggestionWarning }}</span>
           </div>
 
           <div v-if="showAddressConfirmationInForm" class="whatsapp-action-panel" :class="{ sent: addressConfirmationSent }">
@@ -491,6 +520,19 @@ const loadedOrder = ref(null);
 const deleteOrderDialog = ref(false);
 const cancelOrderDialog = ref(false);
 const destructiveLoading = ref(false);
+const addressAiLoading = ref(false);
+const addressSuggestion = reactive({
+  correctedAddress: '',
+  clean_address: '',
+  nearest_place: '',
+  final_address: '',
+  confidence: '',
+  needs_review: false,
+  review_reason: '',
+  missingFields: [],
+  originalAddress: '',
+  updated_at: '',
+});
 
 const form = reactive({
   brand_id: '',
@@ -523,7 +565,39 @@ const phonePreview = value => {
 };
 const customerContactPreview = computed(() => phonePreview(form.customer_contact));
 const customerContactTwoPreview = computed(() => phonePreview(form.customer_contact_two));
+const addressSuggestionMeta = computed(() => {
+  const confidence = addressSuggestion.confidence ? `${addressSuggestion.confidence} confidence` : 'AI suggestion';
+  if (!addressSuggestion.updated_at) return confidence;
 
+  const date = new Date(addressSuggestion.updated_at);
+  if (Number.isNaN(date.getTime())) return confidence;
+
+  return `${confidence} - ${date.toLocaleString()}`;
+});
+const addressSuggestionWarning = computed(() => {
+  if (addressSuggestion.needs_review && addressSuggestion.review_reason) {
+    return addressSuggestion.review_reason;
+  }
+
+  const missing = Array.isArray(addressSuggestion.missingFields) ? addressSuggestion.missingFields.filter(Boolean) : [];
+  if ((addressSuggestion.confidence || '').toLowerCase() !== 'low' && missing.length === 0) return '';
+
+  return missing.length
+    ? `Please double-check ${missing.join(' / ')}.`
+    : 'Please double-check this address before using it.';
+});
+const setAddressSuggestion = (suggestion = null) => {
+  addressSuggestion.correctedAddress = suggestion?.correctedAddress || '';
+  addressSuggestion.clean_address = suggestion?.clean_address || '';
+  addressSuggestion.nearest_place = suggestion?.nearest_place || '';
+  addressSuggestion.final_address = suggestion?.final_address || suggestion?.correctedAddress || '';
+  addressSuggestion.confidence = suggestion?.confidence || '';
+  addressSuggestion.needs_review = Boolean(suggestion?.needs_review);
+  addressSuggestion.review_reason = suggestion?.review_reason || '';
+  addressSuggestion.missingFields = Array.isArray(suggestion?.missingFields) ? [...suggestion.missingFields] : [];
+  addressSuggestion.originalAddress = suggestion?.originalAddress || '';
+  addressSuggestion.updated_at = suggestion?.updated_at || '';
+};
 const handlePhoneBlur = (field, required = false) => {
   delete phoneWarnings[field];
   const raw = form[field];
@@ -568,6 +642,7 @@ const orderListQuery = () => {
 const returnToOrders = () => router.push({ path: '/orders', query: orderListQuery() });
 const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && authStore.user?.team_role === 'owner'));
 const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const canUseAiAddressSuggestions = computed(() => authStore.user?.ai_address_suggestions_enabled === true);
 const currentOrderLabel = computed(() => loadedOrder.value?.order_name || loadedOrder.value?.customer?.name || currentOrderId.value || 'Order');
 const loadedOrderStatusText = computed(() => {
   const status = loadedOrder.value?.status;
@@ -959,6 +1034,7 @@ const loadAbandonedOrderForCreate = async (id) => {
   form.customer_contact = customer.phone_normalized || customer.phone || '';
   form.customer_contact_two = '';
   form.customer_address = address.formatted || primaryAddressFromAbandoned(order) || '';
+  setAddressSuggestion(null);
   form.destination_city = address.city || '';
   form.destination_city_id = '';
   form.total_price = String(order.total_price || '');
@@ -999,6 +1075,7 @@ const loadOrderForEdit = async (id) => {
   form.customer_contact = order.customer?.phone_local || order.customer?.phone_intl || '';
   form.customer_contact_two = manual.customer_contact_two || order.customer?.phone_two || '';
   form.customer_address = order.customer?.address || '';
+  setAddressSuggestion(order.ai_address_correction || null);
   form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
   form.pickup_address_code = manual.pickup_address_code || '';
   form.leopard_pickup_address_id = manual.leopard_pickup_address_id || '';
@@ -1241,6 +1318,48 @@ const sendAddressConfirmation = async () => {
   } finally {
     addressConfirmationSending.value = false;
   }
+};
+
+const improveAddressWithAi = async () => {
+  const rawAddress = form.customer_address.trim();
+  if (!rawAddress) {
+    errors.customer_address = 'Customer address is required.';
+    return;
+  }
+
+  addressAiLoading.value = true;
+  try {
+    const suggestion = await orderStore.correctAddress(rawAddress);
+
+    setAddressSuggestion({
+      ...suggestion,
+      updated_at: new Date().toISOString(),
+    });
+    notificationStore.show('AI address suggestion is ready.');
+  } catch (error) {
+    notificationStore.show(error.response?.data?.message || 'Unable to improve address. Please retry.', { type: 'error' });
+  } finally {
+    addressAiLoading.value = false;
+  }
+};
+
+const copyAddressSuggestion = async () => {
+  if (!addressSuggestion.correctedAddress) return;
+
+  try {
+    await navigator.clipboard.writeText(addressSuggestion.correctedAddress);
+    notificationStore.show('Suggested address copied.');
+  } catch (error) {
+    notificationStore.show('Unable to copy address from this browser.', { type: 'error' });
+  }
+};
+
+const replaceAddressWithSuggestion = () => {
+  if (!addressSuggestion.correctedAddress) return;
+
+  form.customer_address = addressSuggestion.correctedAddress;
+  delete errors.customer_address;
+  notificationStore.show('Original address replaced with suggestion.');
 };
 
 const getPostexApiToken = () => selectedIntegration.value?.courier_options?.api_token;
@@ -1556,6 +1675,20 @@ const buildPayload = () => ({
     product_id: row.product_id,
     quantity: Number(row.quantity || 1),
   })),
+  ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
+    ? {
+        correctedAddress: addressSuggestion.correctedAddress,
+        clean_address: addressSuggestion.clean_address,
+        nearest_place: addressSuggestion.nearest_place || null,
+        final_address: addressSuggestion.final_address || addressSuggestion.correctedAddress,
+        confidence: addressSuggestion.confidence || 'low',
+        needs_review: addressSuggestion.needs_review,
+        review_reason: addressSuggestion.review_reason || '',
+        missingFields: addressSuggestion.missingFields || [],
+        originalAddress: addressSuggestion.originalAddress || form.customer_address,
+        updated_at: addressSuggestion.updated_at || new Date().toISOString(),
+      }
+    : null,
 });
 
 const validateReadonlyAdminFields = async () => {
@@ -1983,6 +2116,126 @@ const handleSave = async (mode) => {
 
 .field.no-gap {
   gap: 0;
+}
+
+.address-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-address-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 32px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ai-address-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #dbeafe;
+}
+
+.ai-address-btn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.ai-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(37, 99, 235, 0.25);
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  animation: ai-spin 0.8s linear infinite;
+}
+
+@keyframes ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-address-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.ai-address-panel.confidence-low {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.ai-address-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ai-address-panel-header > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.ai-address-panel strong {
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ai-address-panel span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.ai-address-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.copy-btn.small {
+  max-width: none;
+  padding: 6px 10px;
+}
+
+.copy-btn.primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.copy-btn.primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.ai-address-warning {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e !important;
+  padding: 5px 8px;
 }
 
 .whatsapp-action-panel {

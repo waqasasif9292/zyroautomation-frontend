@@ -22,6 +22,9 @@ const OrderService = {
   updateBooking(id, payload) {
     return axiosInstance.put(`/orders/${id}/create-booking`, payload);
   },
+  correctAddress(rawAddress) {
+    return axiosInstance.post('/orders/address-correction', { raw_address: rawAddress });
+  },
   getTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/track-history`);
   },

@@ -113,6 +113,11 @@ export const useOrderStore = defineStore('order', () => {
     return res.data.data;
   };
 
+  const correctAddress = async (rawAddress) => {
+    const res = await OrderService.correctAddress(rawAddress);
+    return res.data.data.address;
+  };
+
   const deleteOrder = async (id) => {
     await OrderService.deleteOrder(id);
     if (selectedOrder.value?.id === id) closePanel();
@@ -161,6 +166,7 @@ export const useOrderStore = defineStore('order', () => {
     updateDraft,
     createBooking,
     updateBooking,
+    correctAddress,
     sendAddressConfirmation,
     sendOutForDelivery,
     cancelByShipper,
