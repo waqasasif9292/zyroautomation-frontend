@@ -75,8 +75,30 @@
             </section>
 
             <OrderDetailSection v-if="hasUtm" title="Marketing" :rows="utmRows" />
+            <section v-if="internalNote" class="detail-section internal-note-section">
+              <h3>Internal Note</h3>
+              <p>{{ internalNote }}</p>
+            </section>
             <OrderDetailSection title="Meta" :rows="metaRows" />
           </template>
+        </div>
+        <div v-if="order && !loading && (canCancelOrder || canDeleteOrder)" class="panel-actions">
+          <button
+            v-if="canCancelOrder"
+            class="panel-action-btn cancel-action"
+            type="button"
+            @click="emit('cancel', order)"
+          >
+            Cancel Order
+          </button>
+          <button
+            v-if="canDeleteOrder"
+            class="panel-action-btn delete-action"
+            type="button"
+            @click="emit('delete', order)"
+          >
+            Delete Order
+          </button>
         </div>
       </aside>
     </div>
@@ -110,7 +132,7 @@ const props = defineProps({
   },
 });
 
-defineEmits(['close']);
+const emit = defineEmits(['close', 'cancel', 'delete']);
 
 const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
 const formatDateTime = (value) => {
@@ -148,6 +170,7 @@ const summaryRows = computed(() => [
 ]);
 
 const hasUtm = computed(() => Object.values(props.order?.utm || {}).some(Boolean));
+const internalNote = computed(() => String(props.order?.manual_order?.internal_notes || '').trim());
 
 const trackingNumber = computed(() => props.order?.tracking_number || '');
 const hasTrackingNumber = computed(() => Boolean(trackingNumber.value));
@@ -157,6 +180,24 @@ const courierName = computed(() => (
   || props.order?.shipping_method
   || ''
 ));
+const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const statusText = computed(() => {
+  const status = props.order?.status;
+  if (typeof status === 'string') return status;
+  if (typeof status === 'number') return String(status);
+  if (status && typeof status === 'object') {
+    return status.name || status.label || status.title || status.status || status.message || status.text || '';
+  }
+  return '';
+});
+const normalizedStatus = computed(() => statusText.value.toLowerCase());
+const canDeleteOrder = computed(() => canManageDestructiveActions.value);
+const canCancelOrder = computed(() => {
+  if (!canManageDestructiveActions.value || normalizedStatus.value === 'cancel by shipper') return false;
+
+  const hasTracking = String(props.order?.tracking_number || '').trim() !== '';
+  return !hasTracking || props.order?.status_category === 'merchant_warehouse';
+});
 
 const presentValue = value => {
   const normalized = String(value ?? '').trim();
@@ -297,6 +338,48 @@ const formatDate = (value) => {
   padding: 24px;
 }
 
+.panel-actions {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 18px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.panel-action-btn {
+  min-height: 36px;
+  border-radius: 6px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cancel-action {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.cancel-action:hover {
+  border-color: #fb923c;
+  background: #ffedd5;
+}
+
+.delete-action {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.delete-action:hover {
+  border-color: #f87171;
+  background: #fee2e2;
+}
+
 .detail-section {
   padding-top: 18px;
   margin-top: 18px;
@@ -314,6 +397,19 @@ const formatDate = (value) => {
   color: #1e293b;
   font-size: 14px;
   font-weight: 800;
+}
+
+.internal-note-section p {
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  padding: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .section-title-row {

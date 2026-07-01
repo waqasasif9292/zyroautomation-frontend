@@ -204,6 +204,8 @@
           :order="orderStore.selectedOrder"
           :loading="orderStore.detailLoading"
           @close="orderStore.closePanel"
+          @cancel="handleCancel"
+          @delete="handleDelete"
         />
       </section>
     </main>
@@ -625,8 +627,15 @@ const handleOutForDelivery = async (id) => {
   }
 };
 
-const handleDelete = (id) => {
-  selectedOrder.value = orderStore.orders.find(order => order.id === id) || { id };
+const orderActionTarget = (orderOrId) => {
+  const id = typeof orderOrId === 'object' ? orderOrId?.id : orderOrId;
+  return (typeof orderOrId === 'object' && orderOrId)
+    || orderStore.orders.find(order => order.id === id)
+    || { id };
+};
+
+const handleDelete = (orderOrId) => {
+  selectedOrder.value = orderActionTarget(orderOrId);
   showDeleteDialog.value = true;
 };
 
@@ -657,8 +666,8 @@ const openBulkDeleteDialog = () => {
   showBulkDeleteDialog.value = true;
 };
 
-const handleCancel = (id) => {
-  selectedCancelOrder.value = orderStore.orders.find(order => order.id === id) || { id };
+const handleCancel = (orderOrId) => {
+  selectedCancelOrder.value = orderActionTarget(orderOrId);
   showCancelDialog.value = true;
 };
 

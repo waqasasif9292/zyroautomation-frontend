@@ -4,10 +4,11 @@
       <section class="order-card">
         <header class="card-header">
           <div>
-            <p class="eyebrow">Orders</p>
+            <p v-if="!isEditMode" class="eyebrow">Orders</p>
             <h1>{{ pageTitle }}</h1>
+            <p v-if="editOrderNumber" class="order-number-header">Order Number: {{ editOrderNumber }}</p>
           </div>
-          <span class="status-pill">{{ pageStatus }}</span>
+          <span v-if="!isEditMode" class="status-pill">{{ pageStatus }}</span>
         </header>
 
         <form ref="formRef" class="order-form" :class="{ 'readonly-form': isReadonlyMode }" @submit.prevent="handleFormSubmit">
@@ -59,7 +60,7 @@
                 :disabled="readonlyLocksPartialForm"
                 @blur="handlePhoneBlur('customer_contact', true)"
               >
-              <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
+              <span class="phone-helper">Format: 03XXXXXXXXX</span>
               <span v-if="customerContactPreview" class="phone-preview">Will save as {{ customerContactPreview }}</span>
               <span v-if="phoneWarnings.customer_contact" class="phone-warning">{{ phoneWarnings.customer_contact }}</span>
               <span v-if="errors.customer_contact" class="field-error">{{ errors.customer_contact }}</span>
@@ -75,7 +76,7 @@
                 :disabled="readonlyLocksPartialForm"
                 @blur="handlePhoneBlur('customer_contact_two')"
               >
-              <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
+              <span class="phone-helper">Format: 03XXXXXXXXX</span>
               <span v-if="customerContactTwoPreview" class="phone-preview">Will save as {{ customerContactTwoPreview }}</span>
               <span v-if="phoneWarnings.customer_contact_two" class="phone-warning">{{ phoneWarnings.customer_contact_two }}</span>
             </div>
@@ -347,16 +348,26 @@
           </fieldset>
 
           <div class="actions">
-            <button type="button" class="cancel-btn" @click="returnToOrders">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
-            <button v-if="canEditReadonlyOrderFields" type="button" class="hold-btn" :disabled="saving" @click="handleReadonlyAdminSave">
-              {{ saving ? 'Saving...' : 'Save Changes' }}
-            </button>
-            <button v-if="!isReadonlyMode" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
-              {{ saving ? 'Saving...' : 'Save Draft' }}
-            </button>
-            <button v-if="!isReadonlyMode" type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
-              {{ creatingShipment ? 'Creating...' : 'Create Order' }}
-            </button>
+            <div class="destructive-actions">
+              <button v-if="canCancelCurrentOrder" type="button" class="order-cancel-action" :disabled="saving || creatingShipment || destructiveLoading" @click="openCancelOrderDialog">
+                Cancel Order
+              </button>
+              <button v-if="canDeleteCurrentOrder" type="button" class="order-delete-action" :disabled="saving || creatingShipment || destructiveLoading" @click="openDeleteOrderDialog">
+                Delete Order
+              </button>
+            </div>
+            <div class="primary-actions">
+              <button type="button" class="cancel-btn" @click="returnToOrders">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
+              <button v-if="canEditReadonlyOrderFields" type="button" class="hold-btn" :disabled="saving" @click="handleReadonlyAdminSave">
+                {{ saving ? 'Saving...' : 'Save Changes' }}
+              </button>
+              <button v-if="!isReadonlyMode" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
+                {{ saving ? 'Saving...' : 'Save Draft' }}
+              </button>
+              <button v-if="!isReadonlyMode" type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
+                {{ creatingShipment ? 'Creating...' : 'Create Order' }}
+              </button>
+            </div>
           </div>
         </form>
       </section>
@@ -370,6 +381,42 @@
             <pre v-if="errorPopup.details">{{ errorPopup.details }}</pre>
             <div class="error-actions">
               <button type="button" class="error-ok-btn" @click="closeErrorPopup">OK</button>
+            </div>
+          </section>
+        </div>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <transition name="modal-fade">
+        <div v-if="deleteOrderDialog" class="error-backdrop" @click.self="closeDeleteOrderDialog">
+          <section class="error-modal" role="dialog" aria-modal="true" aria-labelledby="delete-order-title">
+            <h2 id="delete-order-title">Delete Order?</h2>
+            <p>This order will be removed from Zyro Automation. This action cannot be undone.</p>
+            <pre>{{ currentOrderLabel }}</pre>
+            <div class="error-actions">
+              <button type="button" class="cancel-btn" :disabled="destructiveLoading" @click="closeDeleteOrderDialog">Keep Order</button>
+              <button type="button" class="order-delete-action" :disabled="destructiveLoading" @click="confirmDeleteOrder">
+                {{ destructiveLoading ? 'Deleting...' : 'Delete Order' }}
+              </button>
+            </div>
+          </section>
+        </div>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <transition name="modal-fade">
+        <div v-if="cancelOrderDialog" class="error-backdrop" @click.self="closeCancelOrderDialog">
+          <section class="error-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-order-title">
+            <h2 id="cancel-order-title">Cancel Order?</h2>
+            <p>This will change the order status to cancel by shipper.</p>
+            <pre>{{ currentOrderLabel }}</pre>
+            <div class="error-actions">
+              <button type="button" class="cancel-btn" :disabled="destructiveLoading" @click="closeCancelOrderDialog">Keep Order</button>
+              <button type="button" class="order-cancel-action" :disabled="destructiveLoading" @click="confirmCancelOrder">
+                {{ destructiveLoading ? 'Cancelling...' : 'Cancel Order' }}
+              </button>
             </div>
           </section>
         </div>
@@ -440,6 +487,10 @@ const whatsappConnection = ref(null);
 const addressConfirmationSending = ref(false);
 const addressConfirmationStatus = ref(null);
 const failedSavedOrderId = ref(null);
+const loadedOrder = ref(null);
+const deleteOrderDialog = ref(false);
+const cancelOrderDialog = ref(false);
+const destructiveLoading = ref(false);
 
 const form = reactive({
   brand_id: '',
@@ -516,6 +567,25 @@ const orderListQuery = () => {
 };
 const returnToOrders = () => router.push({ path: '/orders', query: orderListQuery() });
 const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && authStore.user?.team_role === 'owner'));
+const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const currentOrderLabel = computed(() => loadedOrder.value?.order_name || loadedOrder.value?.customer?.name || currentOrderId.value || 'Order');
+const loadedOrderStatusText = computed(() => {
+  const status = loadedOrder.value?.status;
+  if (typeof status === 'string') return status;
+  if (typeof status === 'number') return String(status);
+  if (status && typeof status === 'object') {
+    return status.name || status.label || status.title || status.status || status.message || status.text || '';
+  }
+  return '';
+});
+const canDeleteCurrentOrder = computed(() => Boolean(isEditMode.value && loadedOrder.value && canManageDestructiveActions.value));
+const canCancelCurrentOrder = computed(() => {
+  if (!isEditMode.value || !loadedOrder.value || !canManageDestructiveActions.value) return false;
+  if (loadedOrderStatusText.value.toLowerCase() === 'cancel by shipper') return false;
+
+  const hasTrackingNumber = String(loadedOrder.value?.tracking_number || '').trim() !== '';
+  return !hasTrackingNumber || loadedOrder.value?.status_category === 'merchant_warehouse';
+});
 const readonlyEditableFields = ['brand_id', 'source', 'total_price', 'advance_payment'];
 const readonlyLocksEntireForm = computed(() => isReadonlyMode.value && !canEditReadonlyOrderFields.value);
 const readonlyLocksPartialForm = computed(() => isReadonlyMode.value && canEditReadonlyOrderFields.value);
@@ -560,6 +630,10 @@ const addressConfirmationButtonText = computed(() => {
 const pageTitle = computed(() => {
   if (isReadonlyMode.value) return 'View Order';
   return isEditMode.value ? 'Edit Order' : 'Create Order';
+});
+const editOrderNumber = computed(() => {
+  if (!isEditMode.value || !loadedOrder.value) return '';
+  return loadedOrder.value.order_name || loadedOrder.value.order_number || '';
 });
 const pageStatus = computed(() => {
   if (canEditReadonlyOrderFields.value) return 'Admin editable';
@@ -914,6 +988,7 @@ const primaryAddressFromAbandoned = (order) => order.addresses?.primary?.formatt
 const loadOrderForEdit = async (id) => {
   const order = await orderStore.fetchOrder(id);
   orderStore.closePanel();
+  loadedOrder.value = order;
   const manual = order.manual_order || {};
   isShopifyEditOrder.value = Boolean(order.shopify_order_id);
 
@@ -973,6 +1048,56 @@ const loadOrderForEdit = async (id) => {
   } else if (savedCourierSlug === 'argo') {
     await loadArgoRuntimeData();
     form.packet_weight = manual.packet_weight ?? '0.2';
+  }
+};
+
+const openDeleteOrderDialog = () => {
+  deleteOrderDialog.value = true;
+};
+
+const closeDeleteOrderDialog = () => {
+  if (destructiveLoading.value) return;
+  deleteOrderDialog.value = false;
+};
+
+const openCancelOrderDialog = () => {
+  cancelOrderDialog.value = true;
+};
+
+const closeCancelOrderDialog = () => {
+  if (destructiveLoading.value) return;
+  cancelOrderDialog.value = false;
+};
+
+const confirmDeleteOrder = async () => {
+  if (!currentOrderId.value) return;
+
+  destructiveLoading.value = true;
+  try {
+    await orderStore.deleteOrder(currentOrderId.value);
+    notificationStore.show('Order deleted.');
+    deleteOrderDialog.value = false;
+    returnToOrders();
+  } catch (error) {
+    notificationStore.show(error.response?.data?.message || 'Failed to delete order.', { type: 'error' });
+  } finally {
+    destructiveLoading.value = false;
+  }
+};
+
+const confirmCancelOrder = async () => {
+  if (!currentOrderId.value) return;
+
+  destructiveLoading.value = true;
+  try {
+    await orderStore.cancelByShipper(currentOrderId.value);
+    notificationStore.show('Order cancelled by shipper.');
+    cancelOrderDialog.value = false;
+    returnToOrders();
+  } catch (error) {
+    notificationStore.show(error.response?.data?.message || 'Failed to cancel order.', { type: 'error' });
+  } finally {
+    destructiveLoading.value = false;
   }
 };
 
@@ -1772,6 +1897,13 @@ const handleSave = async (mode) => {
   font-weight: 900;
 }
 
+.order-number-header {
+  margin: 6px 0 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -2451,11 +2583,27 @@ select:disabled {
 
 .actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 10px;
   margin-top: 14px;
   padding-top: 18px;
   border-top: 1px solid #e2e8f0;
+}
+
+.destructive-actions,
+.primary-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.destructive-actions {
+  justify-content: flex-start;
+}
+
+.primary-actions {
+  justify-content: flex-end;
 }
 
 .cancel-btn {
@@ -2467,6 +2615,44 @@ select:disabled {
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
+}
+
+.order-cancel-action,
+.order-delete-action {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.order-cancel-action {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.order-delete-action {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.order-cancel-action:hover:not(:disabled) {
+  border-color: #fb923c;
+  background: #ffedd5;
+}
+
+.order-delete-action:hover:not(:disabled) {
+  border-color: #f87171;
+  background: #fee2e2;
+}
+
+.order-cancel-action:disabled,
+.order-delete-action:disabled,
+.cancel-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .hold-btn,
@@ -2592,6 +2778,18 @@ select:disabled {
   .actions {
     justify-content: stretch;
     flex-direction: column;
+  }
+
+  .destructive-actions,
+  .primary-actions {
+    width: 100%;
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .destructive-actions button,
+  .primary-actions button {
+    width: 100%;
   }
 }
 </style>
