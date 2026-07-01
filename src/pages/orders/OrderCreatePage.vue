@@ -10,8 +10,8 @@
           <span class="status-pill">{{ pageStatus }}</span>
         </header>
 
-        <form ref="formRef" class="order-form" :class="{ 'readonly-form': isReadonlyMode }" @submit.prevent="handleSave">
-          <fieldset class="form-fields" :disabled="isReadonlyMode">
+        <form ref="formRef" class="order-form" :class="{ 'readonly-form': isReadonlyMode }" @submit.prevent="handleFormSubmit">
+          <fieldset class="form-fields" :disabled="readonlyLocksEntireForm">
             <div class="section-title">
               <span>01</span>
               <h2>Brand & Source</h2>
@@ -20,7 +20,7 @@
           <div class="grid two">
             <div class="field">
               <label>Brand</label>
-              <select v-model="form.brand_id" :class="{ invalid: errors.brand_id }">
+              <select v-model="form.brand_id" :class="{ invalid: errors.brand_id }" :disabled="isReadonlyFieldDisabled('brand_id')">
                 <option value="">Select Brand</option>
                 <option v-for="brand in brandStore.brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
               </select>
@@ -28,7 +28,7 @@
             </div>
             <div class="field">
               <label>Source</label>
-              <select v-model="form.source" :class="{ invalid: errors.source }" :disabled="!selectedBrand">
+              <select v-model="form.source" :class="{ invalid: errors.source }" :disabled="!selectedBrand || isReadonlyFieldDisabled('source')">
                 <option value="">Select Source</option>
                 <option v-for="source in brandSources" :key="source" :value="source">{{ source }}</option>
               </select>
@@ -44,7 +44,7 @@
           <div class="grid three">
             <div class="field">
               <label>Customer Name</label>
-              <input v-model="form.customer_name" :class="{ invalid: errors.customer_name }" type="text" placeholder="Irfan Khan">
+              <input v-model="form.customer_name" :class="{ invalid: errors.customer_name }" type="text" placeholder="Irfan Khan" :disabled="readonlyLocksPartialForm">
               <span v-if="errors.customer_name" class="field-error">{{ errors.customer_name }}</span>
             </div>
             <div class="field">
@@ -56,6 +56,7 @@
                 inputmode="numeric"
                 maxlength="15"
                 placeholder="03XXXXXXXXX"
+                :disabled="readonlyLocksPartialForm"
                 @blur="handlePhoneBlur('customer_contact', true)"
               >
               <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
@@ -71,6 +72,7 @@
                 inputmode="numeric"
                 maxlength="15"
                 placeholder="03XXXXXXXXX"
+                :disabled="readonlyLocksPartialForm"
                 @blur="handlePhoneBlur('customer_contact_two')"
               >
               <span class="phone-helper">Pakistani mobile number format: 03XXXXXXXXX (e.g. 03121234567)</span>
@@ -81,7 +83,7 @@
 
           <div class="field">
             <label>Customer Address</label>
-            <input v-model="form.customer_address" :class="{ invalid: errors.customer_address }" type="text" placeholder="Billal colony, Pattoki">
+            <input v-model="form.customer_address" :class="{ invalid: errors.customer_address }" type="text" placeholder="Billal colony, Pattoki" :disabled="readonlyLocksPartialForm">
             <span v-if="errors.customer_address" class="field-error">{{ errors.customer_address }}</span>
           </div>
 
@@ -103,7 +105,7 @@
           <div class="grid three">
             <div class="field">
               <label>Ship Through</label>
-              <select v-model="form.courier_integration_id" :class="{ invalid: errors.courier_integration_id }" @change="handleCourierChange">
+              <select v-model="form.courier_integration_id" :class="{ invalid: errors.courier_integration_id }" :disabled="readonlyLocksPartialForm" @change="handleCourierChange">
                 <option value="">Select Courier</option>
                 <option v-for="integration in integrationStore.integrations" :key="integration.id" :value="integration.id">
                   {{ integration.name || integration.courier_name }}
@@ -116,7 +118,7 @@
               <select
                 v-model="form.pickup_address_code"
                 :class="{ invalid: errors.pickup_address_code }"
-                :disabled="postexPickupLoading"
+                :disabled="postexPickupLoading || readonlyLocksPartialForm"
                 @focus="ensurePostexPickupAddresses"
               >
                 <option value="">
@@ -138,7 +140,7 @@
               <select
                 v-model="form.pickup_address_code"
                 :class="{ invalid: errors.pickup_address_code }"
-                :disabled="dastaqPickupLoading"
+                :disabled="dastaqPickupLoading || readonlyLocksPartialForm"
                 @focus="ensureDastaqPickupAddresses"
               >
                 <option value="">
@@ -157,7 +159,7 @@
             </div>
             <div v-else-if="isLeopardSelected" class="field">
               <label>Pickup Address</label>
-              <select v-model="form.leopard_pickup_address_id" :class="{ invalid: errors.leopard_pickup_address_id }">
+              <select v-model="form.leopard_pickup_address_id" :class="{ invalid: errors.leopard_pickup_address_id }" :disabled="readonlyLocksPartialForm">
                 <option value="">Select Pickup Address</option>
                 <option v-for="address in leopardPickupAddresses" :key="address.id" :value="address.id">
                   {{ leopardPickupAddressName(address) }}
@@ -167,7 +169,7 @@
             </div>
             <div v-else-if="hasCourierSelected && !isArgoSelected" class="field">
               <label>Origin City</label>
-              <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }">
+              <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }" :disabled="readonlyLocksPartialForm">
                 <option value=""></option>
                 <option>Lahore</option>
                 <option>Karachi</option>
@@ -182,7 +184,7 @@
                   v-model="citySearch"
                   type="text"
                   autocomplete="off"
-                  :disabled="citySelectDisabled"
+                  :disabled="citySelectDisabled || readonlyLocksPartialForm"
                   :placeholder="citySelectPlaceholder"
                   @focus="openCityCombobox"
                   @input="handleCitySearch"
@@ -196,6 +198,7 @@
                     :key="city.value"
                     type="button"
                     class="city-option"
+                    :disabled="readonlyLocksPartialForm"
                     @mousedown.prevent="selectDestinationCity(city)"
                   >
                     {{ city.label }}
@@ -214,12 +217,12 @@
           <div v-if="hasCourierSelected" class="grid two compact">
             <div class="field">
               <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight (kg)' }}</label>
-              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'">
+              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'" :disabled="readonlyLocksPartialForm">
               <span v-if="errors.packet_weight" class="field-error">{{ errors.packet_weight }}</span>
             </div>
             <div v-if="!isArgoSelected" class="field">
               <label>{{ isDastaqSelected ? 'Payment Type' : 'Shipment Type' }}</label>
-              <select v-model="form.shipment_type" :class="{ invalid: errors.shipment_type }">
+              <select v-model="form.shipment_type" :class="{ invalid: errors.shipment_type }" :disabled="readonlyLocksPartialForm">
                 <option value="">{{ isDastaqSelected ? 'Select Payment Type' : 'Select Shipment Type' }}</option>
                 <option v-for="type in shipmentTypeOptions" :key="type" :value="type">{{ type }}</option>
               </select>
@@ -237,19 +240,19 @@
               <label>Total Amount</label>
               <div class="amount-input" :class="{ invalid: errors.total_price }">
                 <span>Rs.</span>
-                <input v-model="form.total_price" type="number" min="0" placeholder="999">
+                <input v-model="form.total_price" type="number" min="0" placeholder="999" :disabled="isReadonlyFieldDisabled('total_price')">
               </div>
               <span v-if="errors.total_price" class="field-error">{{ errors.total_price }}</span>
             </div>
             <label class="checkbox-field advance-toggle">
-              <input v-model="hasAdvancePayment" type="checkbox">
+              <input v-model="hasAdvancePayment" type="checkbox" :disabled="isReadonlyFieldDisabled('advance_payment')">
               <span>Advance received</span>
             </label>
             <div v-if="hasAdvancePayment" class="field">
               <label>Advance Amount</label>
               <div class="amount-input" :class="{ invalid: errors.advance_payment }">
                 <span>Rs.</span>
-                <input v-model="form.advance_payment" type="number" min="0" placeholder="0">
+                <input v-model="form.advance_payment" type="number" min="0" placeholder="0" :disabled="isReadonlyFieldDisabled('advance_payment')">
               </div>
               <span v-if="errors.advance_payment" class="field-error">{{ errors.advance_payment }}</span>
             </div>
@@ -264,13 +267,13 @@
 
           <div class="field">
             <label>Special Instructions</label>
-            <textarea v-model="form.special_instructions" :class="{ invalid: errors.special_instructions }" rows="3" placeholder="1 x Unbreakable Child Fridge Lock (Free Home Delivery)"></textarea>
+            <textarea v-model="form.special_instructions" :class="{ invalid: errors.special_instructions }" rows="3" placeholder="1 x Unbreakable Child Fridge Lock (Free Home Delivery)" :disabled="readonlyLocksPartialForm"></textarea>
             <span v-if="errors.special_instructions" class="field-error">{{ errors.special_instructions }}</span>
           </div>
 
           <div class="field">
             <label>Internal Notes</label>
-            <textarea v-model="form.internal_notes" :class="{ invalid: errors.internal_notes }" rows="3" placeholder="Internal Notes..."></textarea>
+            <textarea v-model="form.internal_notes" :class="{ invalid: errors.internal_notes }" rows="3" placeholder="Internal Notes..." :disabled="readonlyLocksPartialForm"></textarea>
             <span v-if="errors.internal_notes" class="field-error">{{ errors.internal_notes }}</span>
           </div>
 
@@ -280,7 +283,7 @@
               <h2>Order Items</h2>
             </div>
             <div v-if="items.length" class="copy-action">
-              <button type="button" class="copy-btn" :disabled="!items.length" @click="addItemsToSpecialInstructions">
+              <button type="button" class="copy-btn" :disabled="!items.length || readonlyLocksPartialForm" @click="addItemsToSpecialInstructions">
                 Add Product Details in Special Instruction
               </button>
             </div>
@@ -294,6 +297,7 @@
                   type="text"
                   placeholder="Search product"
                   autocomplete="off"
+                  :disabled="readonlyLocksPartialForm"
                   @focus="openProductCombobox"
                   @input="handleProductSearch"
                   @keydown.enter.prevent="selectFirstFilteredProduct"
@@ -315,7 +319,7 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="add-item-btn" @click="addItem">Add</button>
+            <button type="button" class="add-item-btn" :disabled="readonlyLocksPartialForm" @click="addItem">Add</button>
           </div>
           <span v-if="!isReadonlyMode && (errors.items || !canSaveDraft)" class="field-error items-error">
             {{ errors.items || 'Select at least one product to continue.' }}
@@ -331,12 +335,12 @@
               <div class="item-qty">
                 <label>Qty</label>
                 <div class="qty-stepper">
-                  <button type="button" :disabled="Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
+                  <button type="button" :disabled="readonlyLocksPartialForm || Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
                   <span>{{ Number(row.quantity || 1).toLocaleString() }}</span>
-                  <button type="button" @click="incrementItemQuantity(row)">+</button>
+                  <button type="button" :disabled="readonlyLocksPartialForm" @click="incrementItemQuantity(row)">+</button>
                 </div>
               </div>
-              <button class="remove-item-btn" type="button" @click="removeItem(row.product_id)">Remove</button>
+              <button class="remove-item-btn" type="button" :disabled="readonlyLocksPartialForm" @click="removeItem(row.product_id)">Remove</button>
             </div>
           </div>
 
@@ -344,6 +348,9 @@
 
           <div class="actions">
             <button type="button" class="cancel-btn" @click="router.push('/orders')">{{ isReadonlyMode ? 'Back to Orders' : 'Cancel' }}</button>
+            <button v-if="canEditReadonlyOrderFields" type="button" class="hold-btn" :disabled="saving" @click="handleReadonlyAdminSave">
+              {{ saving ? 'Saving...' : 'Save Changes' }}
+            </button>
             <button v-if="!isReadonlyMode" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
               {{ saving ? 'Saving...' : 'Save Draft' }}
             </button>
@@ -378,6 +385,7 @@ import AppLayout from '../../layouts/AppLayout.vue';
 import AbandonedOrderService from '../../services/AbandonedOrderService';
 import IntegrationService from '../../services/IntegrationService';
 import SettingsService from '../../services/SettingsService';
+import { useAuthStore } from '../../stores/authStore';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -388,6 +396,7 @@ import phoneNormalizer, { isNormalizedPakistaniMobile } from '../../utils/phoneN
 const router = useRouter();
 const route = useRoute();
 const brandStore = useBrandStore();
+const authStore = useAuthStore();
 const integrationStore = useIntegrationStore();
 const notificationStore = useNotificationStore();
 const orderStore = useOrderStore();
@@ -501,6 +510,13 @@ const closeErrorPopup = () => {
 const currentOrderId = computed(() => route.params.id || failedSavedOrderId.value);
 const isEditMode = computed(() => Boolean(currentOrderId.value));
 const isReadonlyMode = computed(() => Boolean(route.meta.readonlyOrder));
+const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && authStore.user?.team_role === 'owner'));
+const readonlyEditableFields = ['brand_id', 'source', 'total_price', 'advance_payment'];
+const readonlyLocksEntireForm = computed(() => isReadonlyMode.value && !canEditReadonlyOrderFields.value);
+const readonlyLocksPartialForm = computed(() => isReadonlyMode.value && canEditReadonlyOrderFields.value);
+const isReadonlyFieldDisabled = (field) => (
+  isReadonlyMode.value && (!canEditReadonlyOrderFields.value || !readonlyEditableFields.includes(field))
+);
 const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
 const showAddressConfirmationInForm = computed(() => {
   const settings = whatsappSettings.value?.address_confirmation;
@@ -541,6 +557,7 @@ const pageTitle = computed(() => {
   return isEditMode.value ? 'Edit Order' : 'Create Order';
 });
 const pageStatus = computed(() => {
+  if (canEditReadonlyOrderFields.value) return 'Admin editable';
   if (isReadonlyMode.value) return 'Read only';
   return isEditMode.value ? 'Draft update' : 'Manual entry';
 });
@@ -672,6 +689,32 @@ const defaultShipmentTypeForSelectedCourier = () => {
   return '';
 };
 
+const selectedBrandDefaultShipper = () => {
+  if (!selectedBrand.value || !form.courier_integration_id) return null;
+  const defaultShippers = selectedBrand.value.default_shippers || {};
+  const integrationDefault = defaultShippers[String(form.courier_integration_id)];
+  if (integrationDefault) return integrationDefault;
+
+  return Object.values(defaultShippers)
+    .find(defaultShipper => defaultShipper?.courier_slug === selectedIntegration.value?.courier_slug) || null;
+};
+
+const applyBrandDefaultShipper = () => {
+  const defaultShipper = selectedBrandDefaultShipper();
+  if (!defaultShipper || defaultShipper.courier_slug !== selectedIntegration.value?.courier_slug) return;
+
+  if (isLeopardSelected.value && defaultShipper.leopard_pickup_address_id) {
+    form.leopard_pickup_address_id = defaultShipper.leopard_pickup_address_id;
+    delete errors.leopard_pickup_address_id;
+    return;
+  }
+
+  if ((isPostexSelected.value || isDastaqSelected.value) && defaultShipper.pickup_address_code) {
+    form.pickup_address_code = defaultShipper.pickup_address_code;
+    delete errors.pickup_address_code;
+  }
+};
+
 watch(selectedDestinationCityLabel, (label) => {
   if (!isCityComboboxOpen.value) {
     citySearch.value = label;
@@ -748,7 +791,9 @@ const handleCourierChange = async () => {
   resetCourierDependentFields();
   form.packet_weight = isGramWeightSelected.value ? '500' : '0.2';
   form.shipment_type = defaultShipmentTypeForSelectedCourier();
+  applyBrandDefaultShipper();
   await loadPostexRuntimeData();
+  applyBrandDefaultShipper();
 };
 
 watch(() => form.pickup_address_code, () => {
@@ -793,7 +838,7 @@ watch(hasAdvancePayment, (enabled) => {
 
 onMounted(async () => {
   await Promise.all([
-    brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
+    brandStore.fetchBrands(),
     integrationStore.fetchIntegrations(),
     productStore.fetchProducts(),
     loadWhatsAppSettings(),
@@ -1382,6 +1427,73 @@ const buildPayload = () => ({
     quantity: Number(row.quantity || 1),
   })),
 });
+
+const validateReadonlyAdminFields = async () => {
+  Object.keys(errors).forEach(key => delete errors[key]);
+  submitError.value = null;
+  errorPopup.value = null;
+
+  if (!form.brand_id) {
+    errors.brand_id = 'Brand is required.';
+  }
+
+  if (!form.source) {
+    errors.source = 'Source is required.';
+  }
+
+  const totalAmount = Number(form.total_price || 0);
+  const advanceAmount = hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0;
+
+  if (Number.isNaN(totalAmount) || totalAmount < 0) {
+    errors.total_price = 'Total amount must be zero or greater.';
+  }
+
+  if (hasAdvancePayment.value && (Number.isNaN(advanceAmount) || advanceAmount < 0)) {
+    errors.advance_payment = 'Advance payment must be zero or greater.';
+  } else if (hasAdvancePayment.value && advanceAmount > totalAmount) {
+    errors.advance_payment = 'Advance payment cannot be greater than total amount.';
+  }
+
+  if (Object.keys(errors).length) {
+    await scrollToFirstValidationError();
+    return false;
+  }
+
+  return true;
+};
+
+const handleReadonlyAdminSave = async () => {
+  if (!canEditReadonlyOrderFields.value || !currentOrderId.value) return;
+
+  const isValid = await validateReadonlyAdminFields();
+  if (!isValid) return;
+
+  saving.value = true;
+  try {
+    const result = await orderStore.updateDraft(currentOrderId.value, buildPayload());
+    const updatedOrder = result.order || result;
+    notificationStore.show('Order values updated.');
+
+    if (updatedOrder?.id) {
+      await loadOrderForEdit(updatedOrder.id);
+    }
+  } catch (error) {
+    const message = error.response?.data?.message || apiErrorMessage(error, 'Unable to update order values.');
+    const errorDetails = formatApiErrorDetails(error.response?.data?.errors);
+    showErrorPopup(message, errorDetails);
+  } finally {
+    saving.value = false;
+  }
+};
+
+const handleFormSubmit = () => {
+  if (canEditReadonlyOrderFields.value) {
+    handleReadonlyAdminSave();
+    return;
+  }
+
+  handleSave();
+};
 
 const handleSave = async (mode) => {
   if (isReadonlyMode.value) return;

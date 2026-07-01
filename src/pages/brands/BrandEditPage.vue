@@ -39,6 +39,20 @@
             <span v-if="errors.name" class="field-error">{{ errors.name }}</span>
           </div>
 
+          <div class="form-group">
+            <label class="form-label">Brand Display Name</label>
+            <input
+              v-model="form.display_name"
+              type="text"
+              class="form-input"
+              :class="{ 'input-error': errors.display_name }"
+              placeholder="Name to print on Argo labels"
+              maxlength="100"
+            />
+            <p class="form-sublabel">This name will display on Argo labels. Leave empty to use the brand name.</p>
+            <span v-if="errors.display_name" class="field-error">{{ errors.display_name }}</span>
+          </div>
+
           <div class="grid two">
             <div class="form-group">
               <label class="form-label">Brand Email</label>
@@ -79,6 +93,8 @@
             ></textarea>
             <span v-if="errors.address" class="field-error">{{ errors.address }}</span>
           </div>
+
+          <DefaultShippersField v-model="form.default_shippers" />
 
           <!-- Sources -->
           <div class="form-group">
@@ -167,6 +183,7 @@ import { useRouter, useRoute } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import SettingsSubNav from '../../components/SettingsSubNav.vue';
 import BrandFormCard from '../../components/brands/BrandFormCard.vue';
+import DefaultShippersField from '../../components/brands/DefaultShippersField.vue';
 import SourceChecklist from '../../components/brands/SourceChecklist.vue';
 import WebhookUrlField from '../../components/brands/WebhookUrlField.vue';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.vue';
@@ -191,11 +208,13 @@ const toast             = ref('');
 const errors            = reactive({});
 
 const form = reactive({
-  name:    '',
-  email:   '',
-  phone:   '',
-  address: '',
-  sources: [],
+  name:         '',
+  display_name: '',
+  email:        '',
+  phone:        '',
+  address:      '',
+  default_shippers: {},
+  sources:      [],
 });
 
 const showToast = (msg) => {
@@ -213,9 +232,11 @@ onMounted(async () => {
     const brand = await brandStore.fetchBrand(id);
 
     form.name           = brand.name;
+    form.display_name   = brand.display_name || '';
     form.email          = brand.email || '';
     form.phone          = brand.phone || '';
     form.address        = brand.address || '';
+    form.default_shippers = { ...(brand.default_shippers || {}) };
     form.sources        = [...(brand.sources ?? [])];
     currentWebhookUrl.value = brand.webhook_url;
     currentAbandonedWebhookUrl.value = brand.abandoned_webhook_url;
@@ -265,9 +286,11 @@ const handleSubmit = async () => {
   try {
     await brandStore.updateBrand(id, {
       name: form.name.trim(),
+      display_name: form.display_name.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
+      default_shippers: form.default_shippers,
       sources: form.sources,
     });
     router.push('/brands?toast=updated');
