@@ -85,7 +85,10 @@ export const firstAccessiblePath = (user) => {
   if (isTeamAdmin(user)) return '/dashboard';
 
   const permissions = Array.isArray(user?.team_permissions) ? user.team_permissions : [];
-  const permission = sidebarPermissions.find(item => permissions.includes(item.key));
+  const permission = sidebarPermissions.find(item => {
+    if (item.key === 'billing' && user?.billing_enabled === false) return false;
+    return permissions.includes(item.key);
+  });
 
   return permission ? permissionLandingPaths[permission.key] || '/dashboard' : '/access-denied';
 };

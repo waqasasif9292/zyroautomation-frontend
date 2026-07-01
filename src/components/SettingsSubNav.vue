@@ -48,7 +48,9 @@ const route  = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const isTeamAdmin = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const billingEnabled = computed(() => authStore.user?.billing_enabled !== false);
 const hasPermission = (item) => {
+  if (item.key === 'billing' && !billingEnabled.value) return false;
   const permission = item.permission || (item.to ? permissionForPath(item.to) : null);
   return !permission || isTeamAdmin.value || authStore.user?.team_permissions?.includes(permission);
 };
