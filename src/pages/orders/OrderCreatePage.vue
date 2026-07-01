@@ -689,6 +689,32 @@ const defaultShipmentTypeForSelectedCourier = () => {
   return '';
 };
 
+const selectedBrandDefaultShipper = () => {
+  if (!selectedBrand.value || !form.courier_integration_id) return null;
+  const defaultShippers = selectedBrand.value.default_shippers || {};
+  const integrationDefault = defaultShippers[String(form.courier_integration_id)];
+  if (integrationDefault) return integrationDefault;
+
+  return Object.values(defaultShippers)
+    .find(defaultShipper => defaultShipper?.courier_slug === selectedIntegration.value?.courier_slug) || null;
+};
+
+const applyBrandDefaultShipper = () => {
+  const defaultShipper = selectedBrandDefaultShipper();
+  if (!defaultShipper || defaultShipper.courier_slug !== selectedIntegration.value?.courier_slug) return;
+
+  if (isLeopardSelected.value && defaultShipper.leopard_pickup_address_id) {
+    form.leopard_pickup_address_id = defaultShipper.leopard_pickup_address_id;
+    delete errors.leopard_pickup_address_id;
+    return;
+  }
+
+  if ((isPostexSelected.value || isDastaqSelected.value) && defaultShipper.pickup_address_code) {
+    form.pickup_address_code = defaultShipper.pickup_address_code;
+    delete errors.pickup_address_code;
+  }
+};
+
 watch(selectedDestinationCityLabel, (label) => {
   if (!isCityComboboxOpen.value) {
     citySearch.value = label;
@@ -765,7 +791,9 @@ const handleCourierChange = async () => {
   resetCourierDependentFields();
   form.packet_weight = isGramWeightSelected.value ? '500' : '0.2';
   form.shipment_type = defaultShipmentTypeForSelectedCourier();
+  applyBrandDefaultShipper();
   await loadPostexRuntimeData();
+  applyBrandDefaultShipper();
 };
 
 watch(() => form.pickup_address_code, () => {
@@ -810,7 +838,7 @@ watch(hasAdvancePayment, (enabled) => {
 
 onMounted(async () => {
   await Promise.all([
-    brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
+    brandStore.fetchBrands(),
     integrationStore.fetchIntegrations(),
     productStore.fetchProducts(),
     loadWhatsAppSettings(),
