@@ -10,6 +10,9 @@ const AbandonedOrderService = {
   updateStatus(id, status) {
     return axiosInstance.put(`/abandoned-orders/${id}/status`, { status });
   },
+  updateNote(id, note) {
+    return axiosInstance.put(`/abandoned-orders/${id}/note`, { note });
+  },
   bulkDeleteOrders(ids) {
     return axiosInstance.post('/abandoned-orders/bulk-delete', { ids });
   },

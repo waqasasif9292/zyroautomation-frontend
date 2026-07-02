@@ -63,6 +63,16 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
     return updated;
   };
 
+  const updateNote = async (id, note) => {
+    const res = await AbandonedOrderService.updateNote(id, note);
+    const updated = res.data.data.order;
+    const index = orders.value.findIndex(order => order.id === id);
+    if (index !== -1) {
+      orders.value[index] = updated;
+    }
+    return updated;
+  };
+
   const deleteOrder = async (id) => {
     await AbandonedOrderService.deleteOrder(id);
     orders.value = orders.value.filter(order => order.id !== id);
@@ -85,6 +95,7 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
     hydrateFilters,
     setPage,
     updateStatus,
+    updateNote,
     deleteOrder,
     bulkDeleteOrders,
   };
