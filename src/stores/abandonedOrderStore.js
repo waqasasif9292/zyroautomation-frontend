@@ -21,7 +21,7 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
   const loading = ref(false);
 
   const requestParams = () => Object.fromEntries(
-    Object.entries({ ...filters, per_page: 20 }).filter(([, value]) => value !== null && value !== '')
+    Object.entries({ ...filters, per_page: 200 }).filter(([, value]) => value !== null && value !== '')
   );
 
   const fetchOrders = async () => {
@@ -34,6 +34,35 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
       brands.value = res.data.data.brands || [];
     } finally {
       loading.value = false;
+    }
+  };
+
+  const normalizeStatus = (status) => {
+    if (status === '') {
+      return '';
+    }
+
+    const value = String(status || 'pending').toLowerCase();
+
+    return value === 'open' || value === 'completed' || value === 'cancelled' || value === 'canceled'
+      ? { open: 'pending', completed: 'complete', cancelled: 'cancel', canceled: 'cancel' }[value]
+      : value;
+  };
+
+  const removeOrdersFromPage = (ids) => {
+    const removeIds = new Set(Array.isArray(ids) ? ids : [ids]);
+    const removedCount = orders.value.filter(order => removeIds.has(order.id)).length;
+
+    orders.value = orders.value.filter(order => !removeIds.has(order.id));
+
+    if (pagination.value && removedCount > 0) {
+      const total = Math.max(0, Number(pagination.value.total || 0) - removedCount);
+      pagination.value = {
+        ...pagination.value,
+        total,
+        total_pages: Math.max(1, Math.ceil(total / Number(pagination.value.per_page || 1))),
+        has_next: pagination.value.current_page < Math.max(1, Math.ceil(total / Number(pagination.value.per_page || 1))),
+      };
     }
   };
 
@@ -58,7 +87,14 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
     const updated = res.data.data.order;
     const index = orders.value.findIndex(order => order.id === id);
     if (index !== -1) {
-      orders.value[index] = updated;
+      const activeStatus = normalizeStatus(filters.status);
+      const updatedStatus = normalizeStatus(updated.status);
+
+      if (activeStatus && updatedStatus !== activeStatus) {
+        removeOrdersFromPage(id);
+      } else {
+        orders.value[index] = updated;
+      }
     }
     return updated;
   };
@@ -75,12 +111,12 @@ export const useAbandonedOrderStore = defineStore('abandonedOrder', () => {
 
   const deleteOrder = async (id) => {
     await AbandonedOrderService.deleteOrder(id);
-    orders.value = orders.value.filter(order => order.id !== id);
+    removeOrdersFromPage(id);
   };
 
   const bulkDeleteOrders = async (ids) => {
     await AbandonedOrderService.bulkDeleteOrders(ids);
-    orders.value = orders.value.filter(order => !ids.includes(order.id));
+    removeOrdersFromPage(ids);
   };
 
   return {
