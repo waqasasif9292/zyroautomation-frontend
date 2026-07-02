@@ -325,8 +325,7 @@ const fetchShipments = async () => {
 const requestParams = () => Object.fromEntries(
   Object.entries({
     ...appliedFilters,
-    page: page.value,
-    per_page: 50,
+    ...(isPackedView.value ? { page: page.value, per_page: 50 } : {}),
   }).filter(([, value]) => value !== null && value !== '')
 );
 
@@ -343,7 +342,10 @@ const replaceFilterQuery = async () => {
   syncingQuery = true;
   try {
     await router.replace({
-      query: buildFilterQuery({ ...appliedFilters, page: page.value }, queryDefaults()),
+      query: buildFilterQuery(
+        { ...appliedFilters, ...(isPackedView.value ? { page: page.value } : {}) },
+        queryDefaults()
+      ),
     });
   } finally {
     syncingQuery = false;
