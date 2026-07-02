@@ -7,6 +7,9 @@ const ShipperAdviceService = {
   getOrders(params = {}) {
     return axiosInstance.get('/shipper-advice', { params });
   },
+  refreshPostexStatuses(payload = {}) {
+    return axiosInstance.post('/shipper-advice/postex/status-refresh', payload);
+  },
   updateAdvice(payload = {}) {
     return axiosInstance.put('/shipper-advice', payload);
   },

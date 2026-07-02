@@ -110,7 +110,7 @@ const handleScannerSubmit = async () => {
   } catch (error) {
     console.error(error);
     scannerTrackingNumber.value = '';
-    showToast(error.response?.data?.message || 'Failed to scan shipment.');
+    window.alert(error.response?.data?.message || 'Failed to scan shipment.');
   } finally {
     scannerLoading.value = false;
     await focusScanner();
