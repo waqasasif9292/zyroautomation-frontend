@@ -112,6 +112,7 @@
                   <th>Customer</th>
                   <th>Phone</th>
                   <th>Address</th>
+                  <th>Note</th>
                   <th>Items</th>
                   <th>Total</th>
                   <th>Status</th>
@@ -120,10 +121,10 @@
               </thead>
               <tbody>
                 <tr v-if="store.loading">
-                  <td colspan="11" class="state-cell">Loading abandoned orders...</td>
+                  <td colspan="12" class="state-cell">Loading abandoned orders...</td>
                 </tr>
                 <tr v-else-if="store.orders.length === 0">
-                  <td colspan="11" class="state-cell">No abandoned orders found.</td>
+                  <td colspan="12" class="state-cell">No abandoned orders found.</td>
                 </tr>
                 <tr v-for="(order, index) in store.orders" v-else :key="order.id">
                   <td class="select-cell">
@@ -157,6 +158,10 @@
                     </button>
                   </td>
                   <td class="address-cell">{{ primaryAddress(order) || '-' }}</td>
+                  <td class="note-cell">
+                    <span v-if="order.note">{{ order.note }}</span>
+                    <span v-else class="muted-note">No note</span>
+                  </td>
                   <td class="items-cell">
                     <span>{{ itemCount(order) }} items</span>
                     <span class="subtext">{{ itemSummary(order) }}</span>
@@ -320,6 +325,32 @@
               </section>
 
               <section class="detail-section">
+                <div class="section-title-row">
+                  <h3>Call Note</h3>
+                  <span v-if="selectedOrder.note_updated_at" class="note-updated">Updated {{ formatDate(selectedOrder.note_updated_at) }}</span>
+                </div>
+                <textarea
+                  v-model="noteDraft"
+                  class="note-textarea"
+                  rows="4"
+                  maxlength="1000"
+                  placeholder="Example: Customer did not answer, call again tomorrow after 4 PM."
+                  :disabled="noteSaving"
+                ></textarea>
+                <div class="note-actions">
+                  <span>{{ noteDraft.length }}/1000</span>
+                  <button
+                    type="button"
+                    class="save-note-btn"
+                    :disabled="noteSaving || noteDraft === (selectedOrder.note || '')"
+                    @click="saveSelectedOrderNote"
+                  >
+                    {{ noteSaving ? 'Saving...' : 'Save Note' }}
+                  </button>
+                </div>
+              </section>
+
+              <section class="detail-section">
                 <h3>Addresses</h3>
                 <div class="address-block">
                   <h4>Primary</h4>
@@ -433,6 +464,8 @@ const authStore = useAuthStore();
 const localSearch = ref(store.filters.search || '');
 const selectedOrder = ref(null);
 const actionLoading = ref(false);
+const noteDraft = ref('');
+const noteSaving = ref(false);
 const statusConfirm = ref(null);
 const deleteConfirm = ref(null);
 const selectedOrderIds = ref([]);
@@ -587,6 +620,19 @@ const confirmStatusChange = async () => {
   }
 };
 
+const saveSelectedOrderNote = async () => {
+  if (!selectedOrder.value) return;
+
+  noteSaving.value = true;
+  try {
+    const updated = await store.updateNote(selectedOrder.value.id, noteDraft.value);
+    selectedOrder.value = updated;
+    noteDraft.value = updated.note || '';
+  } finally {
+    noteSaving.value = false;
+  }
+};
+
 const openDeleteConfirm = (order) => {
   deleteConfirm.value = order;
 };
@@ -721,6 +767,10 @@ const addressCards = (order) => [
 watch(() => store.orders.map(order => order.id), (ids) => {
   const visible = new Set(ids);
   selectedOrderIds.value = selectedOrderIds.value.filter(id => visible.has(id));
+});
+
+watch(selectedOrder, (order) => {
+  noteDraft.value = order?.note || '';
 });
 
 onMounted(() => {
@@ -950,7 +1000,7 @@ onMounted(() => {
 
 table {
   width: 100%;
-  min-width: 1220px;
+  min-width: 1340px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -1061,6 +1111,24 @@ strong {
 
 .items-cell {
   max-width: 220px;
+}
+
+.note-cell {
+  max-width: 220px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.note-cell span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.muted-note {
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .phone-cell {
@@ -1261,6 +1329,74 @@ strong {
   color: #0f172a;
   font-size: 14px;
   font-weight: 900;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+}
+
+.note-updated {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.note-textarea {
+  width: 100%;
+  min-height: 104px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  line-height: 1.45;
+  outline: none;
+  padding: 10px 12px;
+}
+
+.note-textarea:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.22);
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.note-actions span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.save-note-btn {
+  min-height: 34px;
+  border: 1px solid #4f46e5;
+  border-radius: 7px;
+  background: #4f46e5;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.save-note-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .detail-grid {
