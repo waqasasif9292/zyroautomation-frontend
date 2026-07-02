@@ -12,7 +12,22 @@
             <h1>Courier Advice Orders ({{ totalCount }})</h1>
           </div>
           <div class="header-actions">
-            <button class="secondary-btn" type="button" :disabled="loadingOrders" @click="fetchOrders">
+            <button
+              v-if="selectedIntegration?.courier_slug === 'postex'"
+              class="primary-btn"
+              type="button"
+              :disabled="loadingOrders || refreshingPostexStatuses"
+              @click="refreshPostexStatuses"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 2v6h-6" />
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+                <path d="M3 22v-6h6" />
+                <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+              </svg>
+              {{ refreshingPostexStatuses ? 'Updating...' : 'Update PostEx Statuses' }}
+            </button>
+            <button class="secondary-btn" type="button" :disabled="loadingOrders || refreshingPostexStatuses" @click="fetchOrders">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                 <path d="M3 21v-5h5" />
@@ -193,6 +208,7 @@ const pagination = ref(null);
 const selectedIntegrationId = ref('');
 const loadingIntegrations = ref(false);
 const loadingOrders = ref(false);
+const refreshingPostexStatuses = ref(false);
 const updatingTracking = ref('');
 const page = ref(1);
 const perPage = ref(100);
@@ -266,6 +282,27 @@ const fetchOrders = async () => {
     pagination.value = null;
   } finally {
     loadingOrders.value = false;
+  }
+};
+
+const refreshPostexStatuses = async () => {
+  if (!selectedIntegrationId.value || selectedIntegration.value?.courier_slug !== 'postex' || refreshingPostexStatuses.value) {
+    return;
+  }
+
+  refreshingPostexStatuses.value = true;
+  try {
+    const res = await ShipperAdviceService.refreshPostexStatuses({
+      courier_integration_id: selectedIntegrationId.value,
+    });
+    const data = res.data.data || {};
+    showToast(`PostEx statuses updated. Checked: ${data.checked || 0}, updated: ${data.updated || 0}, failed: ${data.failed || 0}.`);
+    page.value = 1;
+    await fetchOrders();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to update PostEx statuses.', 'error');
+  } finally {
+    refreshingPostexStatuses.value = false;
   }
 };
 
@@ -471,6 +508,7 @@ onMounted(async () => {
 }
 
 .secondary-btn,
+.primary-btn,
 .action-btn,
 .btn-cancel,
 .btn-save {
@@ -483,6 +521,15 @@ onMounted(async () => {
   cursor: pointer;
 }
 
+.primary-btn {
+  height: 38px;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
 .secondary-btn {
   height: 38px;
   border: 1px solid #cbd5e1;
@@ -493,6 +540,7 @@ onMounted(async () => {
 }
 
 .secondary-btn:disabled,
+.primary-btn:disabled,
 .action-btn:disabled,
 .btn-cancel:disabled,
 .btn-save:disabled {
