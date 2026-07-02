@@ -613,7 +613,6 @@ const confirmStatusChange = async () => {
     if (selectedOrder.value?.id === order.id) {
       selectedOrder.value = updated;
     }
-    await store.fetchOrders();
     statusConfirm.value = null;
   } finally {
     actionLoading.value = false;
@@ -674,7 +673,6 @@ const confirmDeleteOrder = async () => {
       selectedOrder.value = null;
     }
     deleteConfirm.value = null;
-    await store.fetchOrders();
   } finally {
     actionLoading.value = false;
   }
@@ -691,7 +689,6 @@ const confirmBulkDeleteOrders = async () => {
     }
     selectedOrderIds.value = [];
     showBulkDeleteConfirm.value = false;
-    await store.fetchOrders();
   } finally {
     actionLoading.value = false;
   }
