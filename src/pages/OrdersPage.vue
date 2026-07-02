@@ -306,8 +306,8 @@ const dragOverColumn = ref(null);
 let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
-const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'actions'];
+const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'internal_notes', 'shipment_status', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'internal_notes', 'shipment_status', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumnDefinitions = [
@@ -325,6 +325,8 @@ const orderTableColumnDefinitions = [
   { key: 'total', label: 'Total' },
   { key: 'payment', label: 'Payment' },
   { key: 'products', label: 'Product(s)' },
+  { key: 'internal_notes', label: 'Internal Note' },
+  { key: 'shipment_status', label: 'Packing Status' },
   { key: 'actions', label: 'Actions', locked: true },
 ];
 const orderTableColumnMap = new Map(orderTableColumnDefinitions.map(column => [column.key, column]));

@@ -115,6 +115,15 @@
             <template v-else-if="column.key === 'products'">
               <span class="truncate" :title="order.line_items_summary">{{ order.line_items_summary || '—' }}</span>
             </template>
+            <template v-else-if="column.key === 'internal_notes'">
+              <span class="truncate" :title="order.internal_notes">{{ order.internal_notes || '—' }}</span>
+            </template>
+            <template v-else-if="column.key === 'shipment_status'">
+              <span class="shipment-pill" :class="{ marked: order.packing_status }">
+                {{ order.packing_status ? 'Marked' : 'Pending' }}
+              </span>
+              <div v-if="order.packing_marked_at" class="muted">{{ formatDate(order.packing_marked_at) }}</div>
+            </template>
             <template v-else-if="column.key === 'actions'">
               <div class="action-buttons">
                 <button class="action-btn" type="button" aria-label="View order" title="View order" @click.stop="$emit('view', order.id)">
@@ -294,6 +303,8 @@ const columnDefinitions = [
   { key: 'total', header: 'Total', class: 'col-total' },
   { key: 'payment', header: 'Payment', class: 'col-payment' },
   { key: 'products', header: 'Product(s)', class: 'col-products' },
+  { key: 'internal_notes', header: 'Internal Note', class: 'col-internal-notes' },
+  { key: 'shipment_status', header: 'Packing Status', class: 'col-shipment-status' },
   { key: 'actions', header: 'Actions', class: 'col-actions', cellClass: 'col-actions' },
 ];
 const columnDefinitionMap = new Map(columnDefinitions.map(column => [column.key, column]));
@@ -431,6 +442,8 @@ td {
 .col-total { width: 118px; }
 .col-payment { width: 140px; }
 .col-products { width: 190px; }
+.col-internal-notes { width: 190px; }
+.col-shipment-status { width: 142px; }
 .col-actions { width: 132px; text-align: center; }
 
 .select-cell {
@@ -605,6 +618,24 @@ th:last-child {
   font-weight: 800;
   line-height: 1.05;
   text-overflow: ellipsis;
+}
+
+.shipment-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.shipment-pill.marked {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .action-buttons {
