@@ -319,6 +319,7 @@ const submitAdvice = async () => {
     await ShipperAdviceService.updateAdvice({
       courier_integration_id: modal.order.courier_integration_id || selectedIntegrationId.value,
       tracking_number: modal.order.tracking_number,
+      shipper_advice_id: modal.order.id,
       status: modal.status,
       shipper_remarks: remarks,
     });
@@ -328,12 +329,47 @@ const submitAdvice = async () => {
     modal.order = null;
     await fetchOrders();
   } catch (error) {
-    modal.error = error.response?.data?.message || 'Unable to save shipper advice response.';
+    modal.error = shipperAdviceErrorMessage(error);
     showToast(modal.error, 'error');
   } finally {
     modal.loading = false;
     updatingTracking.value = '';
   }
+};
+
+const shipperAdviceErrorMessage = (error) => {
+  const data = error.response?.data || {};
+  const message = data.message || 'Unable to save shipper advice response.';
+  const remoteMessage = nestedRemoteMessage(data.postex_response || data.leopard_response || data.dastaq_response);
+
+  return remoteMessage && remoteMessage !== message ? `${message} ${remoteMessage}` : message;
+};
+
+const nestedRemoteMessage = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return isReadableRemoteMessage(value) ? value.trim() : '';
+  if (!Array.isArray(value) && typeof value !== 'object') return '';
+
+  const entries = Array.isArray(value) ? value.map(item => [null, item]) : Object.entries(value);
+  for (const [key, item] of entries) {
+    if (['status', 'error', 'error_code', 'errorCode', 'code'].includes(key)) {
+      continue;
+    }
+
+    if (typeof item === 'string' && isReadableRemoteMessage(item)) {
+      return item.trim();
+    }
+
+    const nested = nestedRemoteMessage(item);
+    if (nested) return nested;
+  }
+
+  return '';
+};
+
+const isReadableRemoteMessage = (message) => {
+  const normalized = String(message || '').trim();
+  return Boolean(normalized && normalized !== '0' && normalized !== '1' && !/^\d+$/.test(normalized));
 };
 
 const showToast = (message, type = 'success') => {
