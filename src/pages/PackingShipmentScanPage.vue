@@ -109,6 +109,7 @@ const handleScannerSubmit = async () => {
     showToast(`Shipment marked as shipped: ${order.tracking_number}`);
   } catch (error) {
     console.error(error);
+    scannerTrackingNumber.value = '';
     showToast(error.response?.data?.message || 'Failed to scan shipment.');
   } finally {
     scannerLoading.value = false;
