@@ -34,7 +34,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const handoff = JSON.parse(rawHandoff);
       const isFresh = Date.now() - Number(handoff.created_at || 0) <= TAB_HANDOFF_TTL_MS;
-      localStorage.removeItem(TAB_HANDOFF_KEY);
 
       if (isFresh && handoff.token) {
         sessionStorage.setItem('zyro_token', handoff.token);
@@ -42,8 +41,10 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (error) {
       localStorage.removeItem(TAB_HANDOFF_KEY);
+      return null;
     }
 
+    localStorage.removeItem(TAB_HANDOFF_KEY);
     return null;
   };
 
@@ -143,6 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
     token.value = null;
     localStorage.removeItem('zyro_token');
+    localStorage.removeItem(TAB_HANDOFF_KEY);
     sessionStorage.removeItem('zyro_token');
   };
 

@@ -336,25 +336,45 @@ onMounted(fetchStats);
 
 @media (max-width: 760px) {
   .order-stats-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    padding: 14px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(154px, 42vw);
+    grid-template-columns: none;
+    gap: 10px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 12px 14px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .order-stats-strip::-webkit-scrollbar {
+    display: none;
   }
 
   .stat-card {
-    min-height: 76px;
-    padding: 14px;
+    min-height: 72px;
+    padding: 12px;
+    scroll-snap-align: start;
   }
 
   .stat-icon {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .stat-copy span {
+    font-size: 10.5px;
+  }
+
+  .stat-copy strong {
+    font-size: 18px;
   }
 }
 
 @media (max-width: 480px) {
   .order-stats-strip {
-    grid-template-columns: 1fr;
+    grid-auto-columns: minmax(148px, 58vw);
   }
 }
 </style>

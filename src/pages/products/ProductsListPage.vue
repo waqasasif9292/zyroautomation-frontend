@@ -340,20 +340,63 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .products-page {
-    padding: 18px;
+    padding: 14px;
+  }
+
+  .products-card {
+    border-radius: 8px;
   }
 
   .card-header {
     align-items: flex-start;
     flex-direction: column;
+    padding: 18px 14px;
+  }
+
+  .card-header h1 {
+    font-size: 19px;
+  }
+
+  .card-header p {
+    font-size: 13px;
+  }
+
+  .add-btn {
+    width: 100%;
+    min-height: 42px;
+    justify-content: center;
   }
 
   .products-toolbar {
     justify-content: stretch;
+    padding: 14px;
   }
 
   .search-field {
     width: 100%;
+  }
+
+  .products-pagination {
+    margin: 0 14px;
+  }
+
+  .toast {
+    top: 70px;
+    left: 12px;
+    right: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .products-page {
+    padding: 10px;
+  }
+
+  .card-header,
+  .products-toolbar {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 }
 </style>

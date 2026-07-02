@@ -459,7 +459,6 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import AbandonedOrderService from '../../services/AbandonedOrderService';
-import IntegrationService from '../../services/IntegrationService';
 import SettingsService from '../../services/SettingsService';
 import { useAuthStore } from '../../stores/authStore';
 import { useBrandStore } from '../../stores/brandStore';
@@ -1404,9 +1403,9 @@ const fetchLeopardCities = async () => {
   leopardCityError.value = '';
 
   try {
-    const res = await IntegrationService.fetchLeopardCities();
-    leopardCities.value = res.data.data.cities;
-    leopardShipmentTypes.value = res.data.data.shipment_types;
+    const data = await integrationStore.fetchLeopardCities();
+    leopardCities.value = data.cities;
+    leopardShipmentTypes.value = data.shipment_types;
   } catch (error) {
     leopardCityError.value = apiErrorMessage(error, 'Unable to load Leopard cities.');
     errors.destination_city = leopardCityError.value;
@@ -1417,8 +1416,7 @@ const fetchLeopardCities = async () => {
 
 const fetchLeopardPickupAddresses = async () => {
   try {
-    const res = await IntegrationService.fetchLeopardPickupAddresses();
-    leopardPickupAddresses.value = res.data.data.addresses;
+    leopardPickupAddresses.value = await integrationStore.fetchLeopardPickupAddresses();
     if (leopardPickupAddresses.value.length === 0) {
       errors.leopard_pickup_address_id = 'Add a Leopard pickup address in Settings first.';
     }
@@ -1457,8 +1455,7 @@ const fetchDastaqPickupAddresses = async () => {
   dastaqPickupError.value = '';
 
   try {
-    const res = await IntegrationService.fetchDastaqPickupAddresses(credentials);
-    dastaqPickupAddresses.value = res.data.data.addresses;
+    dastaqPickupAddresses.value = await integrationStore.fetchDastaqPickupAddresses(credentials);
     if (dastaqPickupAddresses.value.length === 0) {
       dastaqPickupError.value = 'No pickup addresses found for this Dastaq account.';
       errors.pickup_address_code = dastaqPickupError.value;
@@ -1484,8 +1481,7 @@ const fetchDastaqCities = async () => {
   dastaqCityError.value = '';
 
   try {
-    const res = await IntegrationService.fetchDastaqAllowedCities(credentials);
-    dastaqCities.value = res.data.data.cities;
+    dastaqCities.value = await integrationStore.fetchDastaqAllowedCities(credentials);
     if (dastaqCities.value.length === 0) {
       dastaqCityError.value = 'No destination cities found for this Dastaq account.';
       errors.destination_city = dastaqCityError.value;
@@ -1520,8 +1516,7 @@ const fetchArgoCities = async () => {
   argoCityError.value = '';
 
   try {
-    const res = await IntegrationService.fetchArgoCities(credentials);
-    argoCities.value = res.data.data.cities;
+    argoCities.value = await integrationStore.fetchArgoCities(credentials);
     if (argoCities.value.length === 0) {
       argoCityError.value = 'No destination cities found for this Argo account.';
       errors.destination_city = argoCityError.value;
@@ -1547,8 +1542,7 @@ const fetchPostexPickupAddresses = async () => {
   postexPickupError.value = '';
 
   try {
-    const res = await IntegrationService.fetchPostexPickupAddresses({ token });
-    postexPickupAddresses.value = res.data.data.addresses;
+    postexPickupAddresses.value = await integrationStore.fetchPostexPickupAddresses(token);
     if (postexPickupAddresses.value.length === 0) {
       postexPickupError.value = 'No pickup addresses found for this PostEx account.';
       errors.pickup_address_code = postexPickupError.value;
@@ -1579,11 +1573,7 @@ const fetchPostexDeliveryCities = async () => {
   postexCityError.value = '';
 
   try {
-    const res = await IntegrationService.fetchPostexOperationalCities({
-      token,
-      operationalCityType: 'delivery',
-    });
-    postexDeliveryCities.value = res.data.data.cities;
+    postexDeliveryCities.value = await integrationStore.fetchPostexOperationalCities(token, 'delivery');
     if (postexDeliveryCities.value.length === 0) {
       postexCityError.value = 'No delivery cities found for this PostEx account.';
       errors.destination_city = postexCityError.value;
