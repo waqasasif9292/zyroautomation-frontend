@@ -13,7 +13,7 @@ const defaultFilters = () => ({
   product_id: null,
   search: '',
   source: null,
-  sort: 'created_id_desc',
+  sort: 'created_at_desc',
   status: null,
   page: 1,
 });
