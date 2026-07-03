@@ -79,6 +79,18 @@
               <h3>Internal Note</h3>
               <p>{{ internalNote }}</p>
             </section>
+            <section v-if="holdCallLogs.length" class="detail-section hold-log-section">
+              <h3>Hold Call Logs</h3>
+              <ul>
+                <li v-for="log in holdCallLogs" :key="log.id || `${log.action}-${log.created_at}`">
+                  <div>
+                    <strong>{{ log.label }}</strong>
+                    <span>{{ log.user_name || 'Unknown User' }} · {{ formatDateTime(log.created_at) }}</span>
+                  </div>
+                  <p v-if="log.note">{{ log.note }}</p>
+                </li>
+              </ul>
+            </section>
             <OrderDetailSection title="Meta" :rows="metaRows" />
           </template>
         </div>
@@ -171,6 +183,7 @@ const summaryRows = computed(() => [
 
 const hasUtm = computed(() => Object.values(props.order?.utm || {}).some(Boolean));
 const internalNote = computed(() => String(props.order?.manual_order?.internal_notes || '').trim());
+const holdCallLogs = computed(() => Array.isArray(props.order?.hold_call_logs) ? props.order.hold_call_logs : []);
 
 const trackingNumber = computed(() => props.order?.tracking_number || '');
 const hasTrackingNumber = computed(() => Boolean(trackingNumber.value));
@@ -408,6 +421,47 @@ const formatDate = (value) => {
   padding: 12px;
   font-size: 13.5px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hold-log-section ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hold-log-section li {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 11px 12px;
+}
+
+.hold-log-section li div {
+  display: grid;
+  gap: 3px;
+}
+
+.hold-log-section strong {
+  color: #1e293b;
+  font-size: 13.5px;
+  font-weight: 850;
+}
+
+.hold-log-section span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hold-log-section p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

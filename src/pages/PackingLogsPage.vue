@@ -772,12 +772,10 @@ th:nth-child(8) { width: 170px; }
 .tracking-link,
 .tracking-empty {
   display: inline-block;
-  overflow: hidden;
   max-width: 100%;
   color: #1e40af;
   font-size: 12px;
   font-weight: 800;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

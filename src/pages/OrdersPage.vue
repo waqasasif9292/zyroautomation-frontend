@@ -187,6 +187,7 @@
               @cancel="handleCancel"
               @address-confirmation="handleAddressConfirmation"
               @out-for-delivery="handleOutForDelivery"
+              @hold-call="openHoldCallWorkflow"
               @delete="handleDelete"
               @track="handleTrack"
               @toggle-select="toggleOrderSelection"
@@ -209,6 +210,20 @@
         />
       </section>
     </main>
+
+    <HoldCallWorkflowModal
+      :open="showHoldCallModal"
+      :order="holdCallOrder"
+      :saving="holdCallSaving"
+      :ai-loading="holdAddressAiLoading"
+      @close="closeHoldCallWorkflow"
+      @save-log="payload => saveHoldCallLog(payload, false)"
+      @save-log-next="payload => saveHoldCallLog(payload, true)"
+      @previous="openPreviousHoldOrder"
+      @next="openNextHoldOrder"
+      @open-edit="openHoldOrderEdit"
+      @create-ai-suggestion="createHoldAiAddressSuggestion"
+    />
 
     <ConfirmDialog
       :show="showDeleteDialog"
@@ -258,6 +273,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
+import HoldCallWorkflowModal from '../components/orders/HoldCallWorkflowModal.vue';
 import OrderDetailPanel from '../components/orders/OrderDetailPanel.vue';
 import OrderEmptyState from '../components/orders/OrderEmptyState.vue';
 import OrderFiltersBar from '../components/orders/OrderFiltersBar.vue';
@@ -271,6 +287,7 @@ import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
 import SettingsService from '../services/SettingsService';
 import BillingService from '../services/BillingService';
+import OrderService from '../services/OrderService';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
 
 const orderStore = useOrderStore();
@@ -300,6 +317,10 @@ const whatsappSettings = ref(null);
 const whatsappConnection = ref(null);
 const addressConfirmationLoadingId = ref('');
 const outForDeliveryLoadingId = ref('');
+const showHoldCallModal = ref(false);
+const holdCallOrder = ref(null);
+const holdCallSaving = ref(false);
+const holdAddressAiLoading = ref(false);
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -588,6 +609,142 @@ const handleEdit = (id) => {
 const handleTrack = (id) => {
   authStore.prepareTabHandoff();
   window.open(router.resolve(`/orders/${id}/tracking`).href, '_blank', 'noopener');
+};
+
+const statusText = (status) => {
+  if (typeof status === 'string') return status;
+  if (typeof status === 'number') return String(status);
+  if (status && typeof status === 'object') {
+    return status.name || status.label || status.title || status.status || status.message || status.text || '';
+  }
+  return '';
+};
+
+const isHoldOrder = (order) => order?.status_category === 'hold' || ['hold', 'on hold'].includes(statusText(order?.status).toLowerCase());
+
+const fetchHoldOrderDetail = async (id) => {
+  const response = await OrderService.getOrder(id);
+  return response.data.data.order;
+};
+
+const openHoldCallWorkflow = async (id) => {
+  const listOrder = orderStore.orders.find(order => order.id === id) || null;
+  if (listOrder && !isHoldOrder(listOrder)) return;
+
+  showHoldCallModal.value = true;
+  holdCallOrder.value = listOrder;
+  try {
+    holdCallOrder.value = await fetchHoldOrderDetail(id);
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to open hold call workflow.');
+    closeHoldCallWorkflow();
+  }
+};
+
+const closeHoldCallWorkflow = () => {
+  if (holdCallSaving.value) return;
+  showHoldCallModal.value = false;
+  holdCallOrder.value = null;
+};
+
+const saveHoldCallLog = async ({ action, note = '' }, moveNext = false) => {
+  if (!holdCallOrder.value?.id) return;
+
+  holdCallSaving.value = true;
+  let saved = false;
+  try {
+    const updatedOrder = await orderStore.saveHoldCallLog(holdCallOrder.value.id, {
+      action,
+      note,
+    });
+    holdCallOrder.value = updatedOrder;
+    saved = true;
+    showToast('Hold call log saved.');
+  } catch (error) {
+    console.error(error);
+    const status = error.response?.status;
+    const message = error.response?.data?.message || error.message || 'Unable to save hold call log.';
+    showToast(status ? `${message} (${status})` : message);
+  } finally {
+    holdCallSaving.value = false;
+  }
+
+  if (saved && (moveNext || action !== 'custom_note')) {
+    try {
+      await openNextHoldOrder();
+    } catch (error) {
+      console.error(error);
+      showToast('Call log saved, but unable to open the next order.');
+    }
+  }
+};
+
+const createHoldAiAddressSuggestion = async () => {
+  if (!holdCallOrder.value?.id) return;
+
+  holdAddressAiLoading.value = true;
+  try {
+    holdCallOrder.value = await orderStore.correctOrderAddress(holdCallOrder.value.id);
+    showToast('AI address suggestion created.');
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Unable to create AI address suggestion.');
+  } finally {
+    holdAddressAiLoading.value = false;
+  }
+};
+
+const openNextHoldOrder = async () => {
+  if (!holdCallOrder.value?.id) return;
+
+  const currentIndex = orderStore.orders.findIndex(order => order.id === holdCallOrder.value.id);
+  const nextOrder = orderStore.orders.slice(currentIndex + 1).find(isHoldOrder);
+  if (nextOrder) {
+    await openHoldCallWorkflow(nextOrder.id);
+    return;
+  }
+
+  if (orderStore.pagination?.has_next) {
+    await changePage(orderStore.pagination.current_page + 1);
+    const firstHoldOrder = orderStore.orders.find(isHoldOrder);
+    if (firstHoldOrder) {
+      await openHoldCallWorkflow(firstHoldOrder.id);
+      return;
+    }
+  }
+
+  showToast('No more hold orders in this queue.');
+};
+
+const openPreviousHoldOrder = async () => {
+  if (!holdCallOrder.value?.id) return;
+
+  const currentIndex = orderStore.orders.findIndex(order => order.id === holdCallOrder.value.id);
+  const previousOrder = orderStore.orders.slice(0, Math.max(currentIndex, 0)).reverse().find(isHoldOrder);
+  if (previousOrder) {
+    await openHoldCallWorkflow(previousOrder.id);
+    return;
+  }
+
+  if (orderStore.pagination?.has_prev) {
+    await changePage(orderStore.pagination.current_page - 1);
+    const lastHoldOrder = [...orderStore.orders].reverse().find(isHoldOrder);
+    if (lastHoldOrder) {
+      await openHoldCallWorkflow(lastHoldOrder.id);
+      return;
+    }
+  }
+
+  showToast('No previous hold order in this queue.');
+};
+
+const openHoldOrderEdit = () => {
+  if (!holdCallOrder.value?.id) return;
+  authStore.prepareTabHandoff();
+  window.open(router.resolve({
+    path: `/orders/${holdCallOrder.value.id}/edit`,
+    query: route.query,
+  }).href, '_blank', 'noopener');
 };
 
 const loadWhatsAppSettings = async () => {
