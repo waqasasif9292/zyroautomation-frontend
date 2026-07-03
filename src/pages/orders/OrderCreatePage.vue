@@ -804,6 +804,18 @@ const selectedDestinationCityLabel = computed(() => {
   const selectedOption = destinationCityOptions.value.find((city) => String(city.value) === selectedValue);
   return selectedOption?.label || form.destination_city || selectedValue;
 });
+const normalizeCityForAddress = (city) => String(city || '')
+  .replace(/\s+-\s*Pakistan$/i, '')
+  .trim();
+const mergeAddressWithCity = (address, city) => {
+  const cleanAddress = String(address || '').trim();
+  const cleanCity = normalizeCityForAddress(city);
+  if (!cleanAddress || !cleanCity) return cleanAddress;
+
+  const escapedCity = cleanCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cityPattern = new RegExp(`(^|[\\s,.-])${escapedCity}([\\s,.-]|$)`, 'i');
+  return cityPattern.test(cleanAddress) ? cleanAddress : `${cleanAddress}, ${cleanCity}`;
+};
 const filteredDestinationCityOptions = computed(() => {
   const search = citySearch.value.trim().toLowerCase();
   if (!search) return destinationCityOptions.value;
@@ -1073,13 +1085,14 @@ const loadOrderForEdit = async (id) => {
   form.customer_name = order.customer?.name || '';
   form.customer_contact = order.customer?.phone_local || order.customer?.phone_intl || '';
   form.customer_contact_two = manual.customer_contact_two || order.customer?.phone_two || '';
-  form.customer_address = order.customer?.address || '';
+  const savedDestinationCity = manual.destination_city || order.customer?.city || '';
+  form.customer_address = mergeAddressWithCity(order.customer?.address || '', savedDestinationCity);
   setAddressSuggestion(order.ai_address_correction || null);
   form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
   form.pickup_address_code = manual.pickup_address_code || '';
   form.leopard_pickup_address_id = manual.leopard_pickup_address_id || '';
   form.origin_city = manual.origin_city || '';
-  form.destination_city = manual.destination_city || order.customer?.city || '';
+  form.destination_city = savedDestinationCity;
   form.destination_city_id = manual.destination_city_id || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
@@ -1320,12 +1333,13 @@ const sendAddressConfirmation = async () => {
 };
 
 const improveAddressWithAi = async () => {
-  const rawAddress = form.customer_address.trim();
+  const rawAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
   if (!rawAddress) {
     errors.customer_address = 'Customer address is required.';
     return;
   }
 
+  form.customer_address = rawAddress;
   addressAiLoading.value = true;
   try {
     const suggestion = await orderStore.correctAddress(rawAddress);
@@ -1654,32 +1668,37 @@ const scrollToFirstValidationError = async () => {
   focusTarget?.focus?.({ preventScroll: true });
 };
 
-const buildPayload = () => ({
-  ...form,
-  customer_contact: phoneNormalizer(form.customer_contact),
-  customer_contact_two: phoneNormalizer(form.customer_contact_two),
-  total_price: Number(form.total_price || 0),
-  advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
-  cod: courierCodAmount.value,
-  line_items: items.value.map((row) => ({
-    product_id: row.product_id,
-    quantity: Number(row.quantity || 1),
-  })),
-  ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
-    ? {
-        correctedAddress: addressSuggestion.correctedAddress,
-        clean_address: addressSuggestion.clean_address,
-        nearest_place: addressSuggestion.nearest_place || null,
-        final_address: addressSuggestion.final_address || addressSuggestion.correctedAddress,
-        confidence: addressSuggestion.confidence || 'low',
-        needs_review: addressSuggestion.needs_review,
-        review_reason: addressSuggestion.review_reason || '',
-        missingFields: addressSuggestion.missingFields || [],
-        originalAddress: addressSuggestion.originalAddress || form.customer_address,
-        updated_at: addressSuggestion.updated_at || new Date().toISOString(),
-      }
-    : null,
-});
+const buildPayload = () => {
+  const customerAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
+
+  return {
+    ...form,
+    customer_address: customerAddress,
+    customer_contact: phoneNormalizer(form.customer_contact),
+    customer_contact_two: phoneNormalizer(form.customer_contact_two),
+    total_price: Number(form.total_price || 0),
+    advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
+    cod: courierCodAmount.value,
+    line_items: items.value.map((row) => ({
+      product_id: row.product_id,
+      quantity: Number(row.quantity || 1),
+    })),
+    ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
+      ? {
+          correctedAddress: addressSuggestion.correctedAddress,
+          clean_address: addressSuggestion.clean_address,
+          nearest_place: addressSuggestion.nearest_place || null,
+          final_address: addressSuggestion.final_address || addressSuggestion.correctedAddress,
+          confidence: addressSuggestion.confidence || 'low',
+          needs_review: addressSuggestion.needs_review,
+          review_reason: addressSuggestion.review_reason || '',
+          missingFields: addressSuggestion.missingFields || [],
+          originalAddress: addressSuggestion.originalAddress || customerAddress,
+          updated_at: addressSuggestion.updated_at || new Date().toISOString(),
+        }
+      : null,
+  };
+};
 
 const validateReadonlyAdminFields = async () => {
   Object.keys(errors).forEach(key => delete errors[key]);
