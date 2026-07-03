@@ -25,6 +25,9 @@ const OrderService = {
   correctAddress(rawAddress) {
     return axiosInstance.post('/orders/address-correction', { raw_address: rawAddress });
   },
+  correctOrderAddress(id) {
+    return axiosInstance.post(`/orders/${id}/address-correction`);
+  },
   getTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/track-history`);
   },
@@ -45,6 +48,9 @@ const OrderService = {
   },
   sendOutForDelivery(id) {
     return axiosInstance.post(`/orders/${id}/whatsapp/out-for-delivery`);
+  },
+  saveHoldCallLog(id, payload) {
+    return axiosInstance.post(`/orders/${id}/hold-call-logs`, payload);
   },
   bulkDeleteOrders(ids) {
     return axiosInstance.post('/orders/bulk-delete', { ids });

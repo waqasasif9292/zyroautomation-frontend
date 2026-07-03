@@ -120,8 +120,8 @@
             </select>
 
             <select v-model="draftFilters.sort" class="filter-control">
-              <option value="created_id_desc">Newest First</option>
-              <option value="created_id_asc">Oldest First</option>
+              <option value="created_at_desc">Newest First</option>
+              <option value="created_at_asc">Oldest First</option>
             </select>
 
             <div class="filter-actions">
@@ -246,7 +246,7 @@ const defaultFilters = () => ({
   date_from: '',
   date_to: '',
   search: '',
-  sort: 'created_id_desc',
+  sort: 'created_at_desc',
   source: '',
 });
 
@@ -772,12 +772,10 @@ th:nth-child(8) { width: 170px; }
 .tracking-link,
 .tracking-empty {
   display: inline-block;
-  overflow: hidden;
   max-width: 100%;
   color: #1e40af;
   font-size: 12px;
   font-weight: 800;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

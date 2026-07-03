@@ -1166,8 +1166,7 @@ onMounted(() => {
 :deep(.tracking-code),
 :deep(.tracking-empty) {
   display: inline-block;
-  overflow: hidden;
-  max-width: 180px;
+  max-width: none;
   border: none;
   background: transparent;
   color: #1d4ed8;
@@ -1176,7 +1175,6 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 800;
   text-align: left;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

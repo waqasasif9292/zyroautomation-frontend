@@ -8,7 +8,17 @@
             <h1>{{ pageTitle }}</h1>
             <p v-if="editOrderNumber" class="order-number-header">Order Number: {{ editOrderNumber }}</p>
           </div>
-          <span v-if="!isEditMode" class="status-pill">{{ pageStatus }}</span>
+          <div class="header-actions">
+            <button
+              v-if="showHoldLogsButton"
+              type="button"
+              class="hold-logs-btn"
+              @click="showHoldLogsModal = true"
+            >
+              Hold Logs
+            </button>
+            <span v-if="!isEditMode" class="status-pill">{{ pageStatus }}</span>
+          </div>
         </header>
 
         <form ref="formRef" class="order-form" :class="{ 'readonly-form': isReadonlyMode }" @submit.prevent="handleFormSubmit">
@@ -418,6 +428,33 @@
 
     <Teleport to="body">
       <transition name="modal-fade">
+        <div v-if="showHoldLogsModal" class="error-backdrop" @click.self="showHoldLogsModal = false">
+          <section class="hold-logs-modal" role="dialog" aria-modal="true" aria-labelledby="hold-logs-title">
+            <div class="hold-logs-header">
+              <div>
+                <span>Hold calling history</span>
+                <h2 id="hold-logs-title">{{ currentOrderLabel }}</h2>
+              </div>
+              <button type="button" class="hold-logs-close" aria-label="Close hold logs" @click="showHoldLogsModal = false">×</button>
+            </div>
+
+            <div v-if="holdCallLogs.length" class="hold-logs-list">
+              <article v-for="log in holdCallLogs" :key="log.id || `${log.action}-${log.created_at}`" class="hold-log-item">
+                <div>
+                  <strong>{{ log.label || holdLogActionLabel(log.action) }}</strong>
+                  <span>{{ log.user_name || 'Unknown User' }} · {{ formatHoldLogTime(log.created_at) }}</span>
+                </div>
+                <p v-if="log.note">{{ log.note }}</p>
+              </article>
+            </div>
+            <p v-else class="hold-logs-empty">No hold call logs yet.</p>
+          </section>
+        </div>
+      </transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <transition name="modal-fade">
         <div v-if="deleteOrderDialog" class="error-backdrop" @click.self="closeDeleteOrderDialog">
           <section class="error-modal" role="dialog" aria-modal="true" aria-labelledby="delete-order-title">
             <h2 id="delete-order-title">Delete Order?</h2>
@@ -518,6 +555,7 @@ const failedSavedOrderId = ref(null);
 const loadedOrder = ref(null);
 const deleteOrderDialog = ref(false);
 const cancelOrderDialog = ref(false);
+const showHoldLogsModal = ref(false);
 const destructiveLoading = ref(false);
 const addressAiLoading = ref(false);
 const addressSuggestion = reactive({
@@ -652,6 +690,39 @@ const loadedOrderStatusText = computed(() => {
   }
   return '';
 });
+const showHoldLogsButton = computed(() => Boolean(
+  isEditMode.value
+    && loadedOrder.value
+    && (loadedOrder.value.status_category === 'hold' || ['hold', 'on hold'].includes(loadedOrderStatusText.value.toLowerCase()))
+));
+const holdCallLogs = computed(() => Array.isArray(loadedOrder.value?.hold_call_logs) ? loadedOrder.value.hold_call_logs : []);
+const holdLogActionLabel = (action) => {
+  const labels = {
+    call_na: 'Call Not Answered',
+    number_off: 'Number Switched Off',
+    fake: 'Fake Order',
+    mind_change_price_issue: 'Price Issue',
+    cancel_mind_change: 'Customer Changed Mind',
+    non_serious: 'Non-Serious Customer',
+    custom_note: 'Custom note',
+  };
+
+  return labels[action] || String(action || 'Log').replace(/_/g, ' ');
+};
+const formatHoldLogTime = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+};
 const canDeleteCurrentOrder = computed(() => Boolean(isEditMode.value && loadedOrder.value && canManageDestructiveActions.value));
 const canCancelCurrentOrder = computed(() => {
   if (!isEditMode.value || !loadedOrder.value || !canManageDestructiveActions.value) return false;
@@ -804,6 +875,18 @@ const selectedDestinationCityLabel = computed(() => {
   const selectedOption = destinationCityOptions.value.find((city) => String(city.value) === selectedValue);
   return selectedOption?.label || form.destination_city || selectedValue;
 });
+const normalizeCityForAddress = (city) => String(city || '')
+  .replace(/\s+-\s*Pakistan$/i, '')
+  .trim();
+const mergeAddressWithCity = (address, city) => {
+  const cleanAddress = String(address || '').trim();
+  const cleanCity = normalizeCityForAddress(city);
+  if (!cleanAddress || !cleanCity) return cleanAddress;
+
+  const escapedCity = cleanCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cityPattern = new RegExp(`(^|[\\s,.-])${escapedCity}([\\s,.-]|$)`, 'i');
+  return cityPattern.test(cleanAddress) ? cleanAddress : `${cleanAddress}, ${cleanCity}`;
+};
 const filteredDestinationCityOptions = computed(() => {
   const search = citySearch.value.trim().toLowerCase();
   if (!search) return destinationCityOptions.value;
@@ -1073,13 +1156,14 @@ const loadOrderForEdit = async (id) => {
   form.customer_name = order.customer?.name || '';
   form.customer_contact = order.customer?.phone_local || order.customer?.phone_intl || '';
   form.customer_contact_two = manual.customer_contact_two || order.customer?.phone_two || '';
-  form.customer_address = order.customer?.address || '';
+  const savedDestinationCity = manual.destination_city || order.customer?.city || '';
+  form.customer_address = mergeAddressWithCity(order.customer?.address || '', savedDestinationCity);
   setAddressSuggestion(order.ai_address_correction || null);
   form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
   form.pickup_address_code = manual.pickup_address_code || '';
   form.leopard_pickup_address_id = manual.leopard_pickup_address_id || '';
   form.origin_city = manual.origin_city || '';
-  form.destination_city = manual.destination_city || order.customer?.city || '';
+  form.destination_city = savedDestinationCity;
   form.destination_city_id = manual.destination_city_id || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
@@ -1320,12 +1404,13 @@ const sendAddressConfirmation = async () => {
 };
 
 const improveAddressWithAi = async () => {
-  const rawAddress = form.customer_address.trim();
+  const rawAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
   if (!rawAddress) {
     errors.customer_address = 'Customer address is required.';
     return;
   }
 
+  form.customer_address = rawAddress;
   addressAiLoading.value = true;
   try {
     const suggestion = await orderStore.correctAddress(rawAddress);
@@ -1654,32 +1739,37 @@ const scrollToFirstValidationError = async () => {
   focusTarget?.focus?.({ preventScroll: true });
 };
 
-const buildPayload = () => ({
-  ...form,
-  customer_contact: phoneNormalizer(form.customer_contact),
-  customer_contact_two: phoneNormalizer(form.customer_contact_two),
-  total_price: Number(form.total_price || 0),
-  advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
-  cod: courierCodAmount.value,
-  line_items: items.value.map((row) => ({
-    product_id: row.product_id,
-    quantity: Number(row.quantity || 1),
-  })),
-  ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
-    ? {
-        correctedAddress: addressSuggestion.correctedAddress,
-        clean_address: addressSuggestion.clean_address,
-        nearest_place: addressSuggestion.nearest_place || null,
-        final_address: addressSuggestion.final_address || addressSuggestion.correctedAddress,
-        confidence: addressSuggestion.confidence || 'low',
-        needs_review: addressSuggestion.needs_review,
-        review_reason: addressSuggestion.review_reason || '',
-        missingFields: addressSuggestion.missingFields || [],
-        originalAddress: addressSuggestion.originalAddress || form.customer_address,
-        updated_at: addressSuggestion.updated_at || new Date().toISOString(),
-      }
-    : null,
-});
+const buildPayload = () => {
+  const customerAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
+
+  return {
+    ...form,
+    customer_address: customerAddress,
+    customer_contact: phoneNormalizer(form.customer_contact),
+    customer_contact_two: phoneNormalizer(form.customer_contact_two),
+    total_price: Number(form.total_price || 0),
+    advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
+    cod: courierCodAmount.value,
+    line_items: items.value.map((row) => ({
+      product_id: row.product_id,
+      quantity: Number(row.quantity || 1),
+    })),
+    ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
+      ? {
+          correctedAddress: addressSuggestion.correctedAddress,
+          clean_address: addressSuggestion.clean_address,
+          nearest_place: addressSuggestion.nearest_place || null,
+          final_address: addressSuggestion.final_address || addressSuggestion.correctedAddress,
+          confidence: addressSuggestion.confidence || 'low',
+          needs_review: addressSuggestion.needs_review,
+          review_reason: addressSuggestion.review_reason || '',
+          missingFields: addressSuggestion.missingFields || [],
+          originalAddress: addressSuggestion.originalAddress || customerAddress,
+          updated_at: addressSuggestion.updated_at || new Date().toISOString(),
+        }
+      : null,
+  };
+};
 
 const validateReadonlyAdminFields = async () => {
   Object.keys(errors).forEach(key => delete errors[key]);
@@ -2025,6 +2115,29 @@ const handleSave = async (mode) => {
   color: #475569;
   font-size: 13px;
   font-weight: 800;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hold-logs-btn {
+  min-height: 38px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.hold-logs-btn:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
 .status-pill {
@@ -2940,6 +3053,99 @@ select:disabled {
   background: #fff;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
   padding: 22px;
+}
+
+.hold-logs-modal {
+  width: min(560px, 100%);
+  max-height: min(680px, calc(100vh - 70px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dbe3ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+}
+
+.hold-logs-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hold-logs-header span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hold-logs-header h2 {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.hold-logs-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hold-logs-list {
+  display: grid;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+
+.hold-log-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.hold-log-item strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 850;
+}
+
+.hold-log-item span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hold-log-item p {
+  margin: 9px 0 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hold-logs-empty {
+  margin: 0;
+  padding: 18px 20px 22px;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 700;
 }
 
 .error-modal h2 {

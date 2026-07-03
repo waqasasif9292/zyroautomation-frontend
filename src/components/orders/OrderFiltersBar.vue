@@ -62,8 +62,8 @@
       </select>
 
       <select v-model="draft.sort" class="filter-control">
-        <option value="created_id_desc">Newest First</option>
-        <option value="created_id_asc">Oldest First</option>
+        <option value="created_at_desc">Newest First</option>
+        <option value="created_at_asc">Oldest First</option>
       </select>
 
       <div class="filter-actions">
@@ -104,7 +104,7 @@ const filterSnapshot = () => ({
   date_from: props.filters.date_from || '',
   date_to: props.filters.date_to || '',
   search: props.filters.search || '',
-  sort: props.filters.sort || 'created_id_desc',
+  sort: props.filters.sort || 'created_at_desc',
   source: props.filters.source || '',
   status: props.filters.status || '',
 });
@@ -127,7 +127,7 @@ const appliedPayload = () => ({
   date_from: draft.date_from || null,
   date_to: draft.date_to || null,
   search: draft.search.trim(),
-  sort: draft.sort || 'created_id_desc',
+  sort: draft.sort || 'created_at_desc',
   source: draft.source || null,
   status: draft.status || null,
 });
@@ -143,7 +143,7 @@ const clearFilters = () => {
     date_from: '',
     date_to: '',
     search: '',
-    sort: 'created_id_desc',
+    sort: 'created_at_desc',
     source: '',
     status: '',
   });

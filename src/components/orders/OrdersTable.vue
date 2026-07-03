@@ -132,6 +132,11 @@
                     <circle cx="12" cy="12" r="2.5" />
                   </svg>
                 </button>
+                <button v-if="isHoldOrder(order)" class="action-btn hold-call-btn" type="button" aria-label="Open hold call workflow" title="Hold call workflow" @click.stop="$emit('hold-call', order.id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.7.6 2.5a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6.4 6.4l1.3-1.3a2 2 0 0 1 2.1-.4c.8.3 1.6.5 2.5.6a2 2 0 0 1 1.7 2Z" />
+                  </svg>
+                </button>
                 <RouterLink
                   v-if="canEdit(order)"
                   class="action-btn"
@@ -282,7 +287,7 @@ const props = defineProps({
   },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'hold-call', 'toggle-select', 'select-page']);
 
 const router = useRouter();
 const route = useRoute();
@@ -329,6 +334,7 @@ const statusText = (status) => {
 };
 const orderPhone = (order) => order.customer?.phone_local || order.customer?.phone_intl || '—';
 const isDuplicateOrder = (order) => statusText(order.status).toLowerCase() === 'duplicate';
+const isHoldOrder = (order) => order.status_category === 'hold' || ['hold', 'on hold'].includes(statusText(order.status).toLowerCase());
 const openDuplicateOrders = (order) => {
   const href = router.resolve({
     path: '/orders',
@@ -431,7 +437,7 @@ td {
 .col-order { width: 170px; }
 .col-brand { width: 132px; }
 .col-source { width: 112px; }
-.col-tracking { width: 112px; }
+.col-tracking { width: 170px; }
 .col-booking-date { width: 154px; }
 .col-created-by { width: 138px; }
 .col-customer { width: 150px; }
@@ -580,15 +586,13 @@ th:last-child {
 .tracking-code,
 .tracking-empty {
   display: inline-block;
-  overflow: hidden;
-  max-width: 92px;
+  max-width: none;
   border: none;
   background: transparent;
   color: #1e40af;
   padding: 0;
   font-size: 12px;
   font-weight: 800;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

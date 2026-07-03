@@ -13,7 +13,7 @@ const defaultFilters = () => ({
   product_id: null,
   search: '',
   source: null,
-  sort: 'created_id_desc',
+  sort: 'created_at_desc',
   status: null,
   page: 1,
 });
@@ -118,6 +118,22 @@ export const useOrderStore = defineStore('order', () => {
     return res.data.data.address;
   };
 
+  const correctOrderAddress = async (id) => {
+    const res = await OrderService.correctOrderAddress(id);
+    const updatedOrder = res.data.data.order;
+    const index = orders.value.findIndex(order => order.id === id);
+    if (index !== -1) {
+      orders.value[index] = {
+        ...orders.value[index],
+        ai_address_correction: updatedOrder.ai_address_correction || null,
+      };
+    }
+    if (selectedOrder.value?.id === id) {
+      selectedOrder.value = updatedOrder;
+    }
+    return updatedOrder;
+  };
+
   const deleteOrder = async (id) => {
     await OrderService.deleteOrder(id);
     if (selectedOrder.value?.id === id) closePanel();
@@ -146,6 +162,22 @@ export const useOrderStore = defineStore('order', () => {
     return res.data;
   };
 
+  const saveHoldCallLog = async (id, payload) => {
+    const res = await OrderService.saveHoldCallLog(id, payload);
+    const updatedOrder = res.data.data.order;
+    const index = orders.value.findIndex(order => order.id === id);
+    if (index !== -1) {
+      orders.value[index] = {
+        ...orders.value[index],
+        last_hold_call_log: updatedOrder.hold_call_logs?.[0] || orders.value[index].last_hold_call_log || null,
+      };
+    }
+    if (selectedOrder.value?.id === id) {
+      selectedOrder.value = updatedOrder;
+    }
+    return updatedOrder;
+  };
+
   return {
     orders,
     pagination,
@@ -167,8 +199,10 @@ export const useOrderStore = defineStore('order', () => {
     createBooking,
     updateBooking,
     correctAddress,
+    correctOrderAddress,
     sendAddressConfirmation,
     sendOutForDelivery,
+    saveHoldCallLog,
     cancelByShipper,
     deleteOrder,
     bulkDeleteOrders,
