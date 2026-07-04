@@ -123,7 +123,13 @@
                 </button>
               </div>
             </div>
-            <textarea v-model="addressSuggestion.correctedAddress" rows="2" :disabled="readonlyLocksPartialForm"></textarea>
+            <textarea
+              class="ai-address-output"
+              :value="addressSuggestion.correctedAddress"
+              rows="2"
+              readonly
+              aria-label="Suggested address"
+            ></textarea>
             <span v-if="addressSuggestionWarning" class="ai-address-warning">{{ addressSuggestionWarning }}</span>
           </div>
 
@@ -2306,6 +2312,16 @@ const handleSave = async (mode) => {
   color: #64748b;
   font-size: 11px;
   font-weight: 750;
+}
+
+.ai-address-output {
+  cursor: default;
+  resize: none;
+}
+
+.ai-address-output:focus {
+  border-color: #cbd5e1;
+  box-shadow: none;
 }
 
 .ai-address-actions {
