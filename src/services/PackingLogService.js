@@ -10,6 +10,12 @@ const PackingLogService = {
   getPacked(params = {}) {
     return axiosInstance.get('/packing-logs/packed', { params });
   },
+  downloadLoadSheet(params = {}) {
+    return axiosInstance.get('/packing-logs/load-sheet', {
+      params,
+      responseType: 'blob',
+    });
+  },
   markShipped(id) {
     return axiosInstance.put(`/packing-logs/${id}/mark-shipped`);
   },

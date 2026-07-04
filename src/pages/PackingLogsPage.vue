@@ -8,10 +8,18 @@
       <section class="packing-panel">
         <header class="packing-header">
           <div>
-            <h1>{{ pageTitle }}({{ totalShipments }})</h1>
+            <h1>{{ pageTitle }}</h1>
             <p>{{ pageDescription }}</p>
           </div>
           <div class="header-actions">
+            <button
+              v-if="isPackedView"
+              class="load-sheet-btn"
+              type="button"
+              @click="toggleLoadSheetPanel"
+            >
+              Load Sheet
+            </button>
             <RouterLink
               v-if="!isPackedView"
               class="scan-link-btn"
@@ -34,6 +42,41 @@
             </button>
           </div>
         </header>
+
+        <section v-if="isPackedView && showLoadSheetPanel" class="load-sheet-panel">
+          <label class="date-filter-control load-sheet-field" :class="{ 'has-value': loadSheetForm.date_from }">
+            <input
+              v-model="loadSheetForm.date_from"
+              class="filter-control"
+              type="date"
+              aria-label="Load Sheet Mark Date From"
+            >
+            <span class="date-filter-placeholder">Mark Date From</span>
+          </label>
+          <label class="date-filter-control load-sheet-field" :class="{ 'has-value': loadSheetForm.date_to }">
+            <input
+              v-model="loadSheetForm.date_to"
+              class="filter-control"
+              type="date"
+              aria-label="Load Sheet Mark Date To"
+            >
+            <span class="date-filter-placeholder">Mark Date To</span>
+          </label>
+          <select v-model="loadSheetForm.courier_integration_id" class="filter-control load-sheet-field">
+            <option value="">Select Courier</option>
+            <option v-for="integration in integrationStore.integrations" :key="integration.id" :value="integration.id">
+              {{ integration.name }}
+            </option>
+          </select>
+          <button
+            class="download-load-sheet-btn"
+            type="button"
+            :disabled="loadSheetDownloading"
+            @click="downloadLoadSheet"
+          >
+            {{ loadSheetDownloading ? 'Downloading...' : 'Download Load Sheet' }}
+          </button>
+        </section>
 
         <section class="packing-stats-grid">
           <button class="pending-stat-card total-card" type="button" @click="applyStatsFilter(null)">
@@ -87,9 +130,9 @@
                 v-model="draftFilters.date_from"
                 class="filter-control"
                 type="date"
-                aria-label="Date From"
+                :aria-label="dateFromLabel"
               >
-              <span class="date-filter-placeholder">Date From</span>
+              <span class="date-filter-placeholder">{{ dateFromLabel }}</span>
             </label>
 
             <label class="date-filter-control" :class="{ 'has-value': draftFilters.date_to }">
@@ -97,9 +140,9 @@
                 v-model="draftFilters.date_to"
                 class="filter-control"
                 type="date"
-                aria-label="Date To"
+                :aria-label="dateToLabel"
               >
-              <span class="date-filter-placeholder">Date To</span>
+              <span class="date-filter-placeholder">{{ dateToLabel }}</span>
             </label>
 
             <select v-model="draftFilters.brand_id" class="filter-control">
@@ -120,8 +163,8 @@
             </select>
 
             <select v-model="draftFilters.sort" class="filter-control">
-              <option value="created_at_desc">Newest First</option>
-              <option value="created_at_asc">Oldest First</option>
+              <option :value="defaultSortDesc">{{ sortNewestLabel }}</option>
+              <option :value="defaultSortAsc">{{ sortOldestLabel }}</option>
             </select>
 
             <div class="filter-actions">
@@ -136,7 +179,7 @@
             <thead>
               <tr>
                 <th>#</th>
-                <th>Created At</th>
+                <th>{{ dateColumnLabel }}</th>
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Courier</th>
@@ -157,7 +200,7 @@
               <tr v-else v-for="(order, index) in orders" :key="order.id">
                 <td class="serial-cell">{{ serialStart + index }}</td>
                 <td>
-                  <div>{{ formatDateTime(order.created_at || order.shopify_created_at) }}</div>
+                  <div>{{ formatDateTime(rowDate(order)) }}</div>
                   <div class="order-number-cell">{{ order.order_name || order.order_number || '—' }}</div>
                 </td>
                 <td>
@@ -232,6 +275,8 @@ const statsLoading = ref(false);
 const markingId = ref(null);
 const toast = ref('');
 const page = ref(1);
+const showLoadSheetPanel = ref(false);
+const loadSheetDownloading = ref(false);
 let syncingQuery = false;
 const packingStats = ref({
   total_pending: 0,
@@ -246,12 +291,17 @@ const defaultFilters = () => ({
   date_from: '',
   date_to: '',
   search: '',
-  sort: 'created_at_desc',
+  sort: route.meta.packingView === 'packed' ? 'packing_marked_at_desc' : 'created_at_desc',
   source: '',
 });
 
 const draftFilters = reactive(defaultFilters());
 const appliedFilters = reactive(defaultFilters());
+const loadSheetForm = reactive({
+  date_from: '',
+  date_to: '',
+  courier_integration_id: '',
+});
 
 const queryDefaults = () => ({
   ...defaultFilters(),
@@ -259,8 +309,14 @@ const queryDefaults = () => ({
 });
 
 const isPackedView = computed(() => route.meta.packingView === 'packed');
-const totalShipments = computed(() => pagination.value?.total || orders.value.length);
 const pageTitle = computed(() => isPackedView.value ? 'Packed Shipments' : 'Pending Shipments');
+const dateColumnLabel = computed(() => isPackedView.value ? 'Marked At' : 'Created At');
+const dateFromLabel = computed(() => isPackedView.value ? 'Mark Date From' : 'Date From');
+const dateToLabel = computed(() => isPackedView.value ? 'Mark Date To' : 'Date To');
+const defaultSortDesc = computed(() => isPackedView.value ? 'packing_marked_at_desc' : 'created_at_desc');
+const defaultSortAsc = computed(() => isPackedView.value ? 'packing_marked_at_asc' : 'created_at_asc');
+const sortNewestLabel = computed(() => isPackedView.value ? 'Marked Newest First' : 'Newest First');
+const sortOldestLabel = computed(() => isPackedView.value ? 'Marked Oldest First' : 'Oldest First');
 const pageDescription = computed(() => (
   isPackedView.value
     ? 'Shipments already marked as packed.'
@@ -319,6 +375,68 @@ const fetchShipments = async () => {
     showToast(error.response?.data?.message || 'Failed to load packing logs.');
   } finally {
     loading.value = false;
+  }
+};
+
+const toggleLoadSheetPanel = () => {
+  showLoadSheetPanel.value = !showLoadSheetPanel.value;
+  if (!showLoadSheetPanel.value) return;
+
+  loadSheetForm.date_from = appliedFilters.date_from || localDateValue(new Date());
+  loadSheetForm.date_to = appliedFilters.date_to || appliedFilters.date_from || localDateValue(new Date());
+  loadSheetForm.courier_integration_id = appliedFilters.courier_integration_id || '';
+};
+
+const filenameFromDisposition = (disposition) => {
+  const match = String(disposition || '').match(/filename="?([^"]+)"?/i);
+  return match?.[1] || 'load-sheet.pdf';
+};
+
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const loadSheetErrorMessage = async (error) => {
+  const data = error.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const payload = JSON.parse(text);
+      return payload.message || 'Failed to download load sheet.';
+    } catch {
+      return 'Failed to download load sheet.';
+    }
+  }
+
+  return data?.message || 'Failed to download load sheet.';
+};
+
+const downloadLoadSheet = async () => {
+  if (!loadSheetForm.date_from || !loadSheetForm.date_to || !loadSheetForm.courier_integration_id) {
+    showToast('Select mark date range and courier for load sheet.');
+    return;
+  }
+
+  loadSheetDownloading.value = true;
+  try {
+    const response = await PackingLogService.downloadLoadSheet({
+      date_from: loadSheetForm.date_from,
+      date_to: loadSheetForm.date_to,
+      courier_integration_id: loadSheetForm.courier_integration_id,
+    });
+    downloadBlob(response.data, filenameFromDisposition(response.headers['content-disposition']));
+  } catch (error) {
+    console.error(error);
+    showToast(await loadSheetErrorMessage(error));
+  } finally {
+    loadSheetDownloading.value = false;
   }
 };
 
@@ -424,6 +542,9 @@ const changePage = async (nextPage) => {
 };
 
 const trackingHref = (order) => router.resolve(`/orders/${order.id}/tracking`).href;
+const rowDate = order => isPackedView.value
+  ? order.packing_marked_at
+  : (order.created_at || order.shopify_created_at);
 
 const formatDateTime = (value) => {
   if (!value) return '—';
@@ -666,6 +787,8 @@ select.filter-control {
 
 .refresh-btn,
 .scan-link-btn,
+.load-sheet-btn,
+.download-load-sheet-btn,
 .mark-btn,
 .pager button {
   display: inline-flex;
@@ -690,9 +813,29 @@ select.filter-control {
   text-decoration: none;
 }
 
+.load-sheet-btn,
+.download-load-sheet-btn {
+  min-height: 34px;
+  background: #1e293b;
+  color: #fff;
+  padding: 8px 12px;
+}
+
 .refresh-btn {
   gap: 7px;
   padding: 8px 11px;
+}
+
+.load-sheet-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 220px)) max-content;
+  gap: 10px;
+  align-items: center;
+  padding: 16px 28px 0;
+}
+
+.load-sheet-field {
+  min-width: 0;
 }
 
 .mark-btn {
@@ -701,6 +844,7 @@ select.filter-control {
 }
 
 .refresh-btn:disabled,
+.download-load-sheet-btn:disabled,
 .mark-btn:disabled,
 .pager button:disabled {
   cursor: not-allowed;
@@ -881,6 +1025,10 @@ th:nth-child(8) { width: 170px; }
   .filters-grid {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .load-sheet-panel {
+    grid-template-columns: 1fr;
   }
 }
 </style>

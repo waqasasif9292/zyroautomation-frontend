@@ -11,18 +11,22 @@
 
         <div class="card-body">
           <div class="filters-bar">
-            <div class="search-wrap">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                v-model="localSearch"
-                class="search-input"
-                type="text"
-                placeholder="Search by name, phone, email, or address..."
-              >
-              <button v-if="localSearch" class="clear-search" type="button" @click="localSearch = ''">×</button>
+            <div class="search-group">
+              <div class="search-wrap">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+                <input
+                  v-model="localSearch"
+                  class="search-input"
+                  type="text"
+                  placeholder="Search by name, phone, email, or address..."
+                  @keydown.enter.prevent="submitSearch"
+                >
+                <button v-if="localSearch" class="clear-search" type="button" @click="clearSearch">×</button>
+              </div>
+              <button class="search-btn" type="button" @click="submitSearch">Search</button>
             </div>
             <div class="filters-actions">
               <label class="select-wrap">
@@ -105,7 +109,6 @@ const customerStore = useCustomerStore();
 const localSearch = ref(customerStore.filters.search || '');
 const localSortBy = ref(customerStore.filters.sort_by || 'date');
 const localSortDir = ref(customerStore.filters.sort_dir || 'desc');
-let searchTimer = null;
 let syncingQuery = false;
 let hydratingFilters = false;
 
@@ -142,15 +145,20 @@ const replaceFilterQuery = async () => {
   }
 };
 
-watch(localSearch, (value) => {
+const submitSearch = async () => {
   if (hydratingFilters) return;
-  if (value === customerStore.filters.search) return;
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(async () => {
-    await customerStore.setFilter('search', value);
-    await replaceFilterQuery();
-  }, 400);
-});
+  const search = localSearch.value.trim();
+  if (search === customerStore.filters.search) return;
+  await customerStore.setFilter('search', search);
+  await replaceFilterQuery();
+};
+
+const clearSearch = async () => {
+  localSearch.value = '';
+  if (!customerStore.filters.search) return;
+  await customerStore.setFilter('search', '');
+  await replaceFilterQuery();
+};
 
 watch([localSortBy, localSortDir], async ([sortBy, sortDir]) => {
   if (hydratingFilters) return;
@@ -227,9 +235,17 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+
 .search-wrap {
   position: relative;
-  width: min(420px, 100%);
+  flex: 1;
+  min-width: 220px;
 }
 
 .search-icon {
@@ -268,6 +284,23 @@ onMounted(() => {
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
+}
+
+.search-btn {
+  height: 38px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #fff;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-btn:hover {
+  background: #0f172a;
 }
 
 .filters-actions {
@@ -425,8 +458,12 @@ strong {
     flex-direction: column;
   }
 
-  .search-wrap {
+  .search-group {
     width: 100%;
+  }
+
+  .search-wrap {
+    min-width: 0;
   }
 
   .filters-actions {
