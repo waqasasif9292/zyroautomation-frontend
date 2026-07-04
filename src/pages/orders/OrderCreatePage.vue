@@ -881,18 +881,6 @@ const selectedDestinationCityLabel = computed(() => {
   const selectedOption = destinationCityOptions.value.find((city) => String(city.value) === selectedValue);
   return selectedOption?.label || form.destination_city || selectedValue;
 });
-const normalizeCityForAddress = (city) => String(city || '')
-  .replace(/\s+-\s*Pakistan$/i, '')
-  .trim();
-const mergeAddressWithCity = (address, city) => {
-  const cleanAddress = String(address || '').trim();
-  const cleanCity = normalizeCityForAddress(city);
-  if (!cleanAddress || !cleanCity) return cleanAddress;
-
-  const escapedCity = cleanCity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const cityPattern = new RegExp(`(^|[\\s,.-])${escapedCity}([\\s,.-]|$)`, 'i');
-  return cityPattern.test(cleanAddress) ? cleanAddress : `${cleanAddress}, ${cleanCity}`;
-};
 const filteredDestinationCityOptions = computed(() => {
   const search = citySearch.value.trim().toLowerCase();
   if (!search) return destinationCityOptions.value;
@@ -1163,7 +1151,7 @@ const loadOrderForEdit = async (id) => {
   form.customer_contact = order.customer?.phone_local || order.customer?.phone_intl || '';
   form.customer_contact_two = manual.customer_contact_two || order.customer?.phone_two || '';
   const savedDestinationCity = manual.destination_city || order.customer?.city || '';
-  form.customer_address = mergeAddressWithCity(order.customer?.address || '', savedDestinationCity);
+  form.customer_address = order.customer?.address || '';
   setAddressSuggestion(order.ai_address_correction || null);
   form.courier_integration_id = manual.courier_integration_id || order.courier_integration_id || '';
   form.pickup_address_code = manual.pickup_address_code || '';
@@ -1410,7 +1398,7 @@ const sendAddressConfirmation = async () => {
 };
 
 const improveAddressWithAi = async () => {
-  const rawAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
+  const rawAddress = String(form.customer_address || '').trim();
   if (!rawAddress) {
     errors.customer_address = 'Customer address is required.';
     return;
@@ -1746,7 +1734,7 @@ const scrollToFirstValidationError = async () => {
 };
 
 const buildPayload = () => {
-  const customerAddress = mergeAddressWithCity(form.customer_address, form.destination_city);
+  const customerAddress = String(form.customer_address || '').trim();
 
   return {
     ...form,
