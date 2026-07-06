@@ -187,6 +187,8 @@
               @cancel="handleCancel"
               @address-confirmation="handleAddressConfirmation"
               @out-for-delivery="handleOutForDelivery"
+              @self-pickup-delivered="handleSelfPickupDelivered"
+              @self-pickup-returned="handleSelfPickupReturned"
               @hold-call="openHoldCallWorkflow"
               @delete="handleDelete"
               @track="handleTrack"
@@ -783,6 +785,26 @@ const handleOutForDelivery = async (id) => {
     showToast(error.response?.data?.message || 'Unable to send out for delivery message.');
   } finally {
     outForDeliveryLoadingId.value = '';
+  }
+};
+
+const handleSelfPickupDelivered = async (id) => {
+  try {
+    await OrderService.markSelfPickupDelivered(id);
+    showToast('Self pickup order marked delivered.');
+    await reloadOrdersAndStats();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to mark self pickup delivered.');
+  }
+};
+
+const handleSelfPickupReturned = async (id) => {
+  try {
+    await OrderService.markSelfPickupReturned(id);
+    showToast('Self pickup order marked returned.');
+    await reloadOrdersAndStats();
+  } catch (error) {
+    showToast(error.response?.data?.message || 'Unable to mark self pickup returned.');
   }
 };
 

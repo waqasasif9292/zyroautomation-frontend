@@ -56,6 +56,7 @@
 
       <select v-model="draft.courier_integration_id" class="filter-control">
         <option value="">Select Courier</option>
+        <option value="self_pickup">Self Pickup / Bykea</option>
         <option v-for="integration in integrations" :key="integration.id" :value="integration.id">
           {{ integration.name }}
         </option>

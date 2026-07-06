@@ -71,6 +71,7 @@
 
             <select v-model="draftFilters.courier_integration_id" class="filter-control">
               <option value="">Select Courier</option>
+              <option value="self_pickup">Self Pickup / Bykea</option>
               <option v-for="integration in integrationStore.integrations" :key="integration.id" :value="integration.id">
                 {{ integration.name }}
               </option>
@@ -79,8 +80,8 @@
             <select v-model="draftFilters.sort" class="filter-control">
               <option value="created_id_desc">Newest First</option>
               <option value="created_id_asc">Oldest First</option>
-              <option value="status_updated_at_desc">Status Updated: Newest First</option>
-              <option value="status_updated_at_asc">Status Updated: Oldest First</option>
+              <option value="total_charges_desc">Total Delivery: High to Low</option>
+              <option value="total_charges_asc">Total Delivery: Low to High</option>
             </select>
 
             <div class="filter-actions">
@@ -238,7 +239,7 @@ const requestParams = () => Object.fromEntries(
   Object.entries({
     ...appliedFilters,
     page: page.value,
-    per_page: 25,
+    per_page: 200,
   }).filter(([, value]) => value !== null && value !== '')
 );
 

@@ -43,6 +43,12 @@ const OrderService = {
   cancelByShipper(id) {
     return axiosInstance.put(`/orders/${id}/cancel-by-shipper`);
   },
+  markSelfPickupDelivered(id) {
+    return axiosInstance.put(`/orders/${id}/self-pickup/delivered`);
+  },
+  markSelfPickupReturned(id) {
+    return axiosInstance.put(`/orders/${id}/self-pickup/returned`);
+  },
   sendAddressConfirmation(id) {
     return axiosInstance.post(`/orders/${id}/whatsapp/address-confirmation`);
   },
