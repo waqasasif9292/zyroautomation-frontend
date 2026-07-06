@@ -180,6 +180,26 @@
                   </svg>
                 </button>
                 <button
+                  v-if="canMarkSelfPickupDelivered(order)"
+                  class="action-btn self-pickup-action"
+                  type="button"
+                  aria-label="Mark self pickup delivered"
+                  title="Mark Delivered"
+                  @click.stop="$emit('self-pickup-delivered', order.id)"
+                >
+                  D
+                </button>
+                <button
+                  v-if="canMarkSelfPickupReturned(order)"
+                  class="action-btn self-pickup-action danger"
+                  type="button"
+                  aria-label="Mark self pickup returned"
+                  title="Mark Returned"
+                  @click.stop="$emit('self-pickup-returned', order.id)"
+                >
+                  R
+                </button>
+                <button
                   v-if="showAddressConfirmationAction && canSendAddressConfirmation(order)"
                   class="action-btn"
                   :class="{ sent: addressConfirmationSent(order) }"
@@ -287,7 +307,7 @@ const props = defineProps({
   },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'hold-call', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'hold-call', 'self-pickup-delivered', 'self-pickup-returned', 'toggle-select', 'select-page']);
 
 const router = useRouter();
 const route = useRoute();
@@ -356,6 +376,17 @@ const canCancel = (order) => {
 
   return canManageDestructiveActions.value && (!hasTrackingNumber || isMerchantWarehouse) && !isCancelledByShipper;
 };
+const isSelfPickupOrder = (order) => order.courier_slug === 'self_pickup' || order.courier_integration_id === 'self_pickup';
+const canMarkSelfPickupDelivered = (order) => (
+  isSelfPickupOrder(order)
+    && String(order.tracking_number || '').trim() !== ''
+    && !['delivered', 'returned_to_shipper'].includes(order.status_category)
+);
+const canMarkSelfPickupReturned = (order) => (
+  isSelfPickupOrder(order)
+    && String(order.tracking_number || '').trim() !== ''
+    && !['delivered', 'returned_to_shipper'].includes(order.status_category)
+);
 const canSendAddressConfirmation = (order) => Boolean(
   !String(order.tracking_number || '').trim()
     && (order.customer?.phone_local || order.customer?.phone_intl)
@@ -696,6 +727,26 @@ th:last-child {
 }
 
 .cancel-btn:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.self-pickup-action {
+  color: #047857;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.self-pickup-action:hover {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.self-pickup-action.danger {
+  color: #b91c1c;
+}
+
+.self-pickup-action.danger:hover {
   border-color: #fecaca;
   background: #fef2f2;
 }

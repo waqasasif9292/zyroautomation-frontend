@@ -54,7 +54,16 @@
                 </svg>
               </button>
               <div v-if="productsOpen" class="multi-select-menu">
-                <label v-for="product in options.products" :key="product.id" class="multi-select-option">
+                <div class="multi-select-search-wrap">
+                  <input
+                    v-model="productSearch"
+                    class="multi-select-search"
+                    type="search"
+                    placeholder="Search products"
+                    @keydown.stop
+                  >
+                </div>
+                <label v-for="product in filteredProducts" :key="product.id" class="multi-select-option">
                   <input v-model="form.product_ids" type="checkbox" :value="product.id">
                   <span>
                     <strong>{{ product.name }}</strong>
@@ -62,6 +71,7 @@
                   </span>
                 </label>
                 <p v-if="!options.products.length" class="empty-products">No products found.</p>
+                <p v-else-if="!filteredProducts.length" class="empty-products">No matching products found.</p>
               </div>
             </div>
           </Field>
@@ -245,6 +255,7 @@ const emit = defineEmits(['submit', 'cancel']);
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const number = (value) => Number(value || 0).toLocaleString();
 const productsOpen = ref(false);
+const productSearch = ref('');
 
 const today = new Date().toISOString().slice(0, 10);
 const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -378,6 +389,24 @@ const submit = () => emit('submit', {
   one_time_expenses: activeOneTimeExpenses.value,
 });
 
+const filteredProducts = computed(() => {
+  const term = productSearch.value.trim().toLowerCase();
+
+  if (!term) {
+    return props.options.products;
+  }
+
+  return props.options.products.filter((product) => {
+    const searchable = [
+      product.name,
+      product.cost,
+      product.inventory_cost,
+    ].join(' ').toLowerCase();
+
+    return searchable.includes(term);
+  });
+});
+
 const selectedProducts = computed(() => props.options.products.filter(product => form.product_ids.includes(product.id)));
 
 const visibleCouriers = computed(() => {
@@ -461,6 +490,7 @@ const selectedProductsLabel = computed(() => {
 const handleProductsBlur = (event) => {
   if (!event.currentTarget.contains(event.relatedTarget)) {
     productsOpen.value = false;
+    productSearch.value = '';
   }
 };
 </script>
@@ -621,6 +651,32 @@ const handleProductsBlur = (event) => {
   background: #fff;
   padding: 8px;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+}
+
+.multi-select-search-wrap {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  background: #fff;
+  padding: 0 0 6px;
+}
+
+.multi-select-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #1e293b;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.multi-select-search:focus {
+  outline: none;
+  border-color: #1e293b;
+  background: #fff;
 }
 
 .multi-select-option {

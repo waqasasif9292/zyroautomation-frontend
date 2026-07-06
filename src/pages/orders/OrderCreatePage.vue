@@ -153,11 +153,20 @@
               <label>Ship Through</label>
               <select v-model="form.courier_integration_id" :class="{ invalid: errors.courier_integration_id }" :disabled="readonlyLocksPartialForm" @change="handleCourierChange">
                 <option value="">Select Courier</option>
+                <option :value="SELF_PICKUP_COURIER_ID">{{ SELF_PICKUP_COURIER_NAME }}</option>
                 <option v-for="integration in integrationStore.integrations" :key="integration.id" :value="integration.id">
                   {{ integration.name || integration.courier_name }}
                 </option>
               </select>
               <span v-if="errors.courier_integration_id" class="field-error">{{ errors.courier_integration_id }}</span>
+            </div>
+            <div v-if="isSelfPickupSelected" class="field">
+              <label>Fare</label>
+              <div class="amount-input" :class="{ invalid: errors.self_pickup_fare }">
+                <span>Rs.</span>
+                <input v-model="form.self_pickup_fare" type="number" min="0" placeholder="0" :disabled="readonlyLocksPartialForm">
+              </div>
+              <span v-if="errors.self_pickup_fare" class="field-error">{{ errors.self_pickup_fare }}</span>
             </div>
             <div v-if="isPostexSelected" class="field">
               <label>Pickup Address</label>
@@ -213,7 +222,7 @@
               </select>
               <span v-if="errors.leopard_pickup_address_id" class="field-error">{{ errors.leopard_pickup_address_id }}</span>
             </div>
-            <div v-else-if="hasCourierSelected && !isArgoSelected" class="field">
+            <div v-else-if="hasCourierSelected && !isArgoSelected && !isSelfPickupSelected" class="field">
               <label>Origin City</label>
               <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }" :disabled="readonlyLocksPartialForm">
                 <option value=""></option>
@@ -223,7 +232,7 @@
               </select>
               <span v-if="errors.origin_city" class="field-error">{{ errors.origin_city }}</span>
             </div>
-            <div v-if="hasCourierSelected" class="field">
+            <div v-if="hasCourierSelected && !isSelfPickupSelected" class="field">
               <label>Destination City</label>
               <div class="city-combobox" :class="{ invalid: errors.destination_city, disabled: citySelectDisabled }">
                 <input
@@ -260,7 +269,7 @@
             </div>
           </div>
 
-          <div v-if="hasCourierSelected" class="grid two compact">
+          <div v-if="hasCourierSelected && !isSelfPickupSelected" class="grid two compact">
             <div class="field">
               <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight (kg)' }}</label>
               <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'" :disabled="readonlyLocksPartialForm">
@@ -406,7 +415,7 @@
               <button v-if="canEditReadonlyOrderFields" type="button" class="hold-btn" :disabled="saving" @click="handleReadonlyAdminSave">
                 {{ saving ? 'Saving...' : 'Save Changes' }}
               </button>
-              <button v-if="!isReadonlyMode" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
+              <button v-if="!isReadonlyMode && !isSelfPickupSelected" type="button" class="hold-btn" :disabled="saving || creatingShipment || !canSaveDraft" @click="handleSave('draft')">
                 {{ saving ? 'Saving...' : 'Save Draft' }}
               </button>
               <button v-if="!isReadonlyMode" type="button" class="create-btn" :disabled="saving || creatingShipment || !hasOrderProducts" @click="handleSave('create')">
@@ -511,6 +520,8 @@ import { useOrderStore } from '../../stores/orderStore';
 import { useProductStore } from '../../stores/productStore';
 import phoneNormalizer, { isNormalizedPakistaniMobile } from '../../utils/phoneNormalizer';
 
+const SELF_PICKUP_COURIER_ID = 'self_pickup';
+const SELF_PICKUP_COURIER_NAME = 'Self Pickup / Bykea';
 const router = useRouter();
 const route = useRoute();
 const brandStore = useBrandStore();
@@ -592,6 +603,7 @@ const form = reactive({
   destination_city_id: '',
   packet_weight: '0.2',
   shipment_type: '',
+  self_pickup_fare: '',
   total_price: '',
   advance_payment: '',
   cod: '',
@@ -810,8 +822,20 @@ const filteredProducts = computed(() => {
 });
 const selectedBrand = computed(() => brandStore.brands.find(brand => brand.id === form.brand_id));
 const brandSources = computed(() => selectedBrand.value?.sources || []);
-const selectedIntegration = computed(() => integrationStore.integrations.find((integration) => String(integration.id) === String(form.courier_integration_id)));
+const selectedIntegration = computed(() => {
+  if (String(form.courier_integration_id) === SELF_PICKUP_COURIER_ID) {
+    return {
+      id: SELF_PICKUP_COURIER_ID,
+      courier_slug: SELF_PICKUP_COURIER_ID,
+      name: SELF_PICKUP_COURIER_NAME,
+      courier_name: SELF_PICKUP_COURIER_NAME,
+    };
+  }
+
+  return integrationStore.integrations.find((integration) => String(integration.id) === String(form.courier_integration_id));
+});
 const hasCourierSelected = computed(() => Boolean(form.courier_integration_id));
+const isSelfPickupSelected = computed(() => selectedIntegration.value?.courier_slug === SELF_PICKUP_COURIER_ID);
 const isPostexSelected = computed(() => selectedIntegration.value?.courier_slug === 'postex');
 const isLeopardSelected = computed(() => selectedIntegration.value?.courier_slug === 'leopard');
 const isDastaqSelected = computed(() => selectedIntegration.value?.courier_slug === 'dastaq');
@@ -961,6 +985,7 @@ watch(() => form.brand_id, () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  form.self_pickup_fare = '';
   citySearch.value = '';
   isCityComboboxOpen.value = false;
   delete errors.brand_id;
@@ -970,6 +995,7 @@ watch(() => form.brand_id, () => {
   delete errors.leopard_pickup_address_id;
   delete errors.origin_city;
   delete errors.destination_city;
+  delete errors.self_pickup_fare;
 });
 
 watch(() => form.source, () => {
@@ -982,6 +1008,9 @@ const resetCourierDependentFields = () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  if (!isSelfPickupSelected.value) {
+    form.self_pickup_fare = '';
+  }
   citySearch.value = '';
   isCityComboboxOpen.value = false;
   postexPickupAddresses.value = [];
@@ -1000,6 +1029,7 @@ const resetCourierDependentFields = () => {
   delete errors.leopard_pickup_address_id;
   delete errors.origin_city;
   delete errors.destination_city;
+  delete errors.self_pickup_fare;
 };
 
 const loadPostexRuntimeData = async () => {
@@ -1042,6 +1072,7 @@ watch(() => form.leopard_pickup_address_id, () => {
   'destination_city',
   'packet_weight',
   'shipment_type',
+  'self_pickup_fare',
   'total_price',
   'advance_payment',
   'cod',
@@ -1161,6 +1192,7 @@ const loadOrderForEdit = async (id) => {
   form.destination_city_id = manual.destination_city_id || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
+  form.self_pickup_fare = manual.self_pickup_fare ?? order.delivery_charges?.total_charges ?? order.delivery_charges?.delivery_charges ?? '';
   form.total_price = order.total_price ?? manual.cod ?? '';
   form.cod = order.cod ?? manual.cod ?? order.total_outstanding ?? order.total_price ?? '';
   form.advance_payment = order.advance_payment ?? manual.advance_payment ?? (Math.max(Number(form.total_price || 0) - Number(form.cod || 0), 0) || '');
@@ -1744,6 +1776,7 @@ const buildPayload = () => {
     total_price: Number(form.total_price || 0),
     advance_payment: hasAdvancePayment.value ? Number(form.advance_payment || 0) : 0,
     cod: courierCodAmount.value,
+    self_pickup_fare: isSelfPickupSelected.value ? Number(form.self_pickup_fare || 0) : null,
     line_items: items.value.map((row) => ({
       product_id: row.product_id,
       quantity: Number(row.quantity || 1),
@@ -1863,12 +1896,12 @@ const handleSave = async (mode) => {
     requiredFields.special_instructions = 'Special instructions are required.';
   }
 
-  if (isCreateMode || hasCourierSelected.value) {
+  if ((isCreateMode || hasCourierSelected.value) && !isSelfPickupSelected.value) {
     requiredFields.destination_city = 'Destination city is required.';
     requiredFields.packet_weight = 'Packet weight is required.';
   }
 
-  if ((isCreateMode || hasCourierSelected.value) && !isArgoSelected.value) {
+  if ((isCreateMode || hasCourierSelected.value) && !isArgoSelected.value && !isSelfPickupSelected.value) {
     requiredFields.shipment_type = 'Shipment type is required.';
   }
 
@@ -1889,7 +1922,12 @@ const handleSave = async (mode) => {
     errors.advance_payment = 'Advance payment cannot be greater than total amount.';
   }
 
-  if (isPostexSelected.value) {
+  if (isSelfPickupSelected.value) {
+    const fare = Number(form.self_pickup_fare || 0);
+    if (Number.isNaN(fare) || fare < 0) {
+      errors.self_pickup_fare = 'Fare must be zero or greater.';
+    }
+  } else if (isPostexSelected.value) {
     if (postexPickupLoading.value) {
       errors.pickup_address_code = 'Pickup addresses are still loading.';
     } else if (postexPickupError.value) {
@@ -1977,7 +2015,7 @@ const handleSave = async (mode) => {
 
   saving.value = true;
   try {
-    const supportsShipmentBooking = isPostexSelected.value || isLeopardSelected.value || isDastaqSelected.value || isArgoSelected.value;
+    const supportsShipmentBooking = isPostexSelected.value || isLeopardSelected.value || isDastaqSelected.value || isArgoSelected.value || isSelfPickupSelected.value;
     const shouldBookShipment = mode === 'create' && supportsShipmentBooking;
     const payload = buildPayload();
 
@@ -1998,7 +2036,7 @@ const handleSave = async (mode) => {
 
     if (mode === 'create') {
       if (!supportsShipmentBooking) {
-        showErrorPopup('Shipment booking is only available for PostEx, Leopard, Dastaq, and Argo right now.');
+        showErrorPopup('Shipment booking is only available for PostEx, Leopard, Dastaq, Argo, and Self Pickup / Bykea right now.');
         return;
       }
 
