@@ -924,6 +924,10 @@ const citySelectPlaceholder = computed(() => {
   return 'Search Destination City';
 });
 const shipmentTypeOptions = computed(() => {
+  if (isPostexSelected.value) {
+    return ['Normal', 'Reversed', 'Replacement', 'Overland'];
+  }
+
   if (isLeopardSelected.value) {
     const city = leopardCities.value.find((item) => String(item.id) === String(form.destination_city_id));
     return city?.shipment_type?.length ? city.shipment_type : leopardShipmentTypes.value;
@@ -937,7 +941,7 @@ const shipmentTypeOptions = computed(() => {
 });
 
 const defaultShipmentTypeForSelectedCourier = () => {
-  if (isPostexSelected.value) return 'Overnight';
+  if (isPostexSelected.value) return 'Normal';
   if (isLeopardSelected.value) return 'Overnight';
   if (isDastaqSelected.value) return 'cod';
   return '';
