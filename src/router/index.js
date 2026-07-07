@@ -20,6 +20,7 @@ const routes = [
   { path: '/settings/team-members/create', component: () => import('../pages/settings/TeamMemberFormPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/team-members/:id/edit', component: () => import('../pages/settings/TeamMemberFormPage.vue'), meta: { requiresAuth: true } },
   { path: '/orders', component: () => import('../pages/OrdersPage.vue'), meta: { requiresAuth: true } },
+  { path: '/bulk-upload', component: () => import('../pages/BulkUploadPage.vue'), meta: { requiresAuth: true } },
   { path: '/abandoned-orders', component: () => import('../pages/AbandonedOrdersPage.vue'), meta: { requiresAuth: true } },
   { path: '/vendors', component: () => import('../pages/vendors/VendorsListPage.vue'), meta: { requiresAuth: true } },
   { path: '/vendors/invoices', component: () => import('../pages/vendors/InvoicesListPage.vue'), meta: { requiresAuth: true } },

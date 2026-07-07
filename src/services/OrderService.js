@@ -13,6 +13,11 @@ const OrderService = {
   saveDraft(payload) {
     return axiosInstance.post('/orders/draft', payload);
   },
+  bulkUploadShopifyOrders(formData) {
+    return axiosInstance.post('/orders/bulk-upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   updateDraft(id, payload) {
     return axiosInstance.put(`/orders/${id}/draft`, payload);
   },
