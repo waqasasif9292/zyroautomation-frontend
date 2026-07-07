@@ -210,7 +210,13 @@
                 </td>
                 <td>{{ formatPhone(order.contact) || '—' }}</td>
                 <td>{{ order.courier_name || '—' }}</td>
-                <td>{{ order.status || '—' }}</td>
+                <td>
+                  <OrderStatusBadge
+                    v-if="shouldColorPackingStatus(order)"
+                    :status="order.status_category"
+                  />
+                  <span v-else>{{ order.status || '—' }}</span>
+                </td>
                 <td>
                   <a
                     v-if="order.tracking_number"
@@ -257,6 +263,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
+import OrderStatusBadge from '../components/orders/OrderStatusBadge.vue';
 import PackingLogService from '../services/PackingLogService';
 import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
@@ -327,6 +334,15 @@ const emptyText = computed(() => isPackedView.value ? 'No packed shipments.' : '
 const actionLabel = computed(() => isPackedView.value ? 'Mark As Unshipped' : 'Mark As Shipped');
 const statsTotalLabel = computed(() => isPackedView.value ? 'Today Packed' : 'Total Pending');
 const statsTotalValue = computed(() => isPackedView.value ? packingStats.value.today_packed : packingStats.value.total_pending);
+const coloredPackingStatusCategories = new Set([
+  'dispatched',
+  'out_for_delivery',
+  'delivered',
+  'ready_for_return',
+  'returned_to_shipper',
+  'error',
+  'cancel_by_shipper',
+]);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
   return ((pagination.value.current_page - 1) * pagination.value.per_page) + 1;
@@ -361,6 +377,7 @@ const fetchPackingStats = async () => {
 
 const courierStatLabel = courier => isPackedView.value ? `${courier.name} Today` : courier.name;
 const courierStatValue = courier => isPackedView.value ? courier.today_packed : courier.pending;
+const shouldColorPackingStatus = order => coloredPackingStatusCategories.has(order?.status_category || '');
 
 const fetchShipments = async () => {
   loading.value = true;
