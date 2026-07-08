@@ -199,39 +199,6 @@
                 >
                   R
                 </button>
-                <button
-                  v-if="showAddressConfirmationAction && canSendAddressConfirmation(order)"
-                  class="action-btn"
-                  :class="{ sent: addressConfirmationSent(order) }"
-                  type="button"
-                  :aria-label="addressConfirmationActionLabel(order)"
-                  :title="addressConfirmationActionLabel(order)"
-                  :disabled="addressConfirmationLoadingId === order.id"
-                  @click.stop="$emit('address-confirmation', order.id)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
-                    <path d="M8 8h8" />
-                    <path d="M8 12h5" />
-                  </svg>
-                </button>
-                <button
-                  v-if="showOutForDeliveryAction && canSendOutForDelivery(order)"
-                  class="action-btn"
-                  :class="{ sent: outForDeliverySent(order) }"
-                  type="button"
-                  :aria-label="outForDeliveryActionLabel(order)"
-                  :title="outForDeliveryActionLabel(order)"
-                  :disabled="outForDeliveryLoadingId === order.id"
-                  @click.stop="$emit('out-for-delivery', order.id)"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M3 7h11v9H3Z" />
-                    <path d="M14 10h3l4 4v2h-7Z" />
-                    <circle cx="7" cy="18" r="2" />
-                    <circle cx="17" cy="18" r="2" />
-                  </svg>
-                </button>
                 <button v-if="canManageDestructiveActions" class="action-btn danger-btn" type="button" aria-label="Delete order" title="Delete order" @click.stop="$emit('delete', order.id)">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M4 7h16" />
@@ -289,25 +256,9 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  showAddressConfirmationAction: {
-    type: Boolean,
-    default: false,
-  },
-  addressConfirmationLoadingId: {
-    type: String,
-    default: '',
-  },
-  showOutForDeliveryAction: {
-    type: Boolean,
-    default: false,
-  },
-  outForDeliveryLoadingId: {
-    type: String,
-    default: '',
-  },
 });
 
-defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'address-confirmation', 'out-for-delivery', 'hold-call', 'self-pickup-delivered', 'self-pickup-returned', 'toggle-select', 'select-page']);
+defineEmits(['view', 'edit', 'delete', 'track', 'cancel', 'hold-call', 'self-pickup-delivered', 'self-pickup-returned', 'toggle-select', 'select-page']);
 
 const router = useRouter();
 const route = useRoute();
@@ -386,23 +337,6 @@ const canMarkSelfPickupReturned = (order) => (
   isSelfPickupOrder(order)
     && String(order.tracking_number || '').trim() !== ''
     && !['delivered', 'returned_to_shipper'].includes(order.status_category)
-);
-const canSendAddressConfirmation = (order) => Boolean(
-  !String(order.tracking_number || '').trim()
-    && (order.customer?.phone_local || order.customer?.phone_intl)
-    && order.customer?.address
-);
-const addressConfirmationSent = (order) => order.whatsapp_address_confirmation?.status === 'sent';
-const addressConfirmationActionLabel = (order) => (
-  addressConfirmationSent(order) ? 'Resend address confirmation' : 'Send address confirmation'
-);
-const canSendOutForDelivery = (order) => Boolean(
-  order.status_category === 'out_for_delivery'
-    && (order.customer?.phone_local || order.customer?.phone_intl)
-);
-const outForDeliverySent = (order) => order.whatsapp_out_for_delivery?.status === 'sent';
-const outForDeliveryActionLabel = (order) => (
-  outForDeliverySent(order) ? 'Resend out for delivery message' : 'Send out for delivery message'
 );
 const formatDate = (value) => {
   if (!value) return '—';

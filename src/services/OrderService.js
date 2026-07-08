@@ -54,12 +54,6 @@ const OrderService = {
   markSelfPickupReturned(id) {
     return axiosInstance.put(`/orders/${id}/self-pickup/returned`);
   },
-  sendAddressConfirmation(id) {
-    return axiosInstance.post(`/orders/${id}/whatsapp/address-confirmation`);
-  },
-  sendOutForDelivery(id) {
-    return axiosInstance.post(`/orders/${id}/whatsapp/out-for-delivery`);
-  },
   saveHoldCallLog(id, payload) {
     return axiosInstance.post(`/orders/${id}/hold-call-logs`, payload);
   },

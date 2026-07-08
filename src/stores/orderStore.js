@@ -152,16 +152,6 @@ export const useOrderStore = defineStore('order', () => {
     await fetchOrders();
   };
 
-  const sendAddressConfirmation = async (id) => {
-    const res = await OrderService.sendAddressConfirmation(id);
-    return res.data;
-  };
-
-  const sendOutForDelivery = async (id) => {
-    const res = await OrderService.sendOutForDelivery(id);
-    return res.data;
-  };
-
   const saveHoldCallLog = async (id, payload) => {
     const res = await OrderService.saveHoldCallLog(id, payload);
     const updatedOrder = res.data.data.order;
@@ -200,8 +190,6 @@ export const useOrderStore = defineStore('order', () => {
     updateBooking,
     correctAddress,
     correctOrderAddress,
-    sendAddressConfirmation,
-    sendOutForDelivery,
     saveHoldCallLog,
     cancelByShipper,
     deleteOrder,
