@@ -17,6 +17,13 @@
         <section class="result-panel" :class="{ loss: results.totals?.final_profit < 0 }">
           <span>{{ results.totals?.final_profit >= 0 ? 'Final Profit' : 'Final Loss' }}</span>
           <strong>{{ money(Math.abs(Number(results.totals?.final_profit || 0))) }}</strong>
+          <div v-if="zeroDcCount" class="zero-dc-badge">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10.3 21a2 2 0 0 0 3.4 0" />
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+            </svg>
+            <span>{{ zeroDcCount }} {{ zeroDcCount === 1 ? 'parcel has' : 'parcels have' }} 0 DC</span>
+          </div>
         </section>
 
         <section class="cards">
@@ -27,18 +34,22 @@
           <article>
             <span>Delivered</span>
             <strong>{{ number(results.summary?.delivered_count) }}</strong>
+            <small>{{ percentOfTotal(results.summary?.delivered_count) }} of orders</small>
           </article>
           <article>
             <span>Returned</span>
             <strong>{{ number(results.summary?.returned_count) }}</strong>
+            <small>{{ percentOfTotal(results.summary?.returned_count) }} of orders</small>
           </article>
           <article>
             <span>Pending</span>
             <strong>{{ number(results.summary?.pending_count) }}</strong>
+            <small>{{ percentOfTotal(results.summary?.pending_count) }} of orders</small>
           </article>
           <article>
             <span>Cancelled</span>
             <strong>{{ number(results.summary?.cancelled_count) }}</strong>
+            <small>{{ percentOfTotal(results.summary?.cancelled_count) }} of orders</small>
           </article>
           <article>
             <span>Products</span>
@@ -51,10 +62,6 @@
         </section>
 
         <section class="cards input-cards">
-          <article>
-            <span>Product Cost</span>
-            <strong>{{ money(report.summary?.total_product_cost) }}</strong>
-          </article>
           <article>
             <span>Packing / Order</span>
             <strong>{{ money(report.packing_cost) }}</strong>
@@ -129,14 +136,13 @@
             <article>
               <h3>Revenue & Order Costs</h3>
               <dl>
-                <div><dt>Total Revenue</dt><dd class="positive">{{ money(results.totals?.total_revenue) }}</dd></div>
-                <div><dt>Product Cost</dt><dd class="negative">-{{ money(results.totals?.total_product_cost) }}</dd></div>
-                <div><dt>Delivery Charges</dt><dd class="negative">-{{ money(results.totals?.total_dc) }}</dd></div>
-                <div><dt>Fuel Surcharge</dt><dd class="negative">-{{ money(results.totals?.total_fuel) }}</dd></div>
-                <div><dt>GST</dt><dd class="negative">-{{ money(results.totals?.total_gst) }}</dd></div>
-                <div><dt>Packing</dt><dd class="negative">-{{ money(results.totals?.total_packing) }}</dd></div>
-                <div><dt>Courier Withholding Tax</dt><dd class="negative">-{{ money(results.totals?.total_tax) }}</dd></div>
-                <div><dt>Return Loss</dt><dd class="negative">-{{ money(results.totals?.total_return_loss) }}</dd></div>
+                <div><dt>Delivered Parcel COD</dt><dd class="positive">{{ money(results.totals?.total_revenue) }}</dd></div>
+                <div><dt>Delivered Product Cost</dt><dd class="negative">-{{ money(results.totals?.total_product_cost) }}</dd></div>
+                <div><dt>Dispatched Packing</dt><dd class="negative">-{{ money(results.totals?.total_packing) }}</dd></div>
+                <div><dt>Dispatched Delivery Charges</dt><dd class="negative">-{{ money(results.totals?.total_dc) }}</dd></div>
+                <div><dt>Dispatched Fuel Surcharge</dt><dd class="negative">-{{ money(results.totals?.total_fuel) }}</dd></div>
+                <div><dt>Dispatched GST</dt><dd class="negative">-{{ money(results.totals?.total_gst) }}</dd></div>
+                <div><dt>Delivered Courier Tax</dt><dd class="negative">-{{ money(results.totals?.total_tax) }}</dd></div>
                 <div class="highlight"><dt>Profit Before Ads</dt><dd>{{ money(results.totals?.total_profit_before_ads) }}</dd></div>
               </dl>
             </article>
@@ -152,6 +158,47 @@
                 <div class="highlight"><dt>Final Profit/Loss</dt><dd>{{ money(results.totals?.final_profit) }}</dd></div>
               </dl>
             </article>
+          </div>
+        </section>
+
+        <section class="table-section">
+          <h2>Courier COD & Charges</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Courier</th>
+                  <th>Delivered</th>
+                  <th>Dispatched</th>
+                  <th>Delivered COD</th>
+                  <th>Delivery</th>
+                  <th>Fuel</th>
+                  <th>GST</th>
+                  <th>Courier Tax</th>
+                  <th>Total Charges</th>
+                  <th>Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in courierBreakdown" :key="row.courier_integration_id">
+                  <td>{{ courierName(row.courier_integration_id) }}</td>
+                  <td>{{ number(row.delivered_count) }}</td>
+                  <td>{{ number(row.dispatched_count) }}</td>
+                  <td class="money-cell success">{{ money(row.delivered_cod) }}</td>
+                  <td class="money-cell danger">-{{ money(row.delivery_charges) }}</td>
+                  <td class="money-cell danger">-{{ money(row.fuel_charges) }}</td>
+                  <td class="money-cell danger">-{{ money(row.gst) }}</td>
+                  <td class="money-cell danger">-{{ money(row.courier_tax) }}</td>
+                  <td class="money-cell danger">-{{ money(row.total_courier_cost) }}</td>
+                  <td :class="['money-cell', row.net_after_courier_cost >= 0 ? 'success' : 'danger']">
+                    {{ money(row.net_after_courier_cost) }}
+                  </td>
+                </tr>
+                <tr v-if="!courierBreakdown.length">
+                  <td colspan="10">No courier data found.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -261,8 +308,21 @@ const loading = ref(true);
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const number = (value) => Number(value || 0).toLocaleString();
 const percent = (value) => `${Number(value || 0).toLocaleString()}%`;
-const courierName = (id) => options.value.couriers.find(courier => courier.id === id)?.name || 'Courier';
+const percentOfTotal = (value) => {
+  const total = Number(results.value.summary?.total_orders || 0);
+  if (!total) return '0%';
+
+  return `${Number(((Number(value || 0) / total) * 100).toFixed(1)).toLocaleString()}%`;
+};
+const courierName = (id) => {
+  if (id === 'self_pickup') return 'Self Pickup';
+  if (!id || id === 'unknown') return 'Unknown Courier';
+
+  return options.value.couriers.find(courier => courier.id === id)?.name || 'Courier';
+};
 const results = computed(() => report.value?.results || { summary: {}, totals: {} });
+const zeroDcCount = computed(() => Number(results.value.summary?.zero_dc_count || 0));
+const courierBreakdown = computed(() => Array.isArray(results.value.courier_breakdown) ? results.value.courier_breakdown : []);
 const statusChart = computed(() => {
   const summary = results.value.summary || {};
   const rows = [
@@ -293,13 +353,12 @@ const statusDonutGradient = computed(() => {
 const costBreakdown = computed(() => {
   const totals = results.value.totals || {};
   const rows = [
-    { label: 'Product Cost', value: Number(totals.total_product_cost || 0), color: '#2563eb' },
-    { label: 'Delivery + Fuel + GST', value: Number(totals.total_dc || 0) + Number(totals.total_fuel || 0) + Number(totals.total_gst || 0), color: '#0891b2' },
-    { label: 'Packing', value: Number(totals.total_packing || 0), color: '#7c3aed' },
-    { label: 'Courier Tax', value: Number(totals.total_tax || 0), color: '#db2777' },
+    { label: 'Delivered Product Cost', value: Number(totals.total_product_cost || 0), color: '#2563eb' },
+    { label: 'Dispatched Delivery + Fuel + GST', value: Number(totals.total_dc || 0) + Number(totals.total_fuel || 0) + Number(totals.total_gst || 0), color: '#0891b2' },
+    { label: 'Dispatched Packing', value: Number(totals.total_packing || 0), color: '#7c3aed' },
+    { label: 'Delivered Courier Tax', value: Number(totals.total_tax || 0), color: '#db2777' },
     { label: 'Ads + Tax', value: Number(totals.total_ad_with_tax || 0), color: '#ea580c' },
-    { label: 'Extra Expenses', value: Number(totals.total_extra_expenses || 0) + Number(totals.total_one_time_expenses || 0), color: '#475569' },
-    { label: 'Return Loss', value: Number(totals.total_return_loss || 0), color: '#dc2626' },
+    { label: 'Custom Expenses', value: Number(totals.total_extra_expenses || 0) + Number(totals.total_one_time_expenses || 0), color: '#475569' },
   ].filter(item => item.value > 0);
   const max = Math.max(...rows.map(item => item.value), 1);
   return rows.map(item => ({
@@ -432,6 +491,30 @@ p {
   font-size: 30px;
 }
 
+.zero-dc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #0f172a;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.zero-dc-badge svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -460,6 +543,14 @@ p {
   margin-top: 7px;
   color: #0f172a;
   font-size: 20px;
+}
+
+.cards small {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .chart-grid {
