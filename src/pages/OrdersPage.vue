@@ -178,15 +178,9 @@
               :selected-order-ids="selectedOrderIds"
               :all-page-selected="allVisibleOrdersSelected"
               :some-page-selected="someVisibleOrdersSelected"
-              :show-address-confirmation-action="showAddressConfirmationInList"
-              :address-confirmation-loading-id="addressConfirmationLoadingId"
-              :show-out-for-delivery-action="showOutForDeliveryInList"
-              :out-for-delivery-loading-id="outForDeliveryLoadingId"
               @view="orderStore.fetchOrder"
               @edit="handleEdit"
               @cancel="handleCancel"
-              @address-confirmation="handleAddressConfirmation"
-              @out-for-delivery="handleOutForDelivery"
               @self-pickup-delivered="handleSelfPickupDelivered"
               @self-pickup-returned="handleSelfPickupReturned"
               @hold-call="openHoldCallWorkflow"
@@ -287,7 +281,6 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
-import SettingsService from '../services/SettingsService';
 import BillingService from '../services/BillingService';
 import OrderService from '../services/OrderService';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
@@ -315,10 +308,6 @@ const showColumnMenu = ref(false);
 const refreshing = ref(false);
 const recoveringBlocked = ref(false);
 const discardingBlocked = ref(false);
-const whatsappSettings = ref(null);
-const whatsappConnection = ref(null);
-const addressConfirmationLoadingId = ref('');
-const outForDeliveryLoadingId = ref('');
 const showHoldCallModal = ref(false);
 const holdCallOrder = ref(null);
 const holdCallSaving = ref(false);
@@ -407,15 +396,6 @@ const hasActiveFilters = computed(() => Boolean(
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
-const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
-const showAddressConfirmationInList = computed(() => {
-  const settings = whatsappSettings.value?.address_confirmation;
-  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
-});
-const showOutForDeliveryInList = computed(() => {
-  const settings = whatsappSettings.value?.out_for_delivery;
-  return Boolean(isWhatsAppConnected.value && settings?.enabled && settings?.show_in_order_list);
-});
 const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
 const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
 const billingMeterWidth = computed(() => Math.min(Math.max(Number(authStore.user?.remaining_percentage || 0), 0), 100));
@@ -749,45 +729,6 @@ const openHoldOrderEdit = () => {
   }).href, '_blank', 'noopener');
 };
 
-const loadWhatsAppSettings = async () => {
-  try {
-    const res = await SettingsService.fetchWhatsAppAutomation();
-    whatsappSettings.value = res.data.data.settings || null;
-    whatsappConnection.value = res.data.data.connection || null;
-  } catch (error) {
-    whatsappSettings.value = null;
-    whatsappConnection.value = null;
-  }
-};
-
-const handleAddressConfirmation = async (id) => {
-  addressConfirmationLoadingId.value = id;
-  const wasSent = orderStore.orders.find(order => order.id === id)?.whatsapp_address_confirmation?.status === 'sent';
-  try {
-    await orderStore.sendAddressConfirmation(id);
-    showToast(wasSent ? 'Address confirmation resent.' : 'Address confirmation sent.');
-    await orderStore.fetchOrders();
-  } catch (error) {
-    showToast(error.response?.data?.message || 'Unable to send address confirmation.');
-  } finally {
-    addressConfirmationLoadingId.value = '';
-  }
-};
-
-const handleOutForDelivery = async (id) => {
-  outForDeliveryLoadingId.value = id;
-  const wasSent = orderStore.orders.find(order => order.id === id)?.whatsapp_out_for_delivery?.status === 'sent';
-  try {
-    await orderStore.sendOutForDelivery(id);
-    showToast(wasSent ? 'Out for delivery message resent.' : 'Out for delivery message sent.');
-    await orderStore.fetchOrders();
-  } catch (error) {
-    showToast(error.response?.data?.message || 'Unable to send out for delivery message.');
-  } finally {
-    outForDeliveryLoadingId.value = '';
-  }
-};
-
 const handleSelfPickupDelivered = async (id) => {
   try {
     await OrderService.markSelfPickupDelivered(id);
@@ -1007,7 +948,6 @@ onMounted(async () => {
   await Promise.all([
     orderStore.fetchOrders(),
     authStore.fetchUser(),
-    loadWhatsAppSettings(),
     brandStore.brands.length ? Promise.resolve() : brandStore.fetchBrands(),
     integrationStore.fetchIntegrations(),
   ]);

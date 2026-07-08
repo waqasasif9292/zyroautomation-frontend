@@ -133,16 +133,6 @@
             <span v-if="addressSuggestionWarning" class="ai-address-warning">{{ addressSuggestionWarning }}</span>
           </div>
 
-          <div v-if="showAddressConfirmationInForm" class="whatsapp-action-panel" :class="{ sent: addressConfirmationSent }">
-            <div>
-              <strong>Address confirmation</strong>
-              <span>{{ addressConfirmationHelperText }}</span>
-            </div>
-            <button type="button" class="whatsapp-action-btn" :disabled="addressConfirmationSending" @click="sendAddressConfirmation">
-              {{ addressConfirmationButtonText }}
-            </button>
-          </div>
-
           <div class="section-title section-title-spaced">
             <span>03</span>
             <h2>Shipping</h2>
@@ -511,7 +501,6 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
 import AbandonedOrderService from '../../services/AbandonedOrderService';
-import SettingsService from '../../services/SettingsService';
 import { useAuthStore } from '../../stores/authStore';
 import { useBrandStore } from '../../stores/brandStore';
 import { useIntegrationStore } from '../../stores/integrationStore';
@@ -564,10 +553,6 @@ const dastaqCityError = ref('');
 const argoCities = ref([]);
 const argoCityLoading = ref(false);
 const argoCityError = ref('');
-const whatsappSettings = ref(null);
-const whatsappConnection = ref(null);
-const addressConfirmationSending = ref(false);
-const addressConfirmationStatus = ref(null);
 const failedSavedOrderId = ref(null);
 const loadedOrder = ref(null);
 const deleteOrderDialog = ref(false);
@@ -755,41 +740,6 @@ const readonlyLocksPartialForm = computed(() => isReadonlyMode.value && canEditR
 const isReadonlyFieldDisabled = (field) => (
   isReadonlyMode.value && (!canEditReadonlyOrderFields.value || !readonlyEditableFields.includes(field))
 );
-const isWhatsAppConnected = computed(() => whatsappConnection.value?.connected === true);
-const showAddressConfirmationInForm = computed(() => {
-  const settings = whatsappSettings.value?.address_confirmation;
-  return Boolean(isWhatsAppConnected.value && isEditMode.value && !isReadonlyMode.value && settings?.enabled && settings?.show_in_order_form);
-});
-const addressConfirmationSent = computed(() => addressConfirmationStatus.value?.status === 'sent');
-const formatAddressConfirmationTime = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
-};
-const addressConfirmationHelperText = computed(() => {
-  if (!addressConfirmationSent.value) {
-    return 'Send this address to the customer on WhatsApp for confirmation.';
-  }
-
-  const sentAt = formatAddressConfirmationTime(
-    addressConfirmationStatus.value?.sent_at || addressConfirmationStatus.value?.updated_at
-  );
-
-  return sentAt ? `Message sent on ${sentAt}.` : 'Message sent.';
-});
-const addressConfirmationButtonText = computed(() => {
-  if (addressConfirmationSending.value) return 'Sending...';
-  return addressConfirmationSent.value ? 'Resend confirmation' : 'Send confirmation';
-});
 const pageTitle = computed(() => {
   if (isReadonlyMode.value) return 'View Order';
   return isEditMode.value ? 'Edit Order' : 'Create Order';
@@ -1106,7 +1056,6 @@ onMounted(async () => {
     brandStore.fetchBrands(),
     integrationStore.fetchIntegrations(),
     productStore.fetchProducts(),
-    loadWhatsAppSettings(),
   ]);
 
   if (isEditMode.value) {
@@ -1203,8 +1152,6 @@ const loadOrderForEdit = async (id) => {
   hasAdvancePayment.value = Number(form.advance_payment || 0) > 0;
   form.special_instructions = manual.special_instructions || (order.shopify_order_id ? shopifyInstructions(order.line_items || []) : '');
   form.internal_notes = manual.internal_notes || '';
-  addressConfirmationStatus.value = order.whatsapp_address_confirmation || null;
-
   await nextTick();
   hydratingOrder.value = false;
 
@@ -1401,36 +1348,6 @@ const addItemsToSpecialInstructions = () => {
   form.special_instructions = text;
   delete errors.special_instructions;
   notificationStore.show('Product details added to special instructions.');
-};
-
-const loadWhatsAppSettings = async () => {
-  try {
-    const res = await SettingsService.fetchWhatsAppAutomation();
-    whatsappSettings.value = res.data.data.settings || null;
-    whatsappConnection.value = res.data.data.connection || null;
-  } catch (error) {
-    whatsappSettings.value = null;
-    whatsappConnection.value = null;
-  }
-};
-
-const sendAddressConfirmation = async () => {
-  if (!currentOrderId.value) return;
-
-  addressConfirmationSending.value = true;
-  const wasSent = addressConfirmationSent.value;
-  try {
-    const response = await orderStore.sendAddressConfirmation(currentOrderId.value);
-    addressConfirmationStatus.value = response?.data?.address_confirmation || {
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-    };
-    notificationStore.show(wasSent ? 'Address confirmation resent.' : 'Address confirmation sent.');
-  } catch (error) {
-    notificationStore.show(error.response?.data?.message || 'Unable to send address confirmation.', { type: 'error' });
-  } finally {
-    addressConfirmationSending.value = false;
-  }
 };
 
 const improveAddressWithAi = async () => {
@@ -2385,60 +2302,6 @@ const handleSave = async (mode) => {
   background: #fef3c7;
   color: #92400e !important;
   padding: 5px 8px;
-}
-
-.whatsapp-action-panel {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  align-items: center;
-  padding: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  background: #eff6ff;
-}
-
-.whatsapp-action-panel.sent {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-.whatsapp-action-panel div {
-  display: grid;
-  gap: 3px;
-}
-
-.whatsapp-action-panel strong {
-  color: #1e3a8a;
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.whatsapp-action-panel.sent strong {
-  color: #166534;
-}
-
-.whatsapp-action-panel span {
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.whatsapp-action-btn {
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid #1d4ed8;
-  border-radius: 8px;
-  background: #1d4ed8;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 850;
-  cursor: pointer;
-}
-
-.whatsapp-action-btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
 }
 
 .checkbox-field {
