@@ -312,6 +312,7 @@ const showHoldCallModal = ref(false);
 const holdCallOrder = ref(null);
 const holdCallSaving = ref(false);
 const holdAddressAiLoading = ref(false);
+const exportingProducts = ref(false);
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -551,6 +552,48 @@ const replaceFilterQuery = async () => {
     });
   } finally {
     syncingQuery = false;
+  }
+};
+
+const routeWantsExport = () => {
+  const value = Array.isArray(route.query.export) ? route.query.export[0] : route.query.export;
+  return String(value || '').toLowerCase() === 'true';
+};
+
+const filenameFromDisposition = (disposition, fallback) => {
+  const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(disposition || '');
+  return match ? decodeURIComponent(match[1]) : fallback;
+};
+
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+const exportProductOrderSummary = async () => {
+  if (exportingProducts.value) return;
+
+  exportingProducts.value = true;
+  try {
+    const response = await OrderService.exportProductOrders(buildFilterQuery(orderStore.filters, orderQueryDefaults));
+    const filename = filenameFromDisposition(response.headers?.['content-disposition'], 'products_orders.csv');
+    const contentType = response.headers?.['content-type'] || 'text/csv;charset=utf-8';
+    downloadBlob(new Blob([response.data], { type: contentType }), filename);
+    showToast('Product report downloaded.');
+  } catch (error) {
+    console.error(error);
+    showToast('Unable to export product report.');
+  } finally {
+    exportingProducts.value = false;
+    if (routeWantsExport()) {
+      await replaceFilterQuery();
+    }
   }
 };
 
@@ -933,6 +976,9 @@ watch(() => ({ ...route.query }), async () => {
   if (syncingQuery) return;
   hydrateFiltersFromRoute();
   await reloadOrdersAndStats();
+  if (routeWantsExport()) {
+    await exportProductOrderSummary();
+  }
 });
 
 watch(() => orderStore.orders.map(order => order.id), (ids) => {
@@ -952,6 +998,9 @@ onMounted(async () => {
     integrationStore.fetchIntegrations(),
   ]);
   hydrateOrderColumns();
+  if (routeWantsExport()) {
+    await exportProductOrderSummary();
+  }
 });
 
 onBeforeUnmount(() => {

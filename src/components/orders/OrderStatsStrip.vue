@@ -50,6 +50,11 @@
           <path d="M8 7.5A2.5 2.5 0 0 1 10.5 5h6A2.5 2.5 0 0 1 19 7.5v8A2.5 2.5 0 0 1 16.5 18h-6A2.5 2.5 0 0 1 8 15.5v-8Z" fill="currentColor" />
           <path d="M5 8.5v7A3.5 3.5 0 0 0 8.5 19H15" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
         </svg>
+        <svg v-else-if="item.icon === 'error'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.6 21 19.4H3L12 3.6Z" fill="currentColor" />
+          <path d="M12 9v4.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" />
+          <path d="M12 17h.01" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+        </svg>
         <svg v-else-if="item.icon === 'warehouse'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3.5 10.5 12 5l8.5 5.5v8A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5v-8Z" fill="currentColor" />
           <path d="M7.5 20v-6.5h9V20M7.5 14h9M9.5 16.5h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
@@ -91,6 +96,7 @@ const stats = ref({
   hold: 0,
   pending_confirmation: 0,
   duplicate: 0,
+  error: 0,
   merchant_warehouse: 0,
   dispatched: 0,
   out_for_delivery: 0,
@@ -162,6 +168,7 @@ const statItems = computed(() => [
   { key: 'hold', label: 'On Hold', value: stats.value.hold, icon: 'hold', filter: statusFilter('hold') },
   { key: 'pending_confirmation', label: 'Pending Confirmation', value: stats.value.pending_confirmation, icon: 'pending', filter: statusFilter('pending_confirmation') },
   { key: 'duplicate', label: 'Duplicate', value: stats.value.duplicate, icon: 'duplicate', filter: statusFilter('duplicate') },
+  { key: 'error', label: 'Error', value: stats.value.error, icon: 'error', filter: statusFilter('error') },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'warehouse', filter: statusFilter('merchant_warehouse') },
   { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
@@ -314,6 +321,10 @@ onMounted(fetchStats);
 
 .stat-icon.duplicate {
   background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+}
+
+.stat-icon.error {
+  background: linear-gradient(135deg, #dc2626 0%, #f97316 100%);
 }
 
 .stat-icon.warehouse {

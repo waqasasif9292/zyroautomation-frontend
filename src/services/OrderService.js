@@ -10,6 +10,14 @@ const OrderService = {
   getStats() {
     return axiosInstance.get('/orders/stats/summary');
   },
+  exportProductOrders(params = {}) {
+    const { page, per_page, ...exportParams } = params;
+
+    return axiosInstance.get('/orders', {
+      params: { ...exportParams, export: true },
+      responseType: 'blob',
+    });
+  },
   saveDraft(payload) {
     return axiosInstance.post('/orders/draft', payload);
   },
