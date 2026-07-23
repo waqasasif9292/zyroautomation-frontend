@@ -381,7 +381,17 @@
                 <label>Qty</label>
                 <div class="qty-stepper">
                   <button type="button" :disabled="readonlyLocksPartialForm || Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
-                  <span>{{ Number(row.quantity || 1).toLocaleString() }}</span>
+                  <input
+                    :value="row.quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputmode="numeric"
+                    aria-label="Quantity"
+                    :disabled="readonlyLocksPartialForm"
+                    @input="setItemQuantity(row, $event.target.value)"
+                    @blur="normalizeItemQuantity(row)"
+                  >
                   <button type="button" :disabled="readonlyLocksPartialForm" @click="incrementItemQuantity(row)">+</button>
                 </div>
               </div>
@@ -507,6 +517,7 @@ import { useIntegrationStore } from '../../stores/integrationStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { useOrderStore } from '../../stores/orderStore';
 import { useProductStore } from '../../stores/productStore';
+import { isTeamAdmin } from '../../constants/sidebarPermissions';
 import phoneNormalizer, { isNormalizedPakistaniMobile } from '../../utils/phoneNormalizer';
 
 const SELF_PICKUP_COURIER_ID = 'self_pickup';
@@ -680,7 +691,7 @@ const orderListQuery = () => {
   return query;
 };
 const returnToOrders = () => router.push({ path: '/orders', query: orderListQuery() });
-const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && authStore.user?.team_role === 'owner'));
+const canEditReadonlyOrderFields = computed(() => Boolean(isReadonlyMode.value && isTeamAdmin(authStore.user)));
 const canManageDestructiveActions = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const canUseAiAddressSuggestions = computed(() => authStore.user?.ai_address_suggestions_enabled === true);
 const currentOrderLabel = computed(() => loadedOrder.value?.order_name || loadedOrder.value?.customer?.name || currentOrderId.value || 'Order');
@@ -1332,14 +1343,28 @@ const selectFirstFilteredCity = () => {
 };
 
 const incrementItemQuantity = (row) => {
-  row.quantity = Number(row.quantity || 1) + 1;
+  row.quantity = normalizedQuantity(row.quantity) + 1;
 };
 
 const decrementItemQuantity = (row) => {
-  row.quantity = Math.max(Number(row.quantity || 1) - 1, 1);
+  row.quantity = Math.max(normalizedQuantity(row.quantity) - 1, 1);
 };
 
-const productInstructionText = () => items.value.map(row => `${row.quantity || 1} X ${row.name}`).join(' , ');
+const setItemQuantity = (row, value) => {
+  row.quantity = value;
+  delete errors.items;
+};
+
+const normalizeItemQuantity = (row) => {
+  row.quantity = normalizedQuantity(row.quantity);
+};
+
+const normalizedQuantity = (value) => {
+  const quantity = Number.parseInt(value, 10);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+};
+
+const productInstructionText = () => items.value.map(row => `${normalizedQuantity(row.quantity)} X ${row.name}`).join(' , ');
 
 const addItemsToSpecialInstructions = () => {
   const text = productInstructionText();
@@ -1700,7 +1725,7 @@ const buildPayload = () => {
     self_pickup_fare: isSelfPickupSelected.value ? Number(form.self_pickup_fare || 0) : null,
     line_items: items.value.map((row) => ({
       product_id: row.product_id,
-      quantity: Number(row.quantity || 1),
+      quantity: normalizedQuantity(row.quantity),
     })),
     ai_address_correction: canUseAiAddressSuggestions.value && addressSuggestion.correctedAddress
       ? {
@@ -2734,8 +2759,8 @@ select:disabled {
 
 .selected-item {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 116px auto;
-  align-items: center;
+  grid-template-columns: 56px minmax(0, 1fr) 150px 86px;
+  align-items: start;
   gap: 14px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -2779,6 +2804,8 @@ select:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  justify-self: end;
+  width: 150px;
 }
 
 .item-qty label {
@@ -2789,9 +2816,9 @@ select:disabled {
 
 .qty-stepper {
   display: grid;
-  grid-template-columns: 32px minmax(34px, 1fr) 32px;
+  grid-template-columns: 36px minmax(64px, 1fr) 36px;
   align-items: center;
-  width: 116px;
+  width: 150px;
   height: 38px;
   overflow: hidden;
   border: 1px solid #cbd5e1;
@@ -2800,7 +2827,7 @@ select:disabled {
 }
 
 .qty-stepper button {
-  width: 32px;
+  width: 36px;
   height: 38px;
   border: 0;
   background: #f8fafc;
@@ -2822,20 +2849,49 @@ select:disabled {
   cursor: not-allowed;
 }
 
-.qty-stepper span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.qty-stepper input {
+  width: 100%;
   min-width: 0;
   height: 38px;
   border-right: 1px solid #e2e8f0;
   border-left: 1px solid #e2e8f0;
+  border-top: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  padding: 0 6px;
   color: #0f172a;
   font-size: 13px;
   font-weight: 850;
+  text-align: center;
+  box-shadow: none;
+  -moz-appearance: textfield;
+}
+
+.qty-stepper input:focus {
+  position: relative;
+  z-index: 1;
+  border-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px #93c5fd;
+  outline: none;
+}
+
+.qty-stepper input:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
 }
 
 .remove-item-btn {
+  justify-self: end;
+  align-self: end;
+  min-width: 86px;
+  min-height: 38px;
   border: 1px solid #fecaca;
   border-radius: 8px;
   background: #fff;
@@ -3131,6 +3187,13 @@ select:disabled {
   .item-row,
   .selected-item {
     grid-template-columns: 1fr;
+  }
+
+  .item-qty,
+  .qty-stepper,
+  .remove-item-btn {
+    justify-self: stretch;
+    width: 100%;
   }
 
   .actions {

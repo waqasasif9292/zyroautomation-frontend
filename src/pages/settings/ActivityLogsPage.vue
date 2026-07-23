@@ -40,8 +40,8 @@
                     <td>{{ number(row.today) }}</td>
                     <td>{{ number(row.yesterday) }}</td>
                     <td>{{ number(row.last_7_days) }}</td>
-                    <td>{{ number(row.this_month) }}</td>
-                    <td>{{ number(row.last_month) }}</td>
+                    <td>{{ monthWithReturnRate(row.this_month, row.this_month_return_rate) }}</td>
+                    <td>{{ monthWithReturnRate(row.last_month, row.last_month_return_rate) }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -69,7 +69,17 @@ const activity = ref({
   this_month: '',
   last_month: '',
   rows: [],
-  totals: { today: 0, yesterday: 0, last_7_days: 0, this_month: 0, last_month: 0 },
+  totals: {
+    today: 0,
+    yesterday: 0,
+    last_7_days: 0,
+    this_month: 0,
+    this_month_returns: 0,
+    this_month_return_rate: 0,
+    last_month: 0,
+    last_month_returns: 0,
+    last_month_return_rate: 0,
+  },
 });
 
 const rows = computed(() => activity.value.rows || []);
@@ -88,6 +98,8 @@ const labels = computed(() => ({
 }));
 
 const number = (value) => Number(value || 0).toLocaleString();
+const percent = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+const monthWithReturnRate = (orders, returnRate) => `${number(orders)} (${percent(returnRate)}% return)`;
 
 const fetchLogs = async () => {
   loading.value = true;
