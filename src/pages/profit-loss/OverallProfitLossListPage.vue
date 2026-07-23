@@ -21,8 +21,6 @@
                 <th>Name</th>
                 <th>Date Range</th>
                 <th>Orders</th>
-                <th>Delivered</th>
-                <th>Returned</th>
                 <th>Products</th>
                 <th>Quantity</th>
                 <th>Product Cost</th>
@@ -32,10 +30,10 @@
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="10">Loading overall profit/loss reports...</td>
+                <td colspan="8">Loading overall profit/loss reports...</td>
               </tr>
               <tr v-else-if="!reports.length">
-                <td class="empty-cell" colspan="10">
+                <td class="empty-cell" colspan="8">
                   <div>
                     <strong>No overall profit/loss reports yet.</strong>
                     <button class="primary-btn" type="button" @click="router.push('/overall-profit-loss/create')">Create Report</button>
@@ -45,9 +43,7 @@
               <tr v-for="report in reports" v-else :key="report.id">
                 <td><button class="name-btn" type="button" @click="router.push(`/overall-profit-loss/${report.id}`)">{{ report.name }}</button></td>
                 <td>{{ report.start_date }} to {{ report.end_date }}</td>
-                <td>{{ number(report.results?.summary?.total_orders ?? report.summary?.orders_count) }}</td>
-                <td>{{ number(report.results?.summary?.delivered_count) }}</td>
-                <td>{{ number(report.results?.summary?.returned_count) }}</td>
+                <td>{{ number(report.summary?.orders_count) }}</td>
                 <td>{{ number(report.summary?.products_count) }}</td>
                 <td>{{ number(report.summary?.total_quantity) }}</td>
                 <td>{{ money(report.summary?.total_product_cost) }}</td>
