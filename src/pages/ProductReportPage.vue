@@ -90,6 +90,7 @@
           <div v-for="metric in summaryMetrics" :key="metric.key" class="metric">
             <span>{{ metric.label }}</span>
             <strong>{{ metric.value }}</strong>
+            <small v-if="metric.note">{{ metric.note }}</small>
           </div>
         </div>
 
@@ -102,7 +103,7 @@
               <thead>
                 <tr>
                   <th>Status</th>
-                  <th>Orders</th>
+                  <th>Dispatched Orders</th>
                   <th>Units</th>
                   <th>%</th>
                 </tr>
@@ -127,7 +128,7 @@
               <thead>
                 <tr>
                   <th>Courier</th>
-                  <th>Total</th>
+                  <th>Dispatched</th>
                   <th>Delivered</th>
                   <th>Returned</th>
                   <th>Return %</th>
@@ -157,12 +158,11 @@
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Orders</th>
+                <th>Dispatched Orders</th>
                 <th>Units</th>
                 <th>Revenue</th>
                 <th>Delivered</th>
                 <th>Returned</th>
-                <th>Cancelled</th>
                 <th>Return %</th>
               </tr>
             </thead>
@@ -174,10 +174,9 @@
                 <td>{{ formatMoney(row.revenue) }}</td>
                 <td>{{ formatNumber(row.delivered_orders) }}</td>
                 <td>{{ formatNumber(row.returned_orders) }}</td>
-                <td>{{ formatNumber(row.cancelled_orders) }}</td>
                 <td>{{ row.return_rate }}%</td>
               </tr>
-              <tr v-if="!report.product_breakdown.length"><td colspan="8">No product performance found.</td></tr>
+              <tr v-if="!report.product_breakdown.length"><td colspan="7">No product performance found.</td></tr>
             </tbody>
           </table>
         </section>
@@ -191,7 +190,7 @@
               <thead>
                 <tr>
                   <th>Brand</th>
-                  <th>Orders</th>
+                  <th>Dispatched Orders</th>
                   <th>Units</th>
                   <th>Revenue</th>
                   <th>Returned</th>
@@ -218,11 +217,10 @@
               <thead>
                 <tr>
                   <th>Source</th>
-                  <th>Orders</th>
+                  <th>Dispatched Orders</th>
                   <th>Units</th>
                   <th>Revenue</th>
                   <th>Returned</th>
-                  <th>Cancelled</th>
                 </tr>
               </thead>
               <tbody>
@@ -232,9 +230,8 @@
                   <td>{{ formatNumber(row.units) }}</td>
                   <td>{{ formatMoney(row.revenue) }}</td>
                   <td>{{ formatNumber(row.returned_orders) }}</td>
-                  <td>{{ formatNumber(row.cancelled_orders) }}</td>
                 </tr>
-                <tr v-if="!report.source_breakdown.length"><td colspan="6">No source data.</td></tr>
+                <tr v-if="!report.source_breakdown.length"><td colspan="5">No source data.</td></tr>
               </tbody>
             </table>
           </section>
@@ -334,14 +331,14 @@ const showProductOptions = computed(() => productSearchFocused.value && productS
 const summaryMetrics = computed(() => {
   const summary = report.value?.summary || {};
   return [
-    { key: 'orders', label: 'Total Orders', value: formatNumber(summary.total_orders) },
-    { key: 'units', label: 'Units Sold', value: formatNumber(summary.total_units) },
-    { key: 'revenue', label: 'Product Revenue', value: formatMoney(summary.product_revenue) },
-    { key: 'delivered', label: 'Delivered', value: `${formatNumber(summary.delivered_orders)} (${summary.delivery_rate || 0}%)` },
-    { key: 'cancelled', label: 'Cancelled', value: `${formatNumber(summary.cancelled_orders)} (${summary.cancel_rate || 0}%)` },
-    { key: 'returned', label: 'Returned', value: `${formatNumber(summary.returned_orders)} (${summary.return_rate || 0}%)` },
-    { key: 'ofd', label: 'Out For Delivery', value: formatNumber(summary.out_for_delivery_orders) },
-    { key: 'charges', label: 'Delivery Charges', value: formatMoney(summary.delivery_charges) },
+    { key: 'total-orders', label: 'Total Orders', value: formatNumber(summary.total_orders) },
+    { key: 'orders', label: 'Dispatched Orders', value: formatNumber(summary.dispatched_orders), note: 'Total minus cancelled' },
+    { key: 'units', label: 'Units Sold', value: formatNumber(summary.dispatched_units), note: 'From dispatched orders' },
+    { key: 'revenue', label: 'Product Revenue', value: formatMoney(summary.dispatched_product_revenue), note: 'From dispatched orders' },
+    { key: 'delivered', label: 'Delivered', value: `${formatNumber(summary.delivered_orders)} (${summary.delivery_rate_from_dispatched || 0}%)`, note: 'From dispatched orders' },
+    { key: 'returned', label: 'Returned', value: `${formatNumber(summary.returned_orders)} (${summary.return_rate_from_dispatched || 0}%)`, note: 'From dispatched orders' },
+    { key: 'ofd', label: 'Out For Delivery', value: formatNumber(summary.out_for_delivery_orders), note: 'From dispatched orders' },
+    { key: 'charges', label: 'Delivery Charges', value: formatMoney(summary.dispatched_delivery_charges), note: 'From dispatched orders' },
   ];
 });
 
@@ -675,6 +672,14 @@ select {
   color: #0f172a;
   font-size: 24px;
   font-weight: 950;
+}
+
+.metric small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .panel-grid {
