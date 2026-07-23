@@ -76,11 +76,13 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
+import { useNotificationStore } from '../stores/notificationStore';
 import { firstAccessiblePath } from '../constants/sidebarPermissions';
 import AuthLayout from '../layouts/AuthLayout.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const notificationStore = useNotificationStore();
 const loading = ref(false);
 const showPassword = ref(false);
 const errors = ref({});
@@ -99,17 +101,57 @@ const handleLogin = async () => {
     await authStore.login(form.value);
     router.push(firstAccessiblePath(authStore.user));
   } catch (error) {
+    const message = firstErrorMessage(error);
+
     if (error.response?.status === 429) {
       errors.value.general = 'Too many login attempts. Please try again later.';
+    } else if (isLoginCredentialError(error.response)) {
+      errors.value.password = ['Wrong password.'];
     } else if (error.response?.status === 422) {
       errors.value = error.response.data.errors || {};
-    } else if (error.response?.status === 401) {
-      errors.value.email = ['Invalid email or password.'];
     } else {
-      errors.value.general = error.response?.data?.message || 'An error occurred. Please try again.';
+      errors.value.general = message;
     }
+
+    notificationStore.show(message, { type: 'error' });
   } finally {
     loading.value = false;
   }
+};
+
+const firstErrorMessage = (error) => {
+  const response = error.response;
+  const errors = response?.data?.errors;
+
+  if (isLoginCredentialError(response)) {
+    return 'Wrong password.';
+  }
+
+  if (errors && typeof errors === 'object') {
+    const firstFieldErrors = Object.values(errors).find((fieldErrors) => fieldErrors?.length);
+    if (firstFieldErrors?.[0]) return firstFieldErrors[0];
+  }
+
+  if (response?.status === 429) {
+    return 'Too many login attempts. Please try again later.';
+  }
+
+  if (response?.status === 401) {
+    return 'Invalid email or password.';
+  }
+
+  return response?.data?.message || 'An error occurred. Please try again.';
+};
+
+const isLoginCredentialError = (response) => {
+  const message = String(response?.data?.message || '').toLowerCase();
+  const exceptionMessage = String(response?.data?.error?.message || '').toLowerCase();
+  const errorType = String(response?.data?.error?.type || '');
+
+  return response?.status === 401
+    || Boolean(response?.data?.errors?.email)
+    || message.includes('invalid email or password')
+    || exceptionMessage.includes('invalid email or password')
+    || errorType.endsWith('ValidationException');
 };
 </script>
