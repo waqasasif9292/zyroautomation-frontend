@@ -20,7 +20,7 @@
               <tr>
                 <th>Name</th>
                 <th>Date Range</th>
-                <th>Orders</th>
+                <th>Dispatched Orders</th>
                 <th>Products</th>
                 <th>Quantity</th>
                 <th>Product Cost</th>

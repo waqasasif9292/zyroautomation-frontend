@@ -80,7 +80,7 @@
           <section v-else-if="step === 2" class="step-body">
             <div class="summary-strip">
               <article>
-                <span>Orders</span>
+                <span>Dispatched Orders</span>
                 <strong>{{ number(summary.orders_count) }}</strong>
               </article>
               <article>
@@ -100,7 +100,7 @@
                     <th>#</th>
                     <th>Product</th>
                     <th>SKU</th>
-                    <th>Orders</th>
+                    <th>Dispatched Orders</th>
                     <th>Quantity</th>
                     <th>Cost Source</th>
                     <th>Unit Cost</th>

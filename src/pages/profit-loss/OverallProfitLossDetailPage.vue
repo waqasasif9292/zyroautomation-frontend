@@ -28,28 +28,23 @@
 
         <section class="cards">
           <article>
-            <span>Orders</span>
+            <span>Dispatched Orders</span>
             <strong>{{ number(results.summary?.total_orders) }}</strong>
           </article>
           <article>
             <span>Delivered</span>
             <strong>{{ number(results.summary?.delivered_count) }}</strong>
-            <small>{{ percentOfTotal(results.summary?.delivered_count) }} of orders</small>
+            <small>{{ percentOfTotal(results.summary?.delivered_count) }} of dispatched</small>
           </article>
           <article>
             <span>Returned</span>
             <strong>{{ number(results.summary?.returned_count) }}</strong>
-            <small>{{ percentOfTotal(results.summary?.returned_count) }} of orders</small>
+            <small>{{ percentOfTotal(results.summary?.returned_count) }} of dispatched</small>
           </article>
           <article>
             <span>Pending</span>
             <strong>{{ number(results.summary?.pending_count) }}</strong>
-            <small>{{ percentOfTotal(results.summary?.pending_count) }} of orders</small>
-          </article>
-          <article>
-            <span>Cancelled</span>
-            <strong>{{ number(results.summary?.cancelled_count) }}</strong>
-            <small>{{ percentOfTotal(results.summary?.cancelled_count) }} of orders</small>
+            <small>{{ percentOfTotal(results.summary?.pending_count) }} of dispatched</small>
           </article>
           <article>
             <span>Products</span>
@@ -256,11 +251,14 @@
                   <th>#</th>
                   <th>Product</th>
                   <th>SKU</th>
-                  <th>Orders</th>
+                  <th>Dispatched Orders</th>
                   <th>Quantity</th>
                   <th>Cost Source</th>
                   <th>Unit Cost</th>
                   <th>Total Cost</th>
+                  <th>Revenue</th>
+                  <th>Other Cost</th>
+                  <th>Profit</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,9 +278,14 @@
                   </td>
                   <td>{{ money(product.unit_cost) }}</td>
                   <td>{{ money(product.total_cost) }}</td>
+                  <td class="money-cell success">{{ money(product.revenue) }}</td>
+                  <td class="money-cell danger">-{{ money(product.other_cost) }}</td>
+                  <td :class="['money-cell', Number(product.profit || 0) >= 0 ? 'success' : 'danger']">
+                    {{ money(product.profit) }}
+                  </td>
                 </tr>
                 <tr v-if="!report.products.length">
-                  <td colspan="8">No product rows saved.</td>
+                  <td colspan="11">No product rows saved.</td>
                 </tr>
               </tbody>
             </table>
@@ -329,7 +332,6 @@ const statusChart = computed(() => {
     { label: 'Delivered', value: Number(summary.delivered_count || 0), color: '#16a34a' },
     { label: 'Returned', value: Number(summary.returned_count || 0), color: '#dc2626' },
     { label: 'Pending', value: Number(summary.pending_count || 0), color: '#d97706' },
-    { label: 'Cancelled', value: Number(summary.cancelled_count || 0), color: '#64748b' },
   ];
   const total = rows.reduce((sum, item) => sum + item.value, 0);
   return rows.map(item => ({
