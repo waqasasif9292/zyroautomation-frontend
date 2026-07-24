@@ -766,7 +766,7 @@ const pageStatus = computed(() => {
 });
 const isShopifyEditOrder = ref(false);
 const hasOrderProducts = computed(() => items.value.length > 0);
-const canSaveDraft = computed(() => hasOrderProducts.value || isShopifyEditOrder.value);
+const canSaveDraft = computed(() => hasOrderProducts.value);
 const filteredProducts = computed(() => {
   const search = productSearch.value.trim().toLowerCase();
   if (!search) return productStore.products;
