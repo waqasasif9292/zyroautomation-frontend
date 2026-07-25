@@ -34,6 +34,7 @@ const labels = {
   out_for_delivery: 'Out For Delivery',
   delivered: 'Delivered',
   ready_for_return: 'Ready For Return',
+  out_for_return: 'Out For Return',
   returned_to_shipper: 'Returned to Shipper',
 };
 
@@ -74,6 +75,7 @@ const statusClass = computed(() => `status-${(statusText.value || 'unknown').toL
 .status-duplicate,
 .status-error,
 .status-returned-to-shipper,
+.status-out-for-return,
 .status-ready-for-return { background: #fee2e2; color: #991b1b; }
 .status-hold,
 .status-on-hold,

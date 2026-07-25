@@ -112,6 +112,7 @@ const stats = ref({
   dispatched_this_month: 0,
   delivered: 0,
   ready_for_return: 0,
+  out_for_return: 0,
   returned_to_shipper: 0,
   cancel_by_shipper: 0,
 });

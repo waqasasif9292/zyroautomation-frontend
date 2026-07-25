@@ -339,6 +339,7 @@ const coloredPackingStatusCategories = new Set([
   'out_for_delivery',
   'delivered',
   'ready_for_return',
+  'out_for_return',
   'returned_to_shipper',
   'error',
   'cancel_by_shipper',
