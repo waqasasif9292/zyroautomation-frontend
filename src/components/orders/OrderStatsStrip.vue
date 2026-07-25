@@ -68,6 +68,15 @@
           <path d="M12 3.5 20 20l-8-3.2L4 20l8-16.5Z" fill="currentColor" />
           <path d="M12 8.5v8" stroke="#fff" stroke-width="2" stroke-linecap="round" />
         </svg>
+        <svg v-else-if="item.icon === 'delivered'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" fill="currentColor" />
+          <path d="m7.8 12.4 2.6 2.6 5.8-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else-if="item.icon === 'return'" width="23" height="23" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" fill="currentColor" />
+          <path d="M9 8H6v3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M6.4 11a6 6 0 1 0 1.8-4.2" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+        </svg>
         <svg v-else width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M7 10.5h2.3l1.6-5.1c.2-.7.8-1.1 1.5-1.1 1.2 0 2.1 1 1.9 2.2l-.5 3.1h4.1c1.2 0 2.1 1.1 1.8 2.3l-1.2 5.4c-.3 1.4-1.5 2.3-2.9 2.3H7v-9.1Z"
@@ -100,6 +109,11 @@ const stats = ref({
   merchant_warehouse: 0,
   dispatched: 0,
   out_for_delivery: 0,
+  dispatched_this_month: 0,
+  delivered: 0,
+  ready_for_return: 0,
+  returned_to_shipper: 0,
+  cancel_by_shipper: 0,
 });
 
 const addDays = (date, days) => {
@@ -118,6 +132,7 @@ const formatDate = date => {
 };
 const dateFilter = (from, to) => ({ date_from: formatDate(from), date_to: formatDate(to), status: null });
 const statusFilter = status => ({ date_from: null, date_to: null, status });
+const thisMonthStatusFilter = status => ({ ...dateFilter(startOfMonth(new Date()), new Date()), status });
 
 const statItems = computed(() => [
   {
@@ -172,6 +187,11 @@ const statItems = computed(() => [
   { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'warehouse', filter: statusFilter('merchant_warehouse') },
   { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
+  { key: 'dispatched_this_month', label: 'Dispatched', value: stats.value.dispatched_this_month, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
+  { key: 'delivered', label: 'Delivered', value: stats.value.delivered, icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
+  { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, icon: 'return', filter: thisMonthStatusFilter('ready_for_return') },
+  { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper, icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },
+  { key: 'cancel_by_shipper', label: 'Cancel', value: stats.value.cancel_by_shipper, icon: 'error', filter: thisMonthStatusFilter('cancel_by_shipper') },
 ]);
 
 const formatNumber = value => Number(value || 0).toLocaleString();
@@ -337,6 +357,14 @@ onMounted(fetchStats);
 
 .stat-icon.delivery {
   background: linear-gradient(135deg, #ea580c 0%, #facc15 100%);
+}
+
+.stat-icon.delivered {
+  background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+}
+
+.stat-icon.return {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
 }
 
 @media (max-width: 1180px) {

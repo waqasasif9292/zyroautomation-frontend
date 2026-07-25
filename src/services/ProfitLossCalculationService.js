@@ -16,6 +16,9 @@ const ProfitLossCalculationService = {
   updateCalculation(id, payload) {
     return axiosInstance.put(`/profit-loss-calculations/${id}`, payload);
   },
+  refreshProfit(id) {
+    return axiosInstance.post(`/profit-loss-calculations/${id}/refresh-profit`);
+  },
   deleteCalculation(id) {
     return axiosInstance.delete(`/profit-loss-calculations/${id}`);
   },
