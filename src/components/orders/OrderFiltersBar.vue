@@ -41,6 +41,7 @@
         <option value="out_for_delivery">Out For Delivery</option>
         <option value="delivered">Delivered</option>
         <option value="ready_for_return">Ready For Return</option>
+        <option value="out_for_return">Out For Return</option>
         <option value="returned_to_shipper">Returned to Shipper</option>
       </select>
 

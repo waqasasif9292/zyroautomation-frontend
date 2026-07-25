@@ -267,6 +267,7 @@ const statusPalette = {
   out_for_delivery: '#7c3aed',
   delivered: '#16a34a',
   ready_for_return: '#f59e0b',
+  out_for_return: '#ea580c',
   returned_to_shipper: '#dc2626',
   cancel_by_shipper: '#991b1b',
   duplicate: '#9333ea',
