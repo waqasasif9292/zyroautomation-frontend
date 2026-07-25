@@ -11,6 +11,7 @@
       <div class="stat-copy">
         <span>{{ item.label }}</span>
         <strong>{{ formatNumber(item.value) }}</strong>
+        <small v-if="item.percentage != null">{{ item.percentage }}% {{ item.percentageLabel || 'of dispatched' }}</small>
       </div>
       <span :class="['stat-icon', item.icon]">
         <svg v-if="item.icon === 'today'" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -134,6 +135,18 @@ const formatDate = date => {
 const dateFilter = (from, to) => ({ date_from: formatDate(from), date_to: formatDate(to), status: null });
 const statusFilter = status => ({ date_from: null, date_to: null, status });
 const thisMonthStatusFilter = status => ({ ...dateFilter(startOfMonth(new Date()), new Date()), status });
+const percentOfDispatched = value => {
+  const dispatched = Number(stats.value.dispatched_this_month || 0);
+  if (dispatched <= 0) return '0';
+
+  return ((Number(value || 0) / dispatched) * 100).toFixed(1);
+};
+const percentOfThisMonth = value => {
+  const thisMonth = Number(stats.value.this_month || 0);
+  if (thisMonth <= 0) return '0';
+
+  return ((Number(value || 0) / thisMonth) * 100).toFixed(1);
+};
 
 const statItems = computed(() => [
   {
@@ -189,10 +202,10 @@ const statItems = computed(() => [
   { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
   { key: 'dispatched_this_month', label: 'Dispatched', value: stats.value.dispatched_this_month, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
-  { key: 'delivered', label: 'Delivered', value: stats.value.delivered, icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
-  { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, icon: 'return', filter: thisMonthStatusFilter('ready_for_return') },
-  { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper, icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },
-  { key: 'cancel_by_shipper', label: 'Cancel', value: stats.value.cancel_by_shipper, icon: 'error', filter: thisMonthStatusFilter('cancel_by_shipper') },
+  { key: 'delivered', label: 'Delivered', value: stats.value.delivered, percentage: percentOfDispatched(stats.value.delivered), icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
+  { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, percentage: percentOfDispatched(stats.value.ready_for_return), icon: 'return', filter: thisMonthStatusFilter('ready_for_return') },
+  { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper, percentage: percentOfDispatched(stats.value.returned_to_shipper), icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },
+  { key: 'cancel_by_shipper', label: 'Cancel', value: stats.value.cancel_by_shipper, percentage: percentOfThisMonth(stats.value.cancel_by_shipper), percentageLabel: 'of this month', icon: 'error', filter: thisMonthStatusFilter('cancel_by_shipper') },
 ]);
 
 const formatNumber = value => Number(value || 0).toLocaleString();
@@ -305,6 +318,16 @@ onMounted(fetchStats);
   line-height: 1.15;
 }
 
+.stat-copy small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .stat-icon {
   width: 46px;
   height: 46px;
@@ -409,6 +432,11 @@ onMounted(fetchStats);
 
   .stat-copy strong {
     font-size: 18px;
+  }
+
+  .stat-copy small {
+    font-size: 10px;
+    white-space: normal;
   }
 }
 
