@@ -58,6 +58,14 @@ export const useProfitLossCalculationStore = defineStore('profitLossCalculation'
     calculations.value = calculations.value.filter(item => item.id !== id);
   };
 
+  const refreshProfit = async (id) => {
+    const res = await ProfitLossCalculationService.refreshProfit(id);
+    const updated = res.data.data.calculation;
+    const idx = calculations.value.findIndex(item => item.id === id);
+    if (idx !== -1) calculations.value[idx] = updated;
+    return updated;
+  };
+
   return {
     calculations,
     options,
@@ -69,5 +77,6 @@ export const useProfitLossCalculationStore = defineStore('profitLossCalculation'
     createCalculation,
     updateCalculation,
     deleteCalculation,
+    refreshProfit,
   };
 });

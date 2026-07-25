@@ -131,12 +131,17 @@ const cards = computed(() => {
   return [
     { label: 'Total Orders', value: number(summary.total_orders), tone: 'total', icon: icons.box },
     { label: 'Dispatched', value: number(summary.dispatched_count), percent: dispatchedPercentage, tone: 'dispatched', icon: icons.send },
-    { label: 'Delivered', value: number(summary.delivered_count), percent: percent(summary.delivered_percentage), tone: 'delivered', icon: icons.check },
-    { label: 'Returned', value: number(summary.returned_count), percent: percent(summary.returned_percentage), tone: 'returned', icon: icons.returned },
-    { label: 'Pending', value: number(summary.pending_count), percent: percent(summary.pending_percentage), tone: 'pending', icon: icons.clock },
+    { label: 'Delivered', value: number(summary.delivered_count), percent: percentFromDispatched(summary.delivered_count, summary.dispatched_count), tone: 'delivered', icon: icons.check },
+    { label: 'Returned', value: number(summary.returned_count), percent: percentFromDispatched(summary.returned_count, summary.dispatched_count), tone: 'returned', icon: icons.returned },
+    { label: 'Pending', value: number(summary.pending_count), percent: percentFromDispatched(summary.pending_count, summary.dispatched_count), tone: 'pending', icon: icons.clock },
     { label: 'Cancelled', value: number(summary.cancelled_count), percent: percent(summary.cancelled_percentage), tone: 'cancelled', icon: icons.x },
   ];
 });
+
+const percentFromDispatched = (value, dispatched) => {
+  const dispatchedCount = Number(dispatched || 0);
+  return dispatchedCount ? percent((Number(value || 0) / dispatchedCount) * 100) : percent(0);
+};
 
 const icons = {
   box: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 8.5 12 4 4 8.5v7L12 20l8-4.5v-7Z"/><path d="M8 6.5v5l4 2.2 4-2.2v-5"/><path d="M4.4 8.7 12 13l7.6-4.3"/></svg>',

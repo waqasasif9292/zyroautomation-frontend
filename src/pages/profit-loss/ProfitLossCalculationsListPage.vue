@@ -23,27 +23,39 @@
               <tr>
                 <th>Name</th>
                 <th>Date Range</th>
-                <th>Orders</th>
-                <th>Delivered</th>
-                <th>Returned</th>
                 <th>Final Profit</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="7">Loading product wise profit/loss reports...</td>
+                <td colspan="4">Loading product wise profit/loss reports...</td>
               </tr>
               <tr v-else-if="!calculations.length">
-                <td colspan="7">No product wise profit/loss reports yet.</td>
+                <td colspan="4">No product wise profit/loss reports yet.</td>
               </tr>
               <tr v-for="calculation in calculations" v-else :key="calculation.id">
                 <td><button class="name-btn" type="button" @click="router.push(`/profit-loss-calculations/${calculation.id}`)">{{ calculation.name }}</button></td>
                 <td>{{ calculation.start_date }} to {{ calculation.end_date }}</td>
-                <td>{{ number(calculation.results?.summary?.total_orders) }}</td>
-                <td>{{ number(calculation.results?.summary?.delivered_count) }}</td>
-                <td>{{ number(calculation.results?.summary?.returned_count) }}</td>
-                <td :class="calculation.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(calculation.results?.totals?.final_profit) }}</td>
+                <td>
+                  <div class="profit-cell">
+                    <span :class="calculation.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(calculation.results?.totals?.final_profit) }}</span>
+                    <button
+                      class="refresh-btn"
+                      type="button"
+                      title="Refresh profit"
+                      :disabled="refreshingIds.has(calculation.id)"
+                      @click="refreshProfit(calculation)"
+                    >
+                      <svg :class="{ spinning: refreshingIds.has(calculation.id) }" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+                        <path d="M3 12A9 9 0 0 1 18.5 5.8" />
+                        <path d="M18.5 2.8v3h-3" />
+                        <path d="M5.5 21.2v-3h3" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <div class="actions">
                     <button type="button" @click="router.push(`/profit-loss-calculations/${calculation.id}`)">View</button>
@@ -72,8 +84,8 @@ const route = useRoute();
 const store = useProfitLossCalculationStore();
 const { calculations, loading } = storeToRefs(store);
 const toast = ref('');
+const refreshingIds = ref(new Set());
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
-const number = (value) => Number(value || 0).toLocaleString();
 
 const showToast = (message) => {
   toast.value = message;
@@ -84,6 +96,22 @@ const remove = async (calculation) => {
   if (!confirm(`Delete ${calculation.name}?`)) return;
   await store.deleteCalculation(calculation.id);
   showToast('Report deleted.');
+};
+
+const refreshProfit = async (calculation) => {
+  if (refreshingIds.value.has(calculation.id)) return;
+  refreshingIds.value = new Set([...refreshingIds.value, calculation.id]);
+
+  try {
+    await store.refreshProfit(calculation.id);
+    showToast('Profit refreshed.');
+  } catch {
+    showToast('Failed to refresh profit.');
+  } finally {
+    const next = new Set(refreshingIds.value);
+    next.delete(calculation.id);
+    refreshingIds.value = next;
+  }
 };
 
 onMounted(async () => {
@@ -164,7 +192,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 920px;
+  min-width: 640px;
   border-collapse: collapse;
 }
 
@@ -205,6 +233,51 @@ th {
   background: #fff;
   padding: 7px 10px;
   cursor: pointer;
+}
+
+.profit-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.refresh-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.refresh-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .danger-btn,
