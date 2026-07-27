@@ -7,8 +7,8 @@ const OrderService = {
   getOrder(id) {
     return axiosInstance.get(`/orders/${id}`);
   },
-  getStats() {
-    return axiosInstance.get('/orders/stats/summary');
+  getStats(params = {}) {
+    return axiosInstance.get('/orders/stats/summary', { params });
   },
   exportProductOrders(params = {}) {
     const { page, per_page, ...exportParams } = params;
