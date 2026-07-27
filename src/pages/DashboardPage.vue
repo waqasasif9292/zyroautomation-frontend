@@ -353,6 +353,10 @@ const percentChange = (current, previous) => {
 const barHeight = (value, max) => Math.max(Number(value || 0) > 0 ? 8 : 0, Math.round((Number(value || 0) / Number(max || 1)) * 100));
 const barWidth = (value, max) => Math.max(Number(value || 0) > 0 ? 4 : 0, Math.round((Number(value || 0) / Number(max || 1)) * 100));
 const formatDateTime = value => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+const responsePayload = response => {
+  const data = response?.data?.data;
+  return data && !Array.isArray(data) && typeof data === 'object' ? data : {};
+};
 
 const goTo = (queue) => {
   if (!queue?.route) return;
@@ -363,7 +367,7 @@ const fetchStats = async () => {
   loading.value = true;
   try {
     const res = await OrderService.getStats();
-    const data = res.data.data || {};
+    const data = responsePayload(res);
     stats.value = data.stats || {};
     revenue.value = data.revenue || {};
     performance.value = data.performance || {};
