@@ -5,58 +5,51 @@
         <div>
           <p class="eyebrow">Operations</p>
           <h1>Dashboard</h1>
-          <p class="head-subtitle">Clear operating numbers for orders, cash exposure, courier flow, returns, and queues.</p>
+          <p class="head-subtitle">Order volume, sales, fulfillment health, and queues that need attention.</p>
         </div>
-        <div class="head-actions">
-          <span v-if="dashboard.generated_at" class="generated-at">{{ formatDateTime(dashboard.generated_at) }}</span>
-          <button class="refresh-btn" type="button" :disabled="loading" @click="fetchStats">
-            {{ loading ? 'Refreshing...' : 'Refresh' }}
-          </button>
-        </div>
+        <button class="refresh-btn" type="button" :disabled="loading" @click="fetchStats">
+          {{ loading ? 'Refreshing...' : 'Refresh' }}
+        </button>
       </section>
 
-      <section class="kpi-grid">
-        <article v-for="metric in kpiCards" :key="metric.key" :class="['kpi-card', metric.tone]">
-          <span>{{ metric.label }}</span>
+      <section class="hero-grid">
+        <article class="metric-card primary">
+          <p class="metric-label">Sales this month</p>
+          <strong>{{ money(revenue.this_month) }}</strong>
+          <span :class="['delta-pill', monthDelta >= 0 ? 'positive' : 'negative']">
+            {{ signedPercent(monthDelta) }} vs last month
+          </span>
+        </article>
+
+        <article v-for="metric in headlineMetrics" :key="metric.key" class="metric-card">
+          <p class="metric-label">{{ metric.label }}</p>
           <strong>{{ metric.value }}</strong>
-          <small>{{ metric.note }}</small>
+          <span class="metric-note">{{ metric.note }}</span>
         </article>
       </section>
 
-      <section class="dashboard-grid top">
+      <section class="content-grid">
         <article class="panel trend-panel">
           <div class="panel-head">
             <div>
-              <h2>14-Day Movement</h2>
-              <p>Orders, sales, delivered, returned, and cancelled by day.</p>
+              <h2>14-day trend</h2>
+              <p>Daily orders with revenue intensity.</p>
             </div>
             <span class="panel-kpi">{{ formatNumber(stats.last_7_days) }} orders in 7 days</span>
           </div>
 
           <div v-if="loading" class="empty-state">Loading trend...</div>
-          <div v-else class="trend-chart" aria-label="14 day order movement">
-            <div
-              v-for="day in trend"
-              :key="day.date"
-              class="trend-day"
-              tabindex="0"
-              :aria-label="`${day.label}: ${formatNumber(day.orders)} orders, ${money(day.revenue)} sales, ${formatNumber(day.delivered)} delivered, ${formatNumber(day.returned)} returned, ${formatNumber(day.cancelled)} cancelled`"
-              :title="`${day.label}: ${formatNumber(day.orders)} orders, ${money(day.revenue)} sales`"
-            >
+          <div v-else class="trend-chart" aria-label="Order trend">
+            <div v-for="day in trend" :key="day.date" class="trend-day">
               <div class="bar-track">
-                <span class="bar revenue-bar" :style="{ height: `${barHeight(day.revenue, maxTrendRevenue)}%` }"></span>
-                <span class="bar order-bar" :style="{ height: `${barHeight(day.orders, maxTrendOrders)}%` }"></span>
-              </div>
-              <div class="trend-tooltip">
-                <strong>{{ day.label }}</strong>
-                <span>{{ formatNumber(day.orders) }} orders</span>
-                <span>{{ money(day.revenue) }} sales</span>
-                <span>{{ formatNumber(day.delivered) }} delivered</span>
-                <span>{{ formatNumber(day.returned) }} returned · {{ formatNumber(day.cancelled) }} cancelled</span>
-              </div>
-              <div class="trend-values">
-                <b>{{ formatNumber(day.orders) }}</b>
-                <span>{{ compactMoney(day.revenue) }}</span>
+                <span
+                  class="bar revenue-bar"
+                  :style="{ height: `${barHeight(day.revenue, maxTrendRevenue)}%` }"
+                ></span>
+                <span
+                  class="bar order-bar"
+                  :style="{ height: `${barHeight(day.orders, maxTrendOrders)}%` }"
+                ></span>
               </div>
               <span class="trend-label">{{ day.label }}</span>
             </div>
@@ -64,193 +57,113 @@
 
           <div class="legend-row">
             <span><i class="legend-dot orders"></i>Orders</span>
-            <span><i class="legend-dot revenue"></i>Sales</span>
+            <span><i class="legend-dot revenue"></i>Revenue</span>
           </div>
         </article>
 
         <article class="panel queue-panel">
           <div class="panel-head">
             <div>
-              <h2>Action Queues</h2>
-              <p>Work that should be handled next.</p>
+              <h2>Action queues</h2>
+              <p>Work waiting inside operations.</p>
             </div>
           </div>
 
           <div class="queue-list">
-            <button
-              v-for="queue in actionQueues"
-              :key="queue.key"
-              class="queue-row"
-              type="button"
-              @click="goTo(queue)"
-            >
+            <div v-for="queue in queueItems" :key="queue.key" class="queue-row">
               <div>
                 <strong>{{ queue.label }}</strong>
                 <span>{{ queue.note }}</span>
               </div>
               <b>{{ formatNumber(queue.value) }}</b>
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <h2>Order Flow</h2>
-            <p>Main category funnel with order count, COD, and share of total orders.</p>
-          </div>
-          <button class="text-btn" type="button" @click="router.push('/reports/overview')">Owner Overview</button>
-        </div>
-        <div class="flow-grid">
-          <div v-for="step in orderFlow" :key="step.key" class="flow-step">
-            <div class="flow-top">
-              <span>{{ step.label }}</span>
-              <strong>{{ formatNumber(step.orders) }}</strong>
             </div>
-            <div class="flow-track">
-              <span :style="{ width: `${barWidth(step.orders, maxFlowOrders)}%`, background: statusColor(step.key) }"></span>
-            </div>
-            <div class="flow-meta">
-              <span>{{ money(step.cod) }}</span>
-              <b>{{ formatPercent(step.percentage) }}</b>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="dashboard-grid">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Courier Exposure</h2>
-              <p>Where parcels and COD are currently concentrated.</p>
-            </div>
-            <button class="text-btn" type="button" @click="router.push('/reports/in-progress')">In Progress</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Courier</th>
-                  <th>Active</th>
-                  <th>COD</th>
-                  <th>Delivered</th>
-                  <th>Returned</th>
-                  <th>Return %</th>
-                  <th>Missing DC</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in courierExposure" :key="row.courier_id">
-                  <td>{{ row.courier_name }}</td>
-                  <td>{{ formatNumber(row.active) }}</td>
-                  <td>{{ money(row.active_cod) }}</td>
-                  <td>{{ formatNumber(row.delivered) }}</td>
-                  <td>{{ formatNumber(row.returned) }}</td>
-                  <td>{{ formatPercent(row.return_rate) }}</td>
-                  <td>{{ formatNumber(row.missing_delivery_charges) }}</td>
-                </tr>
-                <tr v-if="!courierExposure.length">
-                  <td colspan="7">No courier data yet.</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </article>
 
         <article class="panel">
           <div class="panel-head">
             <div>
-              <h2>Status Categories</h2>
-              <p>Current parcel distribution by main category.</p>
+              <h2>Status mix</h2>
+              <p>Current parcel state distribution.</p>
             </div>
           </div>
           <div class="rank-list">
-            <div v-for="item in statusCategories" :key="item.key" class="rank-row">
+            <div v-for="item in statusMix" :key="item.label" class="rank-row">
               <div class="rank-meta">
-                <span><i :style="{ background: statusColor(item.key) }"></i>{{ item.label }}</span>
-                <b>{{ formatNumber(item.orders) }} · {{ money(item.cod) }}</b>
+                <span>{{ item.label }}</span>
+                <b>{{ formatNumber(item.value) }}</b>
               </div>
               <div class="rank-track">
-                <span :style="{ width: `${barWidth(item.orders, maxStatusOrders)}%`, background: statusColor(item.key) }"></span>
+                <span :style="{ width: `${rankWidth(item.value, maxStatus)}%` }"></span>
               </div>
-              <small>{{ formatPercent(item.percentage) }} of total orders</small>
             </div>
-            <div v-if="!statusCategories.length && !loading" class="empty-state compact">No status data yet.</div>
-          </div>
-        </article>
-      </section>
-
-      <section class="dashboard-grid bottom">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Product Risk</h2>
-              <p>Products carrying return, cancel, and active COD exposure.</p>
-            </div>
-            <button class="text-btn" type="button" @click="router.push('/reports/products')">Product Report</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Active</th>
-                  <th>Return Risk</th>
-                  <th>Returned</th>
-                  <th>Cancelled</th>
-                  <th>COD</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in productRisk" :key="row.key">
-                  <td>
-                    <strong class="cell-title">{{ row.product_name }}</strong>
-                    <small>{{ row.sku || 'No SKU' }}</small>
-                  </td>
-                  <td>{{ formatNumber(row.active) }}</td>
-                  <td>{{ formatNumber(row.ready_for_return) }}</td>
-                  <td>{{ formatNumber(row.returned) }}</td>
-                  <td>{{ formatNumber(row.cancelled) }}</td>
-                  <td>{{ money(row.cod) }}</td>
-                </tr>
-                <tr v-if="!productRisk.length">
-                  <td colspan="6">No product risk data yet.</td>
-                </tr>
-              </tbody>
-            </table>
+            <div v-if="!statusMix.length && !loading" class="empty-state compact">No status data yet.</div>
           </div>
         </article>
 
         <article class="panel">
           <div class="panel-head">
             <div>
-              <h2>Source Quality</h2>
-              <p>Sales channel performance and risk.</p>
+              <h2>Courier load</h2>
+              <p>Orders assigned by courier.</p>
             </div>
           </div>
-          <div class="source-list">
-            <div v-for="row in sourceBreakdown.slice(0, 6)" :key="row.source" class="source-row">
+          <div class="donut-wrap">
+            <div class="donut" :style="donutStyle(courierMix)"></div>
+            <div class="donut-list">
+              <div v-for="item in courierMix" :key="item.label" class="donut-row">
+                <span :style="{ background: item.color }"></span>
+                <p>{{ item.label }}</p>
+                <b>{{ formatNumber(item.value) }}</b>
+              </div>
+              <div v-if="!courierMix.length && !loading" class="empty-state compact">No courier data yet.</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel source-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Order sources</h2>
+              <p>Where demand is coming from.</p>
+            </div>
+          </div>
+          <div class="source-grid">
+            <div v-for="item in sourceMix" :key="item.label" class="source-item">
+              <span>{{ item.label }}</span>
+              <strong>{{ formatNumber(item.value) }}</strong>
+            </div>
+            <div v-if="!sourceMix.length && !loading" class="empty-state compact">No source data yet.</div>
+          </div>
+        </article>
+
+        <article class="panel health-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Fulfillment health</h2>
+              <p>Quick read on completed versus open work.</p>
+            </div>
+          </div>
+          <div class="health-meter">
+            <div class="meter-ring" :style="{ '--value': `${performance.fulfillment_rate || 0}%` }">
+              <strong>{{ formatPercent(performance.fulfillment_rate) }}</strong>
+              <span>delivered</span>
+            </div>
+            <div class="health-stats">
               <div>
-                <strong>{{ row.source }}</strong>
-                <span>{{ formatNumber(row.orders) }} orders · {{ money(row.sales) }}</span>
+                <span>Delivered</span>
+                <b>{{ formatNumber(performance.delivered_count) }}</b>
               </div>
-              <div class="source-rates">
-                <b>{{ formatPercent(row.delivery_rate) }}</b>
-                <small>{{ formatPercent(row.return_rate) }} return</small>
+              <div>
+                <span>Open orders</span>
+                <b>{{ formatNumber(performance.open_count) }}</b>
+              </div>
+              <div>
+                <span>Confirmation backlog</span>
+                <b>{{ formatPercent(performance.confirmation_backlog_rate) }}</b>
               </div>
             </div>
-            <div v-if="!sourceBreakdown.length" class="empty-state compact">No source data yet.</div>
           </div>
-        </article>
-      </section>
-
-      <section class="system-grid">
-        <article v-for="item in systemCards" :key="item.key" class="system-card" @click="item.route && router.push(item.route)">
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-          <small>{{ item.note }}</small>
         </article>
       </section>
     </main>
@@ -259,90 +172,102 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import AppLayout from '../layouts/AppLayout.vue';
 import OrderService from '../services/OrderService';
 
-const router = useRouter();
+const palette = ['#2563eb', '#0f766e', '#d97706', '#7c3aed', '#dc2626', '#475569', '#059669'];
+
 const loading = ref(false);
-const stats = ref({});
-const revenue = ref({});
-const performance = ref({});
-const dashboard = ref({
-  kpis: {},
-  queues: [],
-  trend: [],
-  order_flow: [],
-  status_categories: [],
-  courier_exposure: [],
-  product_risk: [],
-  source_breakdown: [],
-  brand_breakdown: [],
-  system_health: {},
-  generated_at: null,
+const stats = ref({
+  today: 0,
+  yesterday: 0,
+  last_7_days: 0,
+  this_month: 0,
+  last_month: 0,
+  total: 0,
+  hold: 0,
+  pending_confirmation: 0,
+});
+const revenue = ref({
+  today: 0,
+  yesterday: 0,
+  last_7_days: 0,
+  this_month: 0,
+  last_month: 0,
+  gross: 0,
+  delivery_charges: 0,
+  average_order_value: 0,
+});
+const performance = ref({
+  delivered_count: 0,
+  open_count: 0,
+  fulfillment_rate: 0,
+  confirmation_backlog_rate: 0,
+});
+const queues = ref({
+  hold: 0,
+  pending_confirmation: 0,
+  packing_pending: 0,
+  returns_pending: 0,
+  delivery_charge_missing: 0,
+});
+const charts = ref({
+  order_trend: [],
+  status_mix: [],
+  source_mix: [],
+  courier_mix: [],
 });
 
-const trend = computed(() => dashboard.value.trend || []);
-const actionQueues = computed(() => dashboard.value.queues || []);
-const orderFlow = computed(() => dashboard.value.order_flow || []);
-const statusCategories = computed(() => dashboard.value.status_categories || []);
-const courierExposure = computed(() => (dashboard.value.courier_exposure || []).slice(0, 8));
-const productRisk = computed(() => dashboard.value.product_risk || []);
-const sourceBreakdown = computed(() => dashboard.value.source_breakdown || []);
+const trend = computed(() => charts.value.order_trend || []);
+const statusMix = computed(() => charts.value.status_mix || []);
+const sourceMix = computed(() => charts.value.source_mix || []);
+const courierMix = computed(() => (charts.value.courier_mix || []).map((item, index) => ({
+  ...item,
+  color: palette[index % palette.length],
+})));
 
 const maxTrendOrders = computed(() => Math.max(1, ...trend.value.map(day => Number(day.orders || 0))));
 const maxTrendRevenue = computed(() => Math.max(1, ...trend.value.map(day => Number(day.revenue || 0))));
-const maxFlowOrders = computed(() => Math.max(1, ...orderFlow.value.map(item => Number(item.orders || 0))));
-const maxStatusOrders = computed(() => Math.max(1, ...statusCategories.value.map(item => Number(item.orders || 0))));
-const monthDelta = computed(() => percentChange(dashboard.value.kpis?.month_sales, dashboard.value.kpis?.last_month_sales));
+const maxStatus = computed(() => Math.max(1, ...statusMix.value.map(item => Number(item.value || 0))));
+const monthDelta = computed(() => percentChange(revenue.value.this_month, revenue.value.last_month));
 
-const kpiCards = computed(() => {
-  const kpis = dashboard.value.kpis || {};
+const headlineMetrics = computed(() => [
+  {
+    key: 'today',
+    label: 'Orders today',
+    value: formatNumber(stats.value.today),
+    note: `${formatNumber(stats.value.yesterday)} yesterday`,
+  },
+  {
+    key: 'aov',
+    label: 'Average order value',
+    value: money(revenue.value.average_order_value),
+    note: `${money(revenue.value.gross)} lifetime sales`,
+  },
+  {
+    key: 'open',
+    label: 'Open orders',
+    value: formatNumber(performance.value.open_count),
+    note: `${formatPercent(performance.value.fulfillment_rate)} fulfillment rate`,
+  },
+  {
+    key: 'charges',
+    label: 'Delivery charges',
+    value: money(revenue.value.delivery_charges),
+    note: `${formatNumber(queues.value.delivery_charge_missing)} missing charges`,
+  },
+]);
 
-  return [
-    { key: 'today', label: 'Today Orders', value: formatNumber(kpis.today_orders), note: `${money(kpis.today_sales)} sales`, tone: 'blue' },
-    { key: 'month', label: 'Month Sales', value: money(kpis.month_sales), note: `${signedPercent(monthDelta.value)} vs last month`, tone: 'dark' },
-    { key: 'active', label: 'Active Orders', value: formatNumber(kpis.active_orders), note: `${money(kpis.active_cod)} active COD`, tone: 'teal' },
-    { key: 'courier', label: 'Courier Exposure', value: formatNumber(kpis.courier_exposure_orders), note: `${money(kpis.courier_exposure_cod)} COD`, tone: 'indigo' },
-    { key: 'return-risk', label: 'Return Risk', value: formatNumber(kpis.return_risk_orders), note: `${money(kpis.return_risk_cod)} COD`, tone: 'amber' },
-    { key: 'health', label: 'Delivery Health', value: formatPercent(kpis.delivery_rate), note: `${formatPercent(kpis.return_rate)} return · ${formatPercent(kpis.cancel_rate)} cancel`, tone: 'green' },
-  ];
-});
+const queueItems = computed(() => [
+  { key: 'pending_confirmation', label: 'Pending confirmation', value: queues.value.pending_confirmation, note: 'Needs confirmation before booking' },
+  { key: 'hold', label: 'On hold', value: queues.value.hold, note: 'Manual review or customer issue' },
+  { key: 'packing_pending', label: 'Packing pending', value: queues.value.packing_pending, note: 'Open orders not packed yet' },
+  { key: 'returns_pending', label: 'Returns pending', value: queues.value.returns_pending, note: 'Marked return, not received' },
+  { key: 'delivery_charge_missing', label: 'Missing delivery charges', value: queues.value.delivery_charge_missing, note: 'Booked orders without charge sync' },
+]);
 
-const systemCards = computed(() => {
-  const health = dashboard.value.system_health || {};
-  const credits = health.credits || {};
-
-  return [
-    { key: 'credits', label: 'Credits', value: credits.billing_enabled ? formatNumber(credits.remaining_credits) : 'Free', note: credits.is_low ? 'Low balance' : 'Account balance', route: '/settings/billing' },
-    { key: 'blocked', label: 'Blocked Orders', value: formatNumber(health.blocked_orders), note: 'Needs credit recovery', route: '/settings/billing' },
-    { key: 'integrations', label: 'Couriers Connected', value: formatNumber(health.courier_integrations), note: 'Active integrations', route: '/integrations' },
-    { key: 'low-stock', label: 'Low Stock', value: formatNumber(health.low_stock_products), note: 'Products below threshold', route: '/inventory' },
-    { key: 'missing-tracking', label: 'Missing Tracking', value: formatNumber(health.orders_missing_tracking), note: 'Booked flow without tracking', route: '/orders' },
-    { key: 'missing-dc', label: 'Missing Charges', value: formatNumber(health.missing_delivery_charges), note: 'Delivery charge sync needed', route: '/delivery-charges' },
-  ];
-});
-
-const statusPalette = {
-  hold: '#64748b',
-  pending_confirmation: '#475569',
-  duplicate: '#9333ea',
-  error: '#b91c1c',
-  merchant_warehouse: '#2563eb',
-  dispatched: '#0f766e',
-  out_for_delivery: '#7c3aed',
-  delivered: '#16a34a',
-  ready_for_return: '#d97706',
-  out_for_return: '#ea580c',
-  returned_to_shipper: '#dc2626',
-  cancel_by_shipper: '#991b1b',
-  other: '#94a3b8',
-};
-
-const statusColor = key => statusPalette[key] || '#94a3b8';
 const formatNumber = value => Number(value || 0).toLocaleString();
 const money = value => `Rs ${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-const compactMoney = value => `Rs ${Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value || 0))}`;
 const formatPercent = value => `${Number(value || 0).toFixed(1)}%`;
 const signedPercent = value => `${value >= 0 ? '+' : ''}${Number(value || 0).toFixed(1)}%`;
 const percentChange = (current, previous) => {
@@ -351,27 +276,32 @@ const percentChange = (current, previous) => {
   return ((Number(current || 0) - prev) / prev) * 100;
 };
 const barHeight = (value, max) => Math.max(Number(value || 0) > 0 ? 8 : 0, Math.round((Number(value || 0) / Number(max || 1)) * 100));
-const barWidth = (value, max) => Math.max(Number(value || 0) > 0 ? 4 : 0, Math.round((Number(value || 0) / Number(max || 1)) * 100));
-const formatDateTime = value => value ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-const responsePayload = response => {
-  const data = response?.data?.data;
-  return data && !Array.isArray(data) && typeof data === 'object' ? data : {};
-};
+const rankWidth = (value, max) => Math.max(Number(value || 0) > 0 ? 4 : 0, Math.round((Number(value || 0) / Number(max || 1)) * 100));
 
-const goTo = (queue) => {
-  if (!queue?.route) return;
-  router.push({ path: queue.route, query: queue.query || {} });
+const donutStyle = (items) => {
+  const total = items.reduce((sum, item) => sum + Number(item.value || 0), 0);
+  if (!total) return { background: '#e2e8f0' };
+
+  let cursor = 0;
+  const stops = items.map((item) => {
+    const start = cursor;
+    cursor += (Number(item.value || 0) / total) * 100;
+    return `${item.color} ${start}% ${cursor}%`;
+  });
+
+  return { background: `conic-gradient(${stops.join(', ')})` };
 };
 
 const fetchStats = async () => {
   loading.value = true;
   try {
     const res = await OrderService.getStats();
-    const data = responsePayload(res);
-    stats.value = data.stats || {};
-    revenue.value = data.revenue || {};
-    performance.value = data.performance || {};
-    dashboard.value = { ...dashboard.value, ...(data.dashboard || {}) };
+    const data = res.data.data || {};
+    stats.value = { ...stats.value, ...(data.stats || {}) };
+    revenue.value = { ...revenue.value, ...(data.revenue || {}) };
+    performance.value = { ...performance.value, ...(data.performance || {}) };
+    queues.value = { ...queues.value, ...(data.queues || {}) };
+    charts.value = { ...charts.value, ...(data.charts || {}) };
   } finally {
     loading.value = false;
   }
@@ -384,29 +314,15 @@ onMounted(fetchStats);
 .dashboard-page {
   min-height: 100vh;
   padding: 28px;
-  background: #f1f5f9;
-}
-
-.dashboard-head,
-.head-actions,
-.panel-head,
-.flow-top,
-.flow-meta,
-.rank-meta,
-.source-row,
-.queue-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  background: #f6f8fb;
 }
 
 .dashboard-head {
-  margin-bottom: 18px;
-}
-
-.head-actions {
-  align-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .eyebrow {
@@ -419,9 +335,9 @@ onMounted(fetchStats);
 
 .dashboard-head h1 {
   margin: 0;
-  color: #1e293b;
+  color: #0f172a;
   font-size: 26px;
-  font-weight: 900;
+  font-weight: 850;
   letter-spacing: 0;
 }
 
@@ -433,7 +349,130 @@ onMounted(fetchStats);
   line-height: 1.45;
 }
 
-.generated-at,
+.refresh-btn {
+  min-width: 92px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.metric-card,
+.panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.metric-card {
+  min-height: 126px;
+  padding: 18px;
+}
+
+.metric-card.primary {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.metric-label {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.primary .metric-label {
+  color: #cbd5e1;
+}
+
+.metric-card strong {
+  display: block;
+  color: #0f172a;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.metric-card.primary strong {
+  color: #fff;
+  font-size: 32px;
+}
+
+.metric-note,
+.delta-pill {
+  display: inline-flex;
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.delta-pill {
+  border-radius: 999px;
+  padding: 5px 8px;
+}
+
+.delta-pill.positive {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.delta-pill.negative {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 0.95fr 1fr;
+  gap: 14px;
+}
+
+.panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.trend-panel {
+  grid-column: span 2;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
 .panel-kpi {
   flex: 0 0 auto;
   border-radius: 999px;
@@ -444,149 +483,21 @@ onMounted(fetchStats);
   font-weight: 850;
 }
 
-.refresh-btn,
-.text-btn {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #fff;
-  color: #1e293b;
-  padding: 9px 13px;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.text-btn {
-  padding: 7px 10px;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.kpi-grid,
-.system-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.kpi-card,
-.system-card,
-.panel {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-}
-
-.kpi-card,
-.system-card {
-  min-width: 0;
-  padding: 16px;
-}
-
-.kpi-card.dark {
-  border-color: #1e293b;
-  background: #1e293b;
-  color: #fff;
-}
-
-.kpi-card span,
-.system-card span {
-  display: block;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.kpi-card.dark span,
-.kpi-card.dark small {
-  color: #cbd5e1;
-}
-
-.kpi-card strong,
-.system-card strong {
-  display: block;
-  margin-top: 8px;
-  color: #1e293b;
-  font-size: 24px;
-  font-weight: 950;
-  line-height: 1.1;
-}
-
-.kpi-card.dark strong {
-  color: #fff;
-}
-
-.kpi-card small,
-.system-card small {
-  display: block;
-  margin-top: 9px;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.kpi-card.blue { border-top: 3px solid #2563eb; }
-.kpi-card.teal { border-top: 3px solid #0f766e; }
-.kpi-card.indigo { border-top: 3px solid #4f46e5; }
-.kpi-card.amber { border-top: 3px solid #d97706; }
-.kpi-card.green { border-top: 3px solid #16a34a; }
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.dashboard-grid.bottom {
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
-}
-
-.panel {
-  min-width: 0;
-  padding: 18px;
-}
-
-.panel-head {
-  margin-bottom: 16px;
-}
-
-.panel-head h2 {
-  margin: 0;
-  color: #1e293b;
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
 .trend-chart {
   display: grid;
-  grid-template-columns: repeat(14, minmax(32px, 1fr));
+  grid-template-columns: repeat(14, minmax(24px, 1fr));
   align-items: end;
-  gap: 8px;
-  min-height: 252px;
+  gap: 9px;
+  height: 236px;
   padding-top: 6px;
 }
 
 .trend-day {
-  position: relative;
   min-width: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(150px, 1fr) auto auto;
-  gap: 6px;
-  border-radius: 7px;
-  outline: none;
-}
-
-.trend-day:focus-visible .bar-track {
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+  grid-template-rows: 1fr auto;
+  gap: 8px;
 }
 
 .bar-track {
@@ -601,6 +512,7 @@ onMounted(fetchStats);
   position: absolute;
   bottom: 0;
   width: 50%;
+  min-height: 0;
   transition: height 180ms ease;
 }
 
@@ -614,87 +526,14 @@ onMounted(fetchStats);
   background: #2563eb;
 }
 
-.trend-tooltip {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  z-index: 3;
-  display: grid;
-  gap: 3px;
-  min-width: 150px;
-  padding: 9px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #0f172a;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 750;
-  line-height: 1.25;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, 4px);
-  transition: opacity 140ms ease, transform 140ms ease;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
-}
-
-.trend-day:first-child .trend-tooltip {
-  left: 0;
-  transform: translate(0, 4px);
-}
-
-.trend-day:last-child .trend-tooltip {
-  right: 0;
-  left: auto;
-  transform: translate(0, 4px);
-}
-
-.trend-tooltip span,
-.trend-tooltip strong {
-  color: #fff;
-}
-
-.trend-day:hover .trend-tooltip,
-.trend-day:focus-visible .trend-tooltip {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-.trend-day:first-child:hover .trend-tooltip,
-.trend-day:first-child:focus-visible .trend-tooltip,
-.trend-day:last-child:hover .trend-tooltip,
-.trend-day:last-child:focus-visible .trend-tooltip {
-  transform: translate(0, 0);
-}
-
-.trend-values {
-  display: grid;
-  gap: 2px;
-  min-height: 30px;
-  color: #1e293b;
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 1.1;
-  text-align: center;
-}
-
-.trend-values b,
-.trend-values span,
 .trend-label {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trend-values span {
-  color: #0f766e;
-  font-size: 10px;
-}
-
-.trend-label {
   color: #64748b;
   font-size: 11px;
   font-weight: 750;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .legend-row {
@@ -706,7 +545,8 @@ onMounted(fetchStats);
   font-weight: 800;
 }
 
-.legend-row span {
+.legend-row span,
+.donut-row {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -718,45 +558,40 @@ onMounted(fetchStats);
   border-radius: 999px;
 }
 
-.legend-dot.orders { background: #2563eb; }
-.legend-dot.revenue { background: #14b8a6; }
+.legend-dot.orders {
+  background: #2563eb;
+}
+
+.legend-dot.revenue {
+  background: #14b8a6;
+}
 
 .queue-list,
 .rank-list,
-.source-list,
-.flow-grid {
+.health-stats {
   display: grid;
   gap: 10px;
 }
 
 .queue-row {
-  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  background: #fff;
   padding: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.queue-row:hover,
-.system-card:hover {
-  border-color: #93c5fd;
-  background: #f8fbff;
 }
 
 .queue-row strong,
-.source-row strong,
-.cell-title {
+.rank-meta span {
   display: block;
   color: #1e293b;
   font-size: 13px;
   font-weight: 850;
 }
 
-.queue-row span,
-.source-row span,
-td small {
+.queue-row span {
   display: block;
   margin-top: 3px;
   color: #64748b;
@@ -767,131 +602,196 @@ td small {
 .queue-row b {
   color: #0f172a;
   font-size: 20px;
-  font-weight: 950;
+  font-weight: 900;
 }
 
-.flow-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.rank-row {
+  display: grid;
+  gap: 7px;
 }
 
-.flow-step {
-  min-width: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px;
+.rank-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.flow-top span,
-.rank-meta span {
-  color: #1e293b;
-  font-size: 13px;
-  font-weight: 850;
-}
-
-.flow-top strong,
 .rank-meta b {
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 950;
+  color: #334155;
+  font-size: 12px;
 }
 
-.flow-track,
 .rank-track {
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: #e2e8f0;
-  margin: 9px 0;
 }
 
-.flow-track span,
 .rank-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
+  background: #2563eb;
 }
 
-.flow-meta span,
-.flow-meta b,
-.rank-row small {
-  color: #64748b;
-  font-size: 11px;
+.donut-wrap {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.donut {
+  width: 132px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  position: relative;
+}
+
+.donut::after {
+  content: "";
+  position: absolute;
+  inset: 28px;
+  border-radius: inherit;
+  background: #fff;
+}
+
+.donut-list {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.donut-row {
+  justify-content: space-between;
+  color: #475569;
+  font-size: 12px;
   font-weight: 800;
 }
 
-.rank-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.rank-meta i {
+.donut-row span {
   width: 9px;
   height: 9px;
   flex: 0 0 auto;
   border-radius: 999px;
 }
 
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  border-bottom: 1px solid #e2e8f0;
-  padding: 11px 9px;
-  color: #334155;
-  font-size: 12px;
-  text-align: left;
+.donut-row p {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-th {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
+.donut-row b {
+  color: #0f172a;
 }
 
-td {
-  font-weight: 750;
+.source-panel {
+  grid-column: span 1;
 }
 
-.source-row {
-  align-items: center;
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.source-item {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 12px;
+  padding: 13px;
 }
 
-.source-rates {
-  text-align: right;
-}
-
-.source-rates b {
+.source-item span {
   display: block;
-  color: #16a34a;
-  font-size: 13px;
-}
-
-.source-rates small {
   color: #64748b;
-  font-size: 11px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.system-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin-bottom: 0;
+.source-item strong {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 900;
 }
 
-.system-card {
-  cursor: pointer;
+.health-panel {
+  grid-column: span 2;
+}
+
+.health-meter {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.meter-ring {
+  width: 168px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  background: conic-gradient(#0f766e var(--value), #e2e8f0 0);
+  position: relative;
+}
+
+.meter-ring::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: inherit;
+  background: #fff;
+}
+
+.meter-ring strong,
+.meter-ring span {
+  position: relative;
+  z-index: 1;
+}
+
+.meter-ring strong {
+  color: #0f172a;
+  font-size: 28px;
+  font-weight: 950;
+}
+
+.meter-ring span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.health-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.health-stats div {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.health-stats span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.health-stats b {
+  display: block;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 900;
 }
 
 .empty-state {
@@ -909,51 +809,75 @@ td {
   border-radius: 8px;
 }
 
-@media (max-width: 1400px) {
-  .kpi-grid,
-  .system-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+@media (max-width: 1280px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .flow-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .content-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trend-panel,
+  .health-panel {
+    grid-column: span 2;
   }
 }
 
-@media (max-width: 980px) {
-  .dashboard-grid,
-  .dashboard-grid.bottom {
+@media (max-width: 820px) {
+  .dashboard-page {
+    padding: 22px;
+  }
+
+  .dashboard-head {
+    flex-direction: column;
+  }
+
+  .hero-grid,
+  .content-grid {
     grid-template-columns: 1fr;
   }
 
+  .trend-panel,
+  .health-panel {
+    grid-column: span 1;
+  }
+
   .trend-chart {
-    grid-template-columns: repeat(14, 44px);
+    gap: 6px;
     overflow-x: auto;
+    grid-template-columns: repeat(14, 38px);
     padding-bottom: 4px;
+  }
+
+  .donut-wrap,
+  .health-meter,
+  .health-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .donut,
+  .meter-ring {
+    justify-self: center;
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 520px) {
   .dashboard-page {
     padding: 16px;
   }
 
-  .dashboard-head,
-  .head-actions,
+  .panel,
+  .metric-card {
+    padding: 14px;
+  }
+
   .panel-head {
     flex-direction: column;
   }
 
-  .kpi-grid,
-  .system-grid,
-  .flow-grid {
+  .source-grid {
     grid-template-columns: 1fr;
-  }
-
-  .panel,
-  .kpi-card,
-  .system-card {
-    padding: 14px;
   }
 }
 </style>
