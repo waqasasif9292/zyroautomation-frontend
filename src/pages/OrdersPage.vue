@@ -101,9 +101,23 @@
               @page-change="changePage"
             />
             <div ref="columnMenuRef" class="table-tools">
-              <div v-if="canBulkDeleteOrders && selectedOrderIds.length" class="bulk-actions">
+              <div v-if="selectedOrderIds.length" class="bulk-actions">
                 <span class="selected-count">{{ selectedOrderIds.length }} selected</span>
                 <button
+                  class="bulk-export-btn"
+                  type="button"
+                  :disabled="exportingSelectedOrders"
+                  @click="downloadSelectedOrders"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 20h14" />
+                  </svg>
+                  {{ exportingSelectedOrders ? 'Downloading...' : 'Export Excel' }}
+                </button>
+                <button
+                  v-if="canBulkDeleteOrders"
                   class="bulk-delete-btn"
                   type="button"
                   @click="openBulkDeleteDialog"
@@ -313,6 +327,7 @@ const holdCallOrder = ref(null);
 const holdCallSaving = ref(false);
 const holdAddressAiLoading = ref(false);
 const exportingProducts = ref(false);
+const exportingSelectedOrders = ref(false);
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -831,6 +846,24 @@ const openBulkDeleteDialog = () => {
   showBulkDeleteDialog.value = true;
 };
 
+const downloadSelectedOrders = async () => {
+  const ids = [...selectedOrderIds.value];
+  if (!ids.length || exportingSelectedOrders.value) return;
+
+  exportingSelectedOrders.value = true;
+  try {
+    const response = await OrderService.exportSelectedOrders(ids);
+    const filename = filenameFromDisposition(response.headers?.['content-disposition'], `selected_orders_${new Date().toISOString().slice(0, 10)}.xls`);
+    downloadBlob(response.data, filename);
+    showToast(`${ids.length} ${ids.length === 1 ? 'order' : 'orders'} exported.`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.response?.data?.message || 'Failed to export selected orders.');
+  } finally {
+    exportingSelectedOrders.value = false;
+  }
+};
+
 const handleCancel = (orderOrId) => {
   selectedCancelOrder.value = orderActionTarget(orderOrId);
   showCancelDialog.value = true;
@@ -1289,14 +1322,17 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   margin-right: auto;
+  flex-wrap: nowrap;
 }
 
 .selected-count {
   color: #475569;
   font-size: 13px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
+.bulk-export-btn,
 .bulk-delete-btn {
   display: inline-flex;
   align-items: center;
@@ -1310,6 +1346,16 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+  flex: 0 0 auto;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.bulk-export-btn {
+  border-color: #bfdbfe;
+  background: #fff;
+  color: #1d4ed8;
 }
 
 .bulk-delete-btn svg {
@@ -1320,11 +1366,25 @@ onBeforeUnmount(() => {
   stroke-width: 2;
 }
 
+.bulk-export-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.bulk-export-btn:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
 .bulk-delete-btn:hover:not(:disabled) {
   background: #fef2f2;
   border-color: #fca5a5;
 }
 
+.bulk-export-btn:disabled,
 .bulk-delete-btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
