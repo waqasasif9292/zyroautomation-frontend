@@ -16,6 +16,9 @@ const OverallProfitLossService = {
   updateReport(id, payload) {
     return axiosInstance.put(`/overall-profit-loss/${id}`, payload);
   },
+  refreshProfit(id) {
+    return axiosInstance.post(`/overall-profit-loss/${id}/refresh-profit`);
+  },
   deleteReport(id) {
     return axiosInstance.delete(`/overall-profit-loss/${id}`);
   },
