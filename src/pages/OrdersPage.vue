@@ -188,7 +188,7 @@
               :loading="orderStore.loading"
               :serial-start="serialStart"
               :visible-columns="visibleOrderColumns"
-              :selectable="canBulkDeleteOrders"
+              :selectable="canBulkSelectOrders"
               :selected-order-ids="selectedOrderIds"
               :all-page-selected="allVisibleOrdersSelected"
               :some-page-selected="someVisibleOrdersSelected"
@@ -412,6 +412,7 @@ const hasActiveFilters = computed(() => Boolean(
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const canBulkSelectOrders = computed(() => true);
 const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
 const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
 const billingMeterWidth = computed(() => Math.min(Math.max(Number(authStore.user?.remaining_percentage || 0), 0), 100));
