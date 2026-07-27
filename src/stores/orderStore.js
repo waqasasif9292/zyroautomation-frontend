@@ -29,7 +29,7 @@ export const useOrderStore = defineStore('order', () => {
   const panelOpen = ref(false);
 
   const requestParams = () => Object.fromEntries(
-    Object.entries({ ...filters, per_page: 200 }).filter(([, value]) => value !== null && value !== '')
+    Object.entries({ ...filters, per_page: 100 }).filter(([, value]) => value !== null && value !== '')
   );
 
   const fetchOrders = async () => {

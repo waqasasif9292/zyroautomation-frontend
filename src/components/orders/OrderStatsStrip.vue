@@ -185,12 +185,17 @@ const statItems = computed(() => [
 ]);
 
 const formatNumber = value => Number(value || 0).toLocaleString();
+const responsePayload = response => {
+  const data = response?.data?.data;
+  return data && !Array.isArray(data) && typeof data === 'object' ? data : {};
+};
 
 const fetchStats = async () => {
   const response = await OrderService.getStats({ summary: 1 });
+  const data = responsePayload(response);
   stats.value = {
     ...stats.value,
-    ...(response.data.data?.stats || {}),
+    ...(data.stats || {}),
   };
 };
 
