@@ -20,20 +20,16 @@
               <tr>
                 <th>Name</th>
                 <th>Date Range</th>
-                <th>Dispatched Orders</th>
-                <th>Products</th>
-                <th>Quantity</th>
-                <th>Product Cost</th>
                 <th>Final Profit</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td colspan="8">Loading overall profit/loss reports...</td>
+                <td colspan="4">Loading overall profit/loss reports...</td>
               </tr>
               <tr v-else-if="!reports.length">
-                <td class="empty-cell" colspan="8">
+                <td class="empty-cell" colspan="4">
                   <div>
                     <strong>No overall profit/loss reports yet.</strong>
                     <button class="primary-btn" type="button" @click="router.push('/overall-profit-loss/create')">Create Report</button>
@@ -43,11 +39,25 @@
               <tr v-for="report in reports" v-else :key="report.id">
                 <td><button class="name-btn" type="button" @click="router.push(`/overall-profit-loss/${report.id}`)">{{ report.name }}</button></td>
                 <td>{{ report.start_date }} to {{ report.end_date }}</td>
-                <td>{{ number(report.summary?.orders_count) }}</td>
-                <td>{{ number(report.summary?.products_count) }}</td>
-                <td>{{ number(report.summary?.total_quantity) }}</td>
-                <td>{{ money(report.summary?.total_product_cost) }}</td>
-                <td :class="report.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(report.results?.totals?.final_profit) }}</td>
+                <td>
+                  <div class="profit-cell">
+                    <span :class="report.results?.totals?.final_profit >= 0 ? 'success' : 'danger'">{{ money(report.results?.totals?.final_profit) }}</span>
+                    <button
+                      class="refresh-btn"
+                      type="button"
+                      title="Refresh profit"
+                      :disabled="refreshingIds.has(report.id)"
+                      @click="refreshProfit(report)"
+                    >
+                      <svg :class="{ spinning: refreshingIds.has(report.id) }" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 12a9 9 0 0 1-15.5 6.2" />
+                        <path d="M3 12A9 9 0 0 1 18.5 5.8" />
+                        <path d="M18.5 2.8v3h-3" />
+                        <path d="M5.5 21.2v-3h3" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
                 <td>
                   <div class="actions">
                     <button type="button" @click="router.push(`/overall-profit-loss/${report.id}`)">View</button>
@@ -75,8 +85,8 @@ const route = useRoute();
 const reports = ref([]);
 const loading = ref(true);
 const toast = ref('');
+const refreshingIds = ref(new Set());
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
-const number = (value) => Number(value || 0).toLocaleString();
 
 const showToast = (message) => {
   toast.value = message;
@@ -98,6 +108,24 @@ const remove = async (report) => {
   await OverallProfitLossService.deleteReport(report.id);
   reports.value = reports.value.filter(item => item.id !== report.id);
   showToast('Report deleted.');
+};
+
+const refreshProfit = async (report) => {
+  if (refreshingIds.value.has(report.id)) return;
+  refreshingIds.value = new Set([...refreshingIds.value, report.id]);
+
+  try {
+    const res = await OverallProfitLossService.refreshProfit(report.id);
+    const updated = res.data.data.report;
+    reports.value = reports.value.map(item => item.id === updated.id ? updated : item);
+    showToast('Profit refreshed.');
+  } catch {
+    showToast('Failed to refresh profit.');
+  } finally {
+    const next = new Set(refreshingIds.value);
+    next.delete(report.id);
+    refreshingIds.value = next;
+  }
 };
 
 onMounted(async () => {
@@ -167,7 +195,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 1040px;
+  min-width: 720px;
   border-collapse: collapse;
 }
 
@@ -227,6 +255,51 @@ th {
 .actions .danger-btn {
   border-color: #fecaca;
   color: #dc2626;
+}
+
+.profit-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+}
+
+.refresh-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.refresh-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .success {

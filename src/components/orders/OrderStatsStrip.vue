@@ -135,7 +135,7 @@ const dateFilter = (from, to) => ({ date_from: formatDate(from), date_to: format
 const statusFilter = status => ({ date_from: null, date_to: null, status });
 const thisMonthStatusFilter = status => ({ ...dateFilter(startOfMonth(new Date()), new Date()), status });
 const percentOfDispatched = value => {
-  const dispatched = Number(stats.value.dispatched_this_month || 0);
+  const dispatched = Number(orderListDispatched.value || 0);
   if (dispatched <= 0) return '0';
 
   return ((Number(value || 0) / dispatched) * 100).toFixed(1);
@@ -146,6 +146,14 @@ const percentOfThisMonth = value => {
 
   return ((Number(value || 0) / thisMonth) * 100).toFixed(1);
 };
+const orderListDispatched = computed(() => Math.max(0,
+  Number(stats.value.total || 0)
+  - Number(stats.value.cancel_by_shipper || 0)
+  - Number(stats.value.error || 0)
+  - Number(stats.value.hold || 0)
+  - Number(stats.value.pending_confirmation || 0)
+  - Number(stats.value.duplicate || 0)
+));
 
 const statItems = computed(() => [
   {
@@ -200,7 +208,7 @@ const statItems = computed(() => [
   { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'warehouse', filter: statusFilter('merchant_warehouse') },
   { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
-  { key: 'dispatched_this_month', label: 'Dispatched', value: stats.value.dispatched_this_month, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
+  { key: 'dispatched_this_month', label: 'Dispatched', value: orderListDispatched.value, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
   { key: 'delivered', label: 'Delivered', value: stats.value.delivered, percentage: percentOfDispatched(stats.value.delivered), icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
   { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, percentage: percentOfDispatched(stats.value.ready_for_return), icon: 'return', filter: thisMonthStatusFilter('ready_for_return') },
   { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper, percentage: percentOfDispatched(stats.value.returned_to_shipper), icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },

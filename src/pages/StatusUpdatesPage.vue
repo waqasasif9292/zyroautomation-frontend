@@ -101,17 +101,18 @@
                 <th>Tracking ID</th>
                 <th>Status</th>
                 <th>Last Updated Date Time</th>
+                <th>Picked By Job At</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
               <template v-if="loading">
                 <tr v-for="row in 7" :key="row">
-                  <td v-for="col in 8" :key="col"><span class="skeleton"></span></td>
+                  <td v-for="col in 9" :key="col"><span class="skeleton"></span></td>
                 </tr>
               </template>
               <tr v-else-if="orders.length === 0">
-                <td colspan="8" class="empty-cell">No orders need a status update right now.</td>
+                <td colspan="9" class="empty-cell">No orders need a status update right now.</td>
               </tr>
               <tr v-else v-for="(order, index) in orders" :key="order.id">
                 <td class="serial-cell">{{ serialStart + index }}</td>
@@ -137,6 +138,7 @@
                 </td>
                 <td><span class="status-pill">{{ order.status || '—' }}</span></td>
                 <td>{{ formatDateTime(order.status_updated_at) }}</td>
+                <td>{{ formatDateTime(order.status_sync_picked_at) }}</td>
                 <td>
                   <button
                     class="sync-btn"
