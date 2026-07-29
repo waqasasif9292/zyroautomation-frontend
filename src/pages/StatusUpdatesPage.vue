@@ -185,7 +185,7 @@ const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
 const orders = ref([]);
 const pagination = ref(null);
-const summary = ref({ due_count: 0, threshold_hours: 6, couriers: [] });
+const summary = ref({ due_count: 0, threshold_hours: 4, couriers: [] });
 const page = ref(1);
 const loading = ref(false);
 const syncingOrderId = ref('');
@@ -210,7 +210,7 @@ const queryDefaults = () => ({
 });
 
 const dueCount = computed(() => pagination.value?.total ?? summary.value.due_count ?? 0);
-const thresholdHours = computed(() => summary.value.threshold_hours || 6);
+const thresholdHours = computed(() => summary.value.threshold_hours || 4);
 const courierButtons = computed(() => summary.value.couriers || []);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;

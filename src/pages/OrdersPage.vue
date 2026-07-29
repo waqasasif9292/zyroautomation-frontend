@@ -107,7 +107,7 @@
                   class="bulk-export-btn"
                   type="button"
                   :disabled="exportingSelectedOrders"
-                  @click="downloadSelectedOrders"
+                  @click="openExportColumnModal"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 3v12" />
@@ -221,6 +221,65 @@
       </section>
     </main>
 
+    <div
+      v-if="showExportColumnModal"
+      class="export-modal-backdrop"
+      role="presentation"
+      @click.self="closeExportColumnModal"
+    >
+      <section class="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+        <header class="export-modal-header">
+          <div>
+            <p class="export-modal-eyebrow">{{ selectedOrderIds.length }} selected</p>
+            <h2 id="export-modal-title">Export Excel Fields</h2>
+          </div>
+          <button class="export-modal-close" type="button" aria-label="Close export fields" @click="closeExportColumnModal">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12" />
+              <path d="M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+
+        <div class="export-modal-toolbar">
+          <span>{{ selectedExportColumns.length }} of {{ exportableOrderColumns.length }} fields selected</span>
+          <div class="export-modal-actions-inline">
+            <button type="button" @click="selectAllExportColumns">Select All</button>
+            <button type="button" @click="selectVisibleExportColumns">Visible Columns</button>
+          </div>
+        </div>
+
+        <div class="export-field-grid">
+          <label
+            v-for="column in exportableOrderColumns"
+            :key="column.key"
+            class="export-field-option"
+          >
+            <input
+              v-model="selectedExportColumns"
+              type="checkbox"
+              :value="column.key"
+            >
+            <span>{{ column.label }}</span>
+          </label>
+        </div>
+
+        <footer class="export-modal-footer">
+          <button class="export-cancel-btn" type="button" :disabled="exportingSelectedOrders" @click="closeExportColumnModal">
+            Cancel
+          </button>
+          <button
+            class="export-confirm-btn"
+            type="button"
+            :disabled="exportingSelectedOrders || selectedExportColumns.length === 0"
+            @click="downloadSelectedOrders"
+          >
+            {{ exportingSelectedOrders ? 'Exporting...' : 'Export Excel' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+
     <HoldCallWorkflowModal
       :open="showHoldCallModal"
       :order="holdCallOrder"
@@ -328,6 +387,8 @@ const holdCallSaving = ref(false);
 const holdAddressAiLoading = ref(false);
 const exportingProducts = ref(false);
 const exportingSelectedOrders = ref(false);
+const showExportColumnModal = ref(false);
+const selectedExportColumns = ref([]);
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
@@ -335,7 +396,7 @@ let syncingQuery = false;
 
 const lockedOrderColumns = ['serial', 'actions'];
 const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'internal_notes', 'shipment_status', 'actions'];
-const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'internal_notes', 'shipment_status', 'actions'];
+const allowedOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'address', 'city', 'status', 'total', 'payment', 'products', 'internal_notes', 'shipment_status', 'order_number', 'order_date', 'status_category', 'courier', 'cod', 'advance_payment', 'shipping_price', 'product_skus', 'product_quantity', 'last_saved_by', 'label_generated_by', 'label_generated_at', 'status_updated_at', 'created_at', 'actions'];
 const visibleOrderColumns = ref([...defaultOrderColumns]);
 
 const orderTableColumnDefinitions = [
@@ -355,6 +416,20 @@ const orderTableColumnDefinitions = [
   { key: 'products', label: 'Product(s)' },
   { key: 'internal_notes', label: 'Internal Note' },
   { key: 'shipment_status', label: 'Packing Status' },
+  { key: 'order_number', label: 'Order Number' },
+  { key: 'order_date', label: 'Order Date' },
+  { key: 'status_category', label: 'Status Category' },
+  { key: 'courier', label: 'Courier' },
+  { key: 'cod', label: 'COD' },
+  { key: 'advance_payment', label: 'Advance Payment' },
+  { key: 'shipping_price', label: 'Shipping Price' },
+  { key: 'product_skus', label: 'Product SKUs' },
+  { key: 'product_quantity', label: 'Product Quantity' },
+  { key: 'last_saved_by', label: 'Last Saved By' },
+  { key: 'label_generated_by', label: 'Label Generated By' },
+  { key: 'label_generated_at', label: 'Label Generated At' },
+  { key: 'status_updated_at', label: 'Status Updated At' },
+  { key: 'created_at', label: 'Created At' },
   { key: 'actions', label: 'Actions', locked: true },
 ];
 const orderTableColumnMap = new Map(orderTableColumnDefinitions.map(column => [column.key, column]));
@@ -386,6 +461,9 @@ const orderQueryDefaults = {
   date_from: null,
   date_to: null,
   financial_status: null,
+  label_date_from: null,
+  label_date_to: null,
+  label_generated_by_user_id: null,
   product_id: null,
   search: '',
   source: null,
@@ -405,6 +483,9 @@ const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.customer_id ||
   orderStore.filters.date_from ||
   orderStore.filters.date_to ||
+  orderStore.filters.label_date_from ||
+  orderStore.filters.label_date_to ||
+  orderStore.filters.label_generated_by_user_id ||
   orderStore.filters.product_id ||
   orderStore.filters.search ||
   orderStore.filters.source ||
@@ -451,6 +532,7 @@ const formatNumber = value => Number(value || 0).toLocaleString();
 const orderedColumnKeys = computed(() => normalizeOrderColumns(columnOrder.value));
 
 const orderTableColumns = computed(() => orderedColumnKeys.value.map(column => orderTableColumnMap.get(column)).filter(Boolean));
+const exportableOrderColumns = computed(() => orderTableColumnDefinitions.filter(column => column.key !== 'actions'));
 
 const isColumnVisible = column => visibleOrderColumns.value.includes(column) || lockedOrderColumns.includes(column);
 
@@ -847,16 +929,39 @@ const openBulkDeleteDialog = () => {
   showBulkDeleteDialog.value = true;
 };
 
+const selectedVisibleExportColumns = () => visibleOrderColumns.value.filter(column => column !== 'actions');
+
+const openExportColumnModal = () => {
+  if (!selectedOrderIds.value.length || exportingSelectedOrders.value) return;
+  selectedExportColumns.value = selectedVisibleExportColumns();
+  showExportColumnModal.value = true;
+};
+
+const closeExportColumnModal = () => {
+  if (exportingSelectedOrders.value) return;
+  showExportColumnModal.value = false;
+};
+
+const selectAllExportColumns = () => {
+  selectedExportColumns.value = exportableOrderColumns.value.map(column => column.key);
+};
+
+const selectVisibleExportColumns = () => {
+  selectedExportColumns.value = selectedVisibleExportColumns();
+};
+
 const downloadSelectedOrders = async () => {
   const ids = [...selectedOrderIds.value];
-  if (!ids.length || exportingSelectedOrders.value) return;
+  const exportColumns = selectedExportColumns.value.filter(column => column !== 'actions');
+  if (!ids.length || !exportColumns.length || exportingSelectedOrders.value) return;
 
   exportingSelectedOrders.value = true;
   try {
-    const response = await OrderService.exportSelectedOrders(ids);
+    const response = await OrderService.exportSelectedOrders(ids, exportColumns);
     const filename = filenameFromDisposition(response.headers?.['content-disposition'], `selected_orders_${new Date().toISOString().slice(0, 10)}.xls`);
     downloadBlob(response.data, filename);
     showToast(`${ids.length} ${ids.length === 1 ? 'order' : 'orders'} exported.`);
+    showExportColumnModal.value = false;
   } catch (error) {
     console.error(error);
     showToast(error.response?.data?.message || 'Failed to export selected orders.');
@@ -1458,6 +1563,170 @@ onBeforeUnmount(() => {
   border: 2px solid #f1f5f9;
 }
 
+.export-modal-backdrop {
+  position: fixed;
+  z-index: 140;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.export-modal {
+  width: min(680px, 100%);
+  max-height: min(720px, calc(100dvh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+}
+
+.export-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.export-modal-eyebrow {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.export-modal-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.export-modal-close {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.export-modal-close svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.export-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #eef2f7;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.export-modal-actions-inline {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.export-modal-actions-inline button {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.export-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  overflow: auto;
+  padding: 16px 22px 20px;
+}
+
+.export-field-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.export-field-option:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.export-field-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+.export-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.export-cancel-btn,
+.export-confirm-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.export-cancel-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.export-confirm-btn {
+  border: 1px solid #1d4ed8;
+  background: #2563eb;
+  color: #fff;
+}
+
+.export-cancel-btn:disabled,
+.export-confirm-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .column-option {
   display: flex;
   align-items: center;
@@ -1681,6 +1950,36 @@ onBeforeUnmount(() => {
     right: 12px;
     width: auto;
     max-height: min(460px, calc(100dvh - 92px));
+  }
+
+  .export-modal-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .export-modal {
+    max-height: calc(100dvh - 24px);
+    border-radius: 10px;
+  }
+
+  .export-modal-toolbar,
+  .export-modal-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .export-modal-actions-inline,
+  .export-cancel-btn,
+  .export-confirm-btn {
+    width: 100%;
+  }
+
+  .export-modal-actions-inline button {
+    flex: 1;
+  }
+
+  .export-field-grid {
+    grid-template-columns: 1fr;
   }
 
   .orders-card {
