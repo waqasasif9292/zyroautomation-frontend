@@ -68,8 +68,8 @@ const OrderService = {
   bulkDeleteOrders(ids) {
     return axiosInstance.post('/orders/bulk-delete', { ids });
   },
-  exportSelectedOrders(ids) {
-    return axiosInstance.post('/orders/export-selected', { ids }, { responseType: 'blob' });
+  exportSelectedOrders(ids, columns = []) {
+    return axiosInstance.post('/orders/export-selected', { ids, columns }, { responseType: 'blob' });
   },
   deleteOrder(id) {
     return axiosInstance.delete(`/orders/${id}`);
