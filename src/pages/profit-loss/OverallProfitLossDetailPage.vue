@@ -250,13 +250,12 @@
                 <tr>
                   <th>#</th>
                   <th>Product</th>
-                  <th>SKU</th>
-                  <th>Dispatched Orders</th>
-                  <th>Quantity</th>
-                  <th>Cost Source</th>
+                  <th>Dispatched</th>
+                  <th>Delivered</th>
+                  <th>Returned</th>
+                  <th>Delivered Quantity</th>
                   <th>Unit Cost</th>
-                  <th>Total Cost</th>
-                  <th>Revenue</th>
+                  <th>Total Cost Delivered</th>
                   <th>Other Cost</th>
                   <th>Profit</th>
                 </tr>
@@ -268,24 +267,19 @@
                     <span class="product-name">{{ product.name }}</span>
                     <small v-if="product.variant_id">Variant: {{ product.variant_id }}</small>
                   </td>
-                  <td>{{ product.sku || '-' }}</td>
-                  <td>{{ number(product.order_count) }}</td>
-                  <td>{{ number(product.quantity) }}</td>
-                  <td>
-                    <span class="source-badge" :class="product.cost_source === 'inventory' ? 'inventory' : 'manual'">
-                      {{ product.cost_source === 'inventory' ? 'Inventory' : 'Manual' }}
-                    </span>
-                  </td>
+                  <td>{{ number(product.dispatched_count) }}</td>
+                  <td>{{ number(product.delivered_count) }} ({{ percent(product.delivered_percentage) }})</td>
+                  <td>{{ number(product.returned_count) }} ({{ percent(product.returned_percentage) }})</td>
+                  <td>{{ number(product.delivered_quantity) }}</td>
                   <td>{{ money(product.unit_cost) }}</td>
-                  <td>{{ money(product.total_cost) }}</td>
-                  <td class="money-cell success">{{ money(product.revenue) }}</td>
+                  <td>{{ money(product.profit_product_cost) }}</td>
                   <td class="money-cell danger">-{{ money(product.other_cost) }}</td>
                   <td :class="['money-cell', Number(product.profit || 0) >= 0 ? 'success' : 'danger']">
                     {{ money(product.profit) }}
                   </td>
                 </tr>
                 <tr v-if="!report.products.length">
-                  <td colspan="11">No product rows saved.</td>
+                  <td colspan="10">No product rows saved.</td>
                 </tr>
               </tbody>
             </table>
