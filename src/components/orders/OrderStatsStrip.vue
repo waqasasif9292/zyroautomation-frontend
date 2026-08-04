@@ -207,7 +207,7 @@ const statItems = computed(() => [
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
   { key: 'dispatched_this_month', label: 'Dispatched', value: orderListDispatched.value, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
   { key: 'delivered', label: 'Delivered', value: stats.value.delivered_this_month, percentage: percentOfDispatched(stats.value.delivered_this_month), icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
-  { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return_this_month, percentage: percentOfDispatched(stats.value.ready_for_return_this_month), icon: 'return', filter: thisMonthStatusFilter('ready_for_return') },
+  { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, icon: 'return', filter: statusFilter('ready_for_return') },
   { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper_this_month, percentage: percentOfDispatched(stats.value.returned_to_shipper_this_month), icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },
   { key: 'cancel_by_shipper', label: 'Cancel', value: stats.value.cancel_by_shipper_this_month, percentage: percentOfThisMonth(stats.value.cancel_by_shipper_this_month), percentageLabel: 'of this month', icon: 'error', filter: thisMonthStatusFilter('cancel_by_shipper') },
 ]);
