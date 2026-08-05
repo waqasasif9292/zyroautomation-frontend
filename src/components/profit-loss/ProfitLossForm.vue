@@ -22,23 +22,65 @@
             <Field label="End Date" :error="errors.end_date">
               <input v-model="form.end_date" class="form-input" type="date">
             </Field>
-            <Field label="Brand">
-              <select v-model="form.brand_id" class="form-input">
-                <option value="">All brands</option>
-                <option v-for="brand in options.brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
-              </select>
+            <Field label="Brand" :error="errors.brand_ids || errors.brand_id">
+              <div class="multi-select" @focusout="handlePickerBlur('brands', $event)">
+                <button class="multi-select-trigger" type="button" @click="togglePicker('brands')">
+                  <span v-if="!selectedBrandChips.length" class="multi-select-placeholder">All brands</span>
+                  <span v-else class="selection-chips">
+                    <span v-for="chip in selectedBrandChips" :key="chip" class="selection-chip">{{ chip }}</span>
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                <div v-if="pickers.brands" class="multi-select-menu compact-menu">
+                  <div v-for="brand in options.brands" :key="brand.id" class="multi-select-option" role="checkbox" :aria-checked="form.brand_ids.includes(brand.id)" @mousedown.prevent="toggleSelection(form.brand_ids, brand.id)" @click.prevent>
+                    <input :checked="form.brand_ids.includes(brand.id)" tabindex="-1" type="checkbox" aria-hidden="true" @click.prevent>
+                    <span><strong>{{ brand.name }}</strong></span>
+                  </div>
+                  <p v-if="!options.brands.length" class="empty-products">No brands found.</p>
+                </div>
+              </div>
             </Field>
-            <Field label="Source">
-              <select v-model="form.source" class="form-input">
-                <option value="">All sources</option>
-                <option v-for="source in options.sources" :key="source" :value="source">{{ source }}</option>
-              </select>
+            <Field label="Source" :error="errors.sources || errors.source">
+              <div class="multi-select" @focusout="handlePickerBlur('sources', $event)">
+                <button class="multi-select-trigger" type="button" @click="togglePicker('sources')">
+                  <span v-if="!selectedSourceChips.length" class="multi-select-placeholder">All sources</span>
+                  <span v-else class="selection-chips">
+                    <span v-for="chip in selectedSourceChips" :key="chip" class="selection-chip">{{ chip }}</span>
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                <div v-if="pickers.sources" class="multi-select-menu compact-menu">
+                  <div v-for="source in options.sources" :key="source" class="multi-select-option" role="checkbox" :aria-checked="form.sources.includes(source)" @mousedown.prevent="toggleSelection(form.sources, source)" @click.prevent>
+                    <input :checked="form.sources.includes(source)" tabindex="-1" type="checkbox" aria-hidden="true" @click.prevent>
+                    <span><strong>{{ source }}</strong></span>
+                  </div>
+                  <p v-if="!options.sources.length" class="empty-products">No sources found.</p>
+                </div>
+              </div>
             </Field>
-            <Field label="Courier">
-              <select v-model="form.courier_integration_id" class="form-input">
-                <option value="">All couriers</option>
-                <option v-for="courier in options.couriers" :key="courier.id" :value="courier.id">{{ courier.name }}</option>
-              </select>
+            <Field label="Courier" :error="errors.courier_integration_ids || errors.courier_integration_id">
+              <div class="multi-select" @focusout="handlePickerBlur('couriers', $event)">
+                <button class="multi-select-trigger" type="button" @click="togglePicker('couriers')">
+                  <span v-if="!selectedCourierChips.length" class="multi-select-placeholder">All couriers</span>
+                  <span v-else class="selection-chips">
+                    <span v-for="chip in selectedCourierChips" :key="chip" class="selection-chip">{{ chip }}</span>
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                <div v-if="pickers.couriers" class="multi-select-menu compact-menu">
+                  <div v-for="courier in options.couriers" :key="courier.id" class="multi-select-option" role="checkbox" :aria-checked="form.courier_integration_ids.includes(courier.id)" @mousedown.prevent="toggleSelection(form.courier_integration_ids, courier.id)" @click.prevent>
+                    <input :checked="form.courier_integration_ids.includes(courier.id)" tabindex="-1" type="checkbox" aria-hidden="true" @click.prevent>
+                    <span><strong>{{ courier.name }}</strong></span>
+                  </div>
+                  <p v-if="!options.couriers.length" class="empty-products">No couriers configured.</p>
+                </div>
+              </div>
             </Field>
           </div>
         </section>
@@ -256,6 +298,11 @@ const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}
 const number = (value) => Number(value || 0).toLocaleString();
 const productsOpen = ref(false);
 const productSearch = ref('');
+const pickers = reactive({
+  brands: false,
+  sources: false,
+  couriers: false,
+});
 
 const today = new Date().toISOString().slice(0, 10);
 const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -263,9 +310,9 @@ const form = reactive({
   name: '',
   start_date: monthStart,
   end_date: today,
-  brand_id: '',
-  source: '',
-  courier_integration_id: '',
+  brand_ids: [],
+  sources: [],
+  courier_integration_ids: [],
   product_ids: [],
   product_costs: {},
   product_cost_sources: {},
@@ -298,6 +345,14 @@ const normalizeCourierTaxes = (courierTaxes = []) => {
   ]));
 };
 
+const normalizeSelection = (values, fallback = '') => {
+  const rows = Array.isArray(values) ? values : [];
+  const normalized = rows.map(value => String(value || '').trim()).filter(Boolean);
+  const fallbackValue = String(fallback || '').trim();
+
+  return [...new Set(fallbackValue ? [...normalized, fallbackValue] : normalized)];
+};
+
 const normalizeExpenses = (expenses = []) => (
   Array.isArray(expenses) ? expenses : []
 ).map((expense) => ({
@@ -326,9 +381,9 @@ watch(() => props.initialCalculation, (calculation) => {
     name: calculation.name || '',
     start_date: calculation.start_date || monthStart,
     end_date: calculation.end_date || today,
-    brand_id: calculation.brand_id || '',
-    source: calculation.source || '',
-    courier_integration_id: calculation.courier_integration_id || '',
+    brand_ids: normalizeSelection(calculation.brand_ids, calculation.brand_id),
+    sources: normalizeSelection(calculation.sources, calculation.source),
+    courier_integration_ids: normalizeSelection(calculation.courier_integration_ids, calculation.courier_integration_id),
     product_ids: calculation.product_ids || [],
     product_costs: normalizeProductCosts(calculation.products),
     product_cost_sources: normalizeProductCostSources(calculation.products),
@@ -370,9 +425,9 @@ const submit = () => emit('submit', {
   name: form.name,
   start_date: form.start_date,
   end_date: form.end_date,
-  brand_id: form.brand_id,
-  source: form.source,
-  courier_integration_id: form.courier_integration_id,
+  brand_ids: form.brand_ids,
+  sources: form.sources,
+  courier_integration_ids: form.courier_integration_ids,
   products: form.product_ids.map(id => ({
     product_id: id,
     product_cost: Number(form.product_costs[id] || 0),
@@ -410,11 +465,11 @@ const filteredProducts = computed(() => {
 const selectedProducts = computed(() => props.options.products.filter(product => form.product_ids.includes(product.id)));
 
 const visibleCouriers = computed(() => {
-  if (!form.courier_integration_id) {
+  if (!form.courier_integration_ids.length) {
     return props.options.couriers;
   }
 
-  return props.options.couriers.filter(courier => courier.id === form.courier_integration_id);
+  return props.options.couriers.filter(courier => form.courier_integration_ids.includes(courier.id));
 });
 
 const productCostValue = (id) => Number(form.product_costs[id] || 0);
@@ -486,6 +541,49 @@ const selectedProductsLabel = computed(() => {
   if (selected.length <= 2) return selected.map(product => product.name).join(', ');
   return `${selected.length} products selected`;
 });
+
+const selectionChips = (ids, options, labelForOption = option => option.name) => {
+  const labels = options
+    .filter(option => ids.includes(option.id ?? option))
+    .map(labelForOption);
+
+  if (labels.length <= 2) return labels;
+  return [labels[0], labels[1], `+${labels.length - 2}`];
+};
+
+const selectedBrandChips = computed(() => selectionChips(
+  form.brand_ids,
+  props.options.brands,
+));
+const selectedSourceChips = computed(() => selectionChips(
+  form.sources,
+  props.options.sources,
+  source => source,
+));
+const selectedCourierChips = computed(() => selectionChips(
+  form.courier_integration_ids,
+  props.options.couriers,
+));
+
+const togglePicker = (key) => {
+  pickers[key] = !pickers[key];
+};
+
+const toggleSelection = (values, value) => {
+  const index = values.indexOf(value);
+
+  if (index === -1) {
+    values.push(value);
+  } else {
+    values.splice(index, 1);
+  }
+};
+
+const handlePickerBlur = (key, event) => {
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    pickers[key] = false;
+  }
+};
 
 const handleProductsBlur = (event) => {
   if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -623,9 +721,32 @@ const handleProductsBlur = (event) => {
   cursor: pointer;
 }
 
-.multi-select-trigger span {
+.multi-select-placeholder {
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.selection-chip {
+  max-width: 145px;
+  overflow: hidden;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #27366f;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

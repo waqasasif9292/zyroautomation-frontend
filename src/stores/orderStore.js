@@ -5,7 +5,9 @@ import { useAuthStore } from './authStore';
 
 const defaultFilters = () => ({
   brand_id: null,
+  brand_ids: [],
   courier_integration_id: null,
+  courier_integration_ids: [],
   customer_id: null,
   date_from: null,
   date_to: null,
@@ -16,8 +18,10 @@ const defaultFilters = () => ({
   product_id: null,
   search: '',
   source: null,
+  sources: [],
   sort: 'created_at_desc',
   status: null,
+  statuses: [],
   page: 1,
 });
 
@@ -32,7 +36,9 @@ export const useOrderStore = defineStore('order', () => {
   const panelOpen = ref(false);
 
   const requestParams = () => Object.fromEntries(
-    Object.entries({ ...filters, per_page: 100 }).filter(([, value]) => value !== null && value !== '')
+    Object.entries({ ...filters, per_page: 100 }).filter(([, value]) => (
+      Array.isArray(value) ? value.length > 0 : value !== null && value !== ''
+    ))
   );
 
   const fetchOrders = async () => {
@@ -72,6 +78,10 @@ export const useOrderStore = defineStore('order', () => {
 
   const hydrateFilters = (values) => {
     Object.assign(filters, defaultFilters(), values);
+    filters.brand_ids = Array.isArray(filters.brand_ids) ? filters.brand_ids : [];
+    filters.courier_integration_ids = Array.isArray(filters.courier_integration_ids) ? filters.courier_integration_ids : [];
+    filters.sources = Array.isArray(filters.sources) ? filters.sources : [];
+    filters.statuses = Array.isArray(filters.statuses) ? filters.statuses : [];
     filters.page = Number.parseInt(filters.page, 10) || 1;
   };
 
