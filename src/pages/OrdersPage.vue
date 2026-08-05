@@ -56,7 +56,10 @@
       <section class="orders-card">
         <div class="card-header">
           <div>
-            <h1>Orders</h1>
+            <h1>
+              Orders
+              <span v-if="productHeadingLabel" class="product-heading-name">- {{ productHeadingLabel }}</span>
+            </h1>
             <p>Incoming orders from your websites and manual entries.</p>
           </div>
           <div class="header-actions">
@@ -354,6 +357,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useBrandStore } from '../stores/brandStore';
 import { useIntegrationStore } from '../stores/integrationStore';
 import { useOrderStore } from '../stores/orderStore';
+import { useProductStore } from '../stores/productStore';
 import BillingService from '../services/BillingService';
 import OrderService from '../services/OrderService';
 import { buildFilterQuery, readFilterQuery } from '../utils/filterQuery';
@@ -362,6 +366,7 @@ const orderStore = useOrderStore();
 const authStore = useAuthStore();
 const brandStore = useBrandStore();
 const integrationStore = useIntegrationStore();
+const productStore = useProductStore();
 const router = useRouter();
 const route = useRoute();
 const tableRef = ref(null);
@@ -392,7 +397,10 @@ const selectedExportColumns = ref([]);
 const columnOrder = ref([]);
 const draggedColumn = ref(null);
 const dragOverColumn = ref(null);
+const filteredProduct = ref(null);
+const filteredProductLoading = ref(false);
 let syncingQuery = false;
+let productRequestId = 0;
 
 const lockedOrderColumns = ['serial', 'actions'];
 const defaultOrderColumns = ['serial', 'order', 'brand', 'source', 'tracking', 'created_by', 'customer', 'phone', 'status', 'total', 'internal_notes', 'shipment_status', 'actions'];
@@ -456,7 +464,9 @@ const normalizeVisibleOrderColumns = (columns = []) => {
 
 const orderQueryDefaults = {
   brand_id: null,
+  brand_ids: [],
   courier_integration_id: null,
+  courier_integration_ids: [],
   customer_id: null,
   date_from: null,
   date_to: null,
@@ -467,8 +477,10 @@ const orderQueryDefaults = {
   product_id: null,
   search: '',
   source: null,
+  sources: [],
   sort: 'created_at_desc',
   status: null,
+  statuses: [],
   page: 1,
 };
 
@@ -479,7 +491,9 @@ const exactOrderFilters = (overrides = {}) => ({
 
 const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_id ||
+  orderStore.filters.brand_ids?.length ||
   orderStore.filters.courier_integration_id ||
+  orderStore.filters.courier_integration_ids?.length ||
   orderStore.filters.customer_id ||
   orderStore.filters.date_from ||
   orderStore.filters.date_to ||
@@ -489,11 +503,22 @@ const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.product_id ||
   orderStore.filters.search ||
   orderStore.filters.source ||
-  orderStore.filters.status
+  orderStore.filters.sources?.length ||
+  orderStore.filters.status ||
+  orderStore.filters.statuses?.length
 ));
 
 const canBulkDeleteOrders = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const canBulkSelectOrders = computed(() => true);
+const activeProductId = computed(() => String(orderStore.filters.product_id || '').trim());
+const productHeadingLabel = computed(() => {
+  if (!activeProductId.value) return '';
+  if (filteredProductLoading.value && !filteredProduct.value) return 'Loading product...';
+  return filteredProduct.value?.name
+    || filteredProduct.value?.title
+    || filteredProduct.value?.sku
+    || activeProductId.value;
+});
 const showBillingBar = computed(() => Boolean(authStore.user?.billing_enabled));
 const remainingCredits = computed(() => Number(authStore.user?.remaining_credits || 0));
 const billingMeterWidth = computed(() => Math.min(Math.max(Number(authStore.user?.remaining_percentage || 0), 0), 100));
@@ -640,6 +665,41 @@ const changePage = async (page) => {
 
 const hydrateFiltersFromRoute = () => {
   orderStore.hydrateFilters(readFilterQuery(route.query, orderQueryDefaults));
+};
+
+const loadFilteredProduct = async (productId) => {
+  const id = String(productId || '').trim();
+  const requestId = ++productRequestId;
+
+  if (!id) {
+    filteredProduct.value = null;
+    filteredProductLoading.value = false;
+    return;
+  }
+
+  const cachedProduct = productStore.products.find(product => product.id === id);
+  if (cachedProduct) {
+    filteredProduct.value = cachedProduct;
+    filteredProductLoading.value = false;
+    return;
+  }
+
+  filteredProductLoading.value = true;
+  try {
+    const product = await productStore.fetchProduct(id);
+    if (requestId === productRequestId) {
+      filteredProduct.value = product;
+    }
+  } catch (error) {
+    console.error(error);
+    if (requestId === productRequestId) {
+      filteredProduct.value = null;
+    }
+  } finally {
+    if (requestId === productRequestId) {
+      filteredProductLoading.value = false;
+    }
+  }
 };
 
 const replaceFilterQuery = async () => {
@@ -1125,6 +1185,8 @@ watch(() => orderStore.orders.map(order => order.id), (ids) => {
   selectedOrderIds.value = selectedOrderIds.value.filter(id => visible.has(id));
 });
 
+watch(activeProductId, loadFilteredProduct);
+
 onMounted(async () => {
   document.addEventListener('mousedown', closeColumnMenuOnOutsideClick, true);
   document.addEventListener('click', closeColumnMenuOnOutsideClick, true);
@@ -1341,10 +1403,25 @@ onBeforeUnmount(() => {
 }
 
 .card-header h1 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
   margin: 0 0 4px;
   font-size: 20px;
   font-weight: 800;
   color: #1e293b;
+}
+
+.product-heading-name {
+  display: inline-block;
+  max-width: min(560px, 60vw);
+  overflow: hidden;
+  color: #475569;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
 }
 
 .card-header p {
