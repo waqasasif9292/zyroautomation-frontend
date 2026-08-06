@@ -312,7 +312,7 @@
 
           <div class="field">
             <label>Special Instructions</label>
-            <textarea v-model="form.special_instructions" :class="{ invalid: errors.special_instructions }" rows="3" placeholder="1 x Unbreakable Child Fridge Lock (Free Home Delivery)" :disabled="readonlyLocksPartialForm"></textarea>
+            <textarea v-model="form.special_instructions" :class="{ invalid: errors.special_instructions }" rows="3" placeholder="1 x Unbreakable Child Fridge Lock (Free Home Delivery)" :disabled="orderItemsLocked"></textarea>
             <span v-if="errors.special_instructions" class="field-error">{{ errors.special_instructions }}</span>
           </div>
 
@@ -328,7 +328,7 @@
               <h2>Order Items</h2>
             </div>
             <div v-if="items.length" class="copy-action">
-              <button type="button" class="copy-btn" :disabled="!items.length || readonlyLocksPartialForm" @click="addItemsToSpecialInstructions">
+              <button type="button" class="copy-btn" :disabled="!items.length || orderItemsLocked" @click="addItemsToSpecialInstructions">
                 Add Product Details in Special Instruction
               </button>
             </div>
@@ -342,7 +342,7 @@
                   type="text"
                   placeholder="Search product"
                   autocomplete="off"
-                  :disabled="readonlyLocksPartialForm"
+                  :disabled="orderItemsLocked"
                   @focus="openProductCombobox"
                   @input="handleProductSearch"
                   @keydown.enter.prevent="selectFirstFilteredProduct"
@@ -364,9 +364,9 @@
                 </div>
               </div>
             </div>
-            <button type="button" class="add-item-btn" :disabled="readonlyLocksPartialForm" @click="addItem">Add</button>
+            <button type="button" class="add-item-btn" :disabled="orderItemsLocked" @click="addItem">Add</button>
           </div>
-          <span v-if="!isReadonlyMode && (errors.items || !canSaveDraft)" class="field-error items-error">
+          <span v-if="(!isReadonlyMode || canEditReadonlyOrderFields) && (errors.items || !canSaveDraft)" class="field-error items-error">
             {{ errors.items || 'Select at least one product to continue.' }}
           </span>
 
@@ -380,7 +380,7 @@
               <div class="item-qty">
                 <label>Qty</label>
                 <div class="qty-stepper">
-                  <button type="button" :disabled="readonlyLocksPartialForm || Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
+                  <button type="button" :disabled="orderItemsLocked || Number(row.quantity || 1) <= 1" @click="decrementItemQuantity(row)">-</button>
                   <input
                     :value="row.quantity"
                     type="number"
@@ -388,14 +388,14 @@
                     step="1"
                     inputmode="numeric"
                     aria-label="Quantity"
-                    :disabled="readonlyLocksPartialForm"
+                    :disabled="orderItemsLocked"
                     @input="setItemQuantity(row, $event.target.value)"
                     @blur="normalizeItemQuantity(row)"
                   >
-                  <button type="button" :disabled="readonlyLocksPartialForm" @click="incrementItemQuantity(row)">+</button>
+                  <button type="button" :disabled="orderItemsLocked" @click="incrementItemQuantity(row)">+</button>
                 </div>
               </div>
-              <button class="remove-item-btn" type="button" :disabled="readonlyLocksPartialForm" @click="removeItem(row.product_id)">Remove</button>
+              <button class="remove-item-btn" type="button" :disabled="orderItemsLocked" @click="removeItem(row.product_id)">Remove</button>
             </div>
           </div>
 
@@ -748,6 +748,7 @@ const canCancelCurrentOrder = computed(() => {
 const readonlyEditableFields = ['brand_id', 'source', 'total_price', 'advance_payment'];
 const readonlyLocksEntireForm = computed(() => isReadonlyMode.value && !canEditReadonlyOrderFields.value);
 const readonlyLocksPartialForm = computed(() => isReadonlyMode.value && canEditReadonlyOrderFields.value);
+const orderItemsLocked = computed(() => isReadonlyMode.value && !canEditReadonlyOrderFields.value);
 const isReadonlyFieldDisabled = (field) => (
   isReadonlyMode.value && (!canEditReadonlyOrderFields.value || !readonlyEditableFields.includes(field))
 );
@@ -1768,6 +1769,10 @@ const validateReadonlyAdminFields = async () => {
     errors.advance_payment = 'Advance payment must be zero or greater.';
   } else if (hasAdvancePayment.value && advanceAmount > totalAmount) {
     errors.advance_payment = 'Advance payment cannot be greater than total amount.';
+  }
+
+  if (!canSaveDraft.value) {
+    errors.items = 'At least one order item is required.';
   }
 
   if (Object.keys(errors).length) {
