@@ -165,13 +165,13 @@
                   <th>Courier</th>
                   <th>Delivered</th>
                   <th>Dispatched</th>
-                  <th>Delivered COD</th>
                   <th>Delivery</th>
                   <th>Fuel</th>
                   <th>GST</th>
                   <th>Courier Tax</th>
                   <th>Total Charges</th>
-                  <th>Net</th>
+                  <th>Delivered Product Cost</th>
+                  <th>Profit</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,14 +179,14 @@
                   <td>{{ courierName(row.courier_integration_id) }}</td>
                   <td>{{ number(row.delivered_count) }}</td>
                   <td>{{ number(row.dispatched_count) }}</td>
-                  <td class="money-cell success">{{ money(row.delivered_cod) }}</td>
                   <td class="money-cell danger">-{{ money(row.delivery_charges) }}</td>
                   <td class="money-cell danger">-{{ money(row.fuel_charges) }}</td>
                   <td class="money-cell danger">-{{ money(row.gst) }}</td>
                   <td class="money-cell danger">-{{ money(row.courier_tax) }}</td>
                   <td class="money-cell danger">-{{ money(row.total_courier_cost) }}</td>
-                  <td :class="['money-cell', row.net_after_courier_cost >= 0 ? 'success' : 'danger']">
-                    {{ money(row.net_after_courier_cost) }}
+                  <td class="money-cell danger">-{{ money(row.delivered_product_cost) }}</td>
+                  <td :class="['money-cell', row.profit >= 0 ? 'success' : 'danger']">
+                    {{ money(row.profit) }}
                   </td>
                 </tr>
                 <tr v-if="!courierBreakdown.length">
