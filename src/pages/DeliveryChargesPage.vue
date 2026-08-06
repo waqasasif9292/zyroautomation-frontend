@@ -77,6 +77,11 @@
               </option>
             </select>
 
+            <select v-model="draftFilters.dc_status" class="filter-control">
+              <option value="">All DC Statuses</option>
+              <option value="zero">DC Zero Only</option>
+            </select>
+
             <select v-model="draftFilters.sort" class="filter-control">
               <option value="created_id_desc">Newest First</option>
               <option value="created_id_asc">Oldest First</option>
@@ -216,6 +221,7 @@ const defaultFilters = () => ({
   courier_integration_id: '',
   date_from: '',
   date_to: '',
+  dc_status: '',
   search: '',
   sort: 'created_id_desc',
   source: '',
@@ -242,7 +248,18 @@ const sourceOptions = computed(() => {
   return [...new Set([...defaults, ...brandSources].filter(Boolean))];
 });
 
-const deliveryChargeFetchHref = (courier) => `/delivery-charges/fetch/${encodeURIComponent(courier.slug)}`;
+const syncFilterQuery = () => Object.fromEntries(
+  ['brand_id', 'courier_integration_id', 'date_from', 'date_to', 'search', 'source']
+    .map(key => [key, appliedFilters[key]])
+    .filter(([, value]) => value !== null && value !== '')
+);
+
+const deliveryChargeFetchHref = (courier) => {
+  const params = new URLSearchParams(syncFilterQuery());
+  const query = params.toString();
+
+  return `/delivery-charges/fetch/${encodeURIComponent(courier.slug)}${query ? `?${query}` : ''}`;
+};
 
 const requestParams = () => Object.fromEntries(
   Object.entries({

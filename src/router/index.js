@@ -31,6 +31,7 @@ const routes = [
   { path: '/shipper-advice', component: () => import('../pages/ShipperAdvicePage.vue'), meta: { requiresAuth: true } },
   { path: '/delivery-charges', component: () => import('../pages/DeliveryChargesPage.vue'), meta: { requiresAuth: true } },
   { path: '/delivery-charges/fetch/:courierSlug', component: () => import('../pages/DeliveryChargeFetchPage.vue'), meta: { requiresAuth: true } },
+  { path: '/revert_leopard_dc', component: () => import('../pages/RevertLeopardDcPage.vue'), meta: { requiresAuth: true } },
   { path: '/packing-logs', redirect: '/packing-logs/pending' },
   { path: '/packing-logs/pending', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'pending' } },
   { path: '/packing-logs/packed', component: () => import('../pages/PackingLogsPage.vue'), meta: { requiresAuth: true, packingView: 'packed' } },

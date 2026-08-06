@@ -222,7 +222,18 @@ const sourceOptions = computed(() => {
   return [...new Set([...defaults, ...brandSources].filter(Boolean))];
 });
 
-const statusFetchHref = (courier) => `/status-updates/fetch/${encodeURIComponent(courier.slug)}`;
+const syncFilterQuery = () => Object.fromEntries(
+  ['brand_id', 'courier_integration_id', 'date_from', 'date_to', 'search', 'source']
+    .map(key => [key, appliedFilters[key]])
+    .filter(([, value]) => value !== null && value !== '')
+);
+
+const statusFetchHref = (courier) => {
+  const params = new URLSearchParams(syncFilterQuery());
+  const query = params.toString();
+
+  return `/status-updates/fetch/${encodeURIComponent(courier.slug)}${query ? `?${query}` : ''}`;
+};
 
 const formatDateTime = (value) => {
   if (!value) return 'Never';
