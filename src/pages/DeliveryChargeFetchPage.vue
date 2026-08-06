@@ -67,6 +67,7 @@ onMounted(async () => {
     const res = await DeliveryChargeService.syncCourier({
       courier_slug: route.params.courierSlug,
       all: 1,
+      ...syncFilters(),
     }, {
       signal: syncController.signal,
     });
@@ -87,6 +88,12 @@ onMounted(async () => {
     state.value = 'error';
   }
 });
+
+const syncFilters = () => Object.fromEntries(
+  ['brand_id', 'courier_integration_id', 'date_from', 'date_to', 'search', 'source']
+    .map(key => [key, route.query[key]])
+    .filter(([, value]) => typeof value === 'string' && value.trim() !== '')
+);
 
 const abortSync = () => {
   if (state.value === 'loading' && syncController) {

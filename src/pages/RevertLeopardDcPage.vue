@@ -1,27 +1,23 @@
 <template>
-  <main class="fetch-page">
-    <section class="fetch-panel">
+  <main class="reset-page">
+    <section class="reset-panel">
       <div v-if="state === 'loading'" class="spinner" aria-hidden="true"></div>
       <div v-else class="status-icon" :class="state">
-        <span>{{ state === 'success' ? '✓' : '!' }}</span>
+        <span>{{ state === 'success' ? 'OK' : '!' }}</span>
       </div>
 
-      <p class="eyebrow">{{ courierName }}</p>
+      <p class="eyebrow">Leopard DC Reset</p>
       <h1>{{ title }}</h1>
       <p class="message">{{ message }}</p>
 
       <div v-if="summary" class="summary-grid">
         <div>
-          <strong>{{ summary.checked }}</strong>
-          <span>Checked</span>
+          <strong>{{ summary.matched }}</strong>
+          <span>Matched</span>
         </div>
         <div>
           <strong>{{ summary.updated }}</strong>
           <span>Updated</span>
-        </div>
-        <div>
-          <strong>{{ summary.failed }}</strong>
-          <span>Failed</span>
         </div>
       </div>
     </section>
@@ -31,64 +27,50 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import StatusUpdateService from '../services/StatusUpdateService';
+import axiosInstance from '../services/AuthService';
 
 const route = useRoute();
 const state = ref('loading');
 const summary = ref(null);
 const errorMessage = ref('');
 
-const courierName = computed(() => {
-  const slug = String(route.params.courierSlug || '');
-  if (!slug) return 'Courier';
-
-  return slug.charAt(0).toUpperCase() + slug.slice(1);
-});
-
 const title = computed(() => {
-  if (state.value === 'success') return 'Statuses fetch completed';
-  if (state.value === 'error') return 'Statuses fetch failed';
+  if (state.value === 'success') return 'Delivery charges reset';
+  if (state.value === 'error') return 'Reset failed';
 
-  return 'Fetching latest statuses';
+  return 'Resetting delivery charges';
 });
 
 const message = computed(() => {
-  if (state.value === 'success') return 'Latest courier statuses have been fetched and updated.';
-  if (state.value === 'error') return errorMessage.value || 'Unable to fetch latest statuses right now.';
+  if (state.value === 'success') {
+    return `Leopard delivery charges were reset for ${summary.value.date_from} to ${summary.value.date_to}.`;
+  }
 
-  return 'We are fetching latest status updates. Please keep this tab open.';
+  if (state.value === 'error') return errorMessage.value || 'Unable to reset Leopard delivery charges.';
+
+  return 'Please keep this tab open.';
 });
 
 onMounted(async () => {
   try {
-    const res = await StatusUpdateService.refreshDueByGet({
-      courier_slug: route.params.courierSlug,
-      all: 1,
-      ...syncFilters(),
+    const res = await axiosInstance.get('/revert_leopard_dc', {
+      params: {
+        date_from: route.query.date_from,
+        date_to: route.query.date_to,
+      },
     });
 
-    const data = res.data.data || {};
-    summary.value = {
-      checked: data.checked ?? 0,
-      updated: data.updated ?? 0,
-      failed: data.failed ?? 0,
-    };
+    summary.value = res.data.data || {};
     state.value = 'success';
   } catch (error) {
     errorMessage.value = error.response?.data?.message || error.message || '';
     state.value = 'error';
   }
 });
-
-const syncFilters = () => Object.fromEntries(
-  ['brand_id', 'courier_integration_id', 'date_from', 'date_to', 'search', 'source']
-    .map(key => [key, route.query[key]])
-    .filter(([, value]) => typeof value === 'string' && value.trim() !== '')
-);
 </script>
 
 <style scoped>
-.fetch-page {
+.reset-page {
   display: grid;
   min-height: 100vh;
   place-items: center;
@@ -96,7 +78,7 @@ const syncFilters = () => Object.fromEntries(
   background: #f8fafc;
 }
 
-.fetch-panel {
+.reset-panel {
   width: min(440px, 100%);
   text-align: center;
 }
@@ -120,7 +102,7 @@ const syncFilters = () => Object.fromEntries(
 .status-icon {
   border-radius: 999px;
   color: #fff;
-  font-size: 30px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -158,7 +140,7 @@ h1 {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-top: 22px;
 }
