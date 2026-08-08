@@ -262,7 +262,7 @@
           <div v-if="hasCourierSelected && !isSelfPickupSelected" class="grid two compact">
             <div class="field">
               <label>{{ isGramWeightSelected ? 'Weight (grams)' : 'Packet Weight (kg)' }}</label>
-              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="isGramWeightSelected ? '500' : '0.2'" :disabled="readonlyLocksPartialForm">
+              <input v-model="form.packet_weight" :class="{ invalid: errors.packet_weight }" type="number" min="0" :step="isGramWeightSelected ? 1 : 0.1" :placeholder="defaultPacketWeightForSelectedCourier()" :disabled="readonlyLocksPartialForm">
               <span v-if="errors.packet_weight" class="field-error">{{ errors.packet_weight }}</span>
             </div>
             <div v-if="!isArgoSelected" class="field">
@@ -909,6 +909,12 @@ const defaultShipmentTypeForSelectedCourier = () => {
   return '';
 };
 
+const defaultPacketWeightForSelectedCourier = () => {
+  if (isLeopardSelected.value) return '200';
+  if (isDastaqSelected.value) return '500';
+  return '0.2';
+};
+
 const selectedBrandDefaultShipper = () => {
   if (!selectedBrand.value || !form.courier_integration_id) return null;
   const defaultShippers = selectedBrand.value.default_shippers || {};
@@ -1015,7 +1021,7 @@ const loadPostexRuntimeData = async () => {
 
 const handleCourierChange = async () => {
   resetCourierDependentFields();
-  form.packet_weight = isGramWeightSelected.value ? '500' : '0.2';
+  form.packet_weight = defaultPacketWeightForSelectedCourier();
   form.shipment_type = defaultShipmentTypeForSelectedCourier();
   applyBrandDefaultShipper();
   await loadPostexRuntimeData();
