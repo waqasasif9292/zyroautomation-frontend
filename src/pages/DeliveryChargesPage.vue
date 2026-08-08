@@ -237,7 +237,7 @@ const queryDefaults = () => ({
 
 const totalCount = computed(() => pagination.value?.total ?? summary.value.total ?? 0);
 const zeroTotalCount = computed(() => summary.value.zero_total_count ?? 0);
-const chargeButtons = computed(() => summary.value.couriers || []);
+const chargeButtons = computed(() => summary.value.sync_couriers || summary.value.couriers || []);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
   return ((pagination.value.current_page - 1) * pagination.value.per_page) + 1;
