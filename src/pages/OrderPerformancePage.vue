@@ -358,6 +358,21 @@ const citySearch = ref('');
 const citySearchDraft = ref('');
 const cityPage = ref(1);
 const cityPerPage = 100;
+const inputDate = date => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+const defaultReportRange = (() => {
+  const today = new Date();
+
+  return {
+    start: inputDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+    end: inputDate(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+  };
+})();
 
 const defaultData = () => ({
   summary: { today: 0, yesterday: 0, seven_days: 0, this_month: 0, last_month: 0, total: 0 },
@@ -409,8 +424,8 @@ const copy = computed(() => type.value === 'returns'
 const filters = computed(() => ({
   dash_start_date: route.query.dash_start_date || '',
   dash_end_date: route.query.dash_end_date || '',
-  report_start_date: route.query.report_start_date || '',
-  report_end_date: route.query.report_end_date || '',
+  report_start_date: route.query.report_start_date || defaultReportRange.start,
+  report_end_date: route.query.report_end_date || defaultReportRange.end,
   brand_id: route.query.brand_id || '',
   city_start_date: route.query.city_start_date || '',
   city_end_date: route.query.city_end_date || '',
@@ -635,6 +650,8 @@ const fetchData = async () => {
   loading.value = true;
   try {
     const params = Object.fromEntries(Object.entries(route.query).filter(([, value]) => value !== '' && value !== null && value !== undefined));
+    params.report_start_date = params.report_start_date || filters.value.report_start_date;
+    params.report_end_date = params.report_end_date || filters.value.report_end_date;
     delete params.dash_start_date;
     delete params.dash_end_date;
     delete params.city_start_date;
