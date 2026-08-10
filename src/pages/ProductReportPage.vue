@@ -292,9 +292,23 @@ const report = ref(null);
 const productSearch = ref('');
 const productSearchFocused = ref(false);
 const selectedProductIds = ref([]);
+const localDateValue = date => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+const currentMonthRange = () => {
+  const today = new Date();
+
+  return {
+    date_from: localDateValue(new Date(today.getFullYear(), today.getMonth(), 1)),
+    date_to: localDateValue(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+  };
+};
 const filters = reactive({
-  date_from: '',
-  date_to: '',
+  ...currentMonthRange(),
   brand_id: '',
   source: '',
 });
