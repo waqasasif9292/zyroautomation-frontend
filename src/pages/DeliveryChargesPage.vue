@@ -6,7 +6,7 @@
           <div>
             <p class="eyebrow">Delivery Charges Management</p>
             <h1>Orders With Tracking IDs ({{ totalCount }})</h1>
-            <p>Review parcel COD, delivery charges, fuel charges, GST, and totals. Total zero: {{ zeroTotalCount }}</p>
+            <p>Review parcel COD, delivery charges, fuel charges, GST, and totals. Zero DC: {{ zeroTotalCount }}</p>
           </div>
           <div class="header-actions">
             <button class="secondary-btn" type="button" :disabled="loading" @click="fetchOrders">
@@ -79,7 +79,7 @@
 
             <select v-model="draftFilters.dc_status" class="filter-control">
               <option value="">All DC Statuses</option>
-              <option value="zero">DC Zero Only</option>
+              <option value="zero">Zero DC Only</option>
             </select>
 
             <select v-model="draftFilters.sort" class="filter-control">
@@ -221,7 +221,7 @@ const defaultFilters = () => ({
   courier_integration_id: '',
   date_from: '',
   date_to: '',
-  dc_status: '',
+  dc_status: 'zero',
   search: '',
   sort: 'created_id_desc',
   source: '',
