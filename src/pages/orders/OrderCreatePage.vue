@@ -1905,6 +1905,10 @@ const handleSave = async (mode) => {
       errors.leopard_pickup_address_id = 'Pickup address is required.';
     }
 
+    if (String(form.customer_address || '').trim().length < 10) {
+      errors.customer_address = 'Customer address must be at least 10 characters for Leopard booking.';
+    }
+
     const leopardWeight = Number(form.packet_weight);
     if (!Number.isInteger(leopardWeight) || leopardWeight <= 0) {
       errors.packet_weight = 'Weight must be a whole number of grams.';

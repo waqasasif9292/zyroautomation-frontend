@@ -16,8 +16,14 @@ const VendorService = {
   delete(id) {
     return axiosInstance.delete(`/vendors/${id}`);
   },
-  summary(id) {
-    return axiosInstance.get(`/vendors/${id}/summary`);
+  dashboard() {
+    return axiosInstance.get('/vendor-dashboard');
+  },
+  ledger(vendorId) {
+    return axiosInstance.get(`/vendor-ledger/${vendorId}`);
+  },
+  averageCost(params) {
+    return axiosInstance.get('/vendor-average-cost', { params });
   },
 };
 
