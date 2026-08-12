@@ -226,10 +226,39 @@
 
         <section v-if="activeTab === 'average-cost'" class="tab-panel">
           <form class="cost-form" @submit.prevent="calculateAverageCost">
-            <label>Product<select v-model="costForm.product_id" required><option value="">Select product</option><option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option></select></label>
+            <label>
+              Product
+              <div class="product-combobox">
+                <input
+                  v-model="costProductSearch"
+                  required
+                  autocomplete="off"
+                  placeholder="Search product"
+                  @focus="openCostProductSearch"
+                  @input="queueCostProductSearch"
+                  @keydown.down.prevent="openCostProductSearch"
+                  @keydown.esc.prevent="closeCostProductSearch"
+                  @blur="deferCloseCostProductSearch"
+                >
+                <div v-if="costProductOpen" class="product-results">
+                  <button
+                    v-for="product in costProductOptions"
+                    :key="product.id"
+                    type="button"
+                    @mousedown.prevent="selectCostProduct(product)"
+                  >
+                    <span>{{ product.name }}</span>
+                    <small>{{ product.sku || 'No SKU' }}</small>
+                  </button>
+                  <p v-if="costProductLoading">Searching...</p>
+                  <p v-else-if="costProductSearch.trim().length < 2">Type at least 2 characters.</p>
+                  <p v-else-if="!costProductOptions.length">No products found.</p>
+                </div>
+              </div>
+            </label>
             <label>Start Date<input v-model="costForm.start_date" type="date"></label>
             <label>End Date<input v-model="costForm.end_date" type="date"></label>
-            <button type="submit" class="primary-btn" :disabled="saving">Calculate</button>
+            <button type="submit" class="primary-btn" :disabled="saving || !costForm.product_id">Calculate</button>
           </form>
           <div v-if="averageCost.product" class="stats-grid compact">
             <article><span>Average Cost</span><strong>PKR {{ money(averageCost.average_cost) }}</strong></article>
@@ -296,10 +325,33 @@
                 <option value="product">Product</option>
                 <option value="expense">Expense</option>
               </select>
-              <select v-if="item.line_type === 'product'" v-model="item.product_id" :required="lineRequiresDetails(item)">
-                <option value="" disabled>Select product</option>
-                <option v-for="product in products" :key="product.id" :value="product.id">{{ product.name }}</option>
-              </select>
+              <div v-if="item.line_type === 'product'" class="product-combobox">
+                <input
+                  v-model="item.product_search"
+                  :required="lineRequiresDetails(item)"
+                  autocomplete="off"
+                  placeholder="Search product"
+                  @focus="openProductSearch(item)"
+                  @input="queueProductSearch(item)"
+                  @keydown.down.prevent="openProductSearch(item)"
+                  @keydown.esc.prevent="closeProductSearch(item)"
+                  @blur="deferCloseProductSearch(item)"
+                >
+                <div v-if="item.product_open" class="product-results">
+                  <button
+                    v-for="product in item.product_options"
+                    :key="product.id"
+                    type="button"
+                    @mousedown.prevent="selectLineProduct(item, product)"
+                  >
+                    <span>{{ product.name }}</span>
+                    <small>{{ product.sku || 'No SKU' }}</small>
+                  </button>
+                  <p v-if="item.product_loading">Searching...</p>
+                  <p v-else-if="item.product_search.trim().length < 2">Type at least 2 characters.</p>
+                  <p v-else-if="!item.product_options.length">No products found.</p>
+                </div>
+              </div>
               <input v-else v-model="item.description" :required="lineRequiresDetails(item)" placeholder="Expense description">
               <input v-if="item.line_type === 'product'" v-model.number="item.quantity" type="number" min="1" placeholder="Qty" required>
               <input v-model.number="item.cost_per_unit" type="number" min="0" step="0.01" :placeholder="item.line_type === 'expense' ? 'Amount' : 'Cost'" required>
@@ -316,7 +368,7 @@
         </div>
         <footer class="modal-actions">
           <button type="button" class="secondary-btn" @click="closeOrderModal">Cancel</button>
-          <button type="submit" class="primary-btn" :disabled="saving || vendors.length === 0 || orderTotal <= 0">{{ orderForm.id ? 'Update Bill' : 'Save Bill' }}</button>
+          <button type="submit" class="primary-btn" :disabled="saving || vendors.length === 0 || orderTotal <= 0 || orderHasInvalidLines">{{ orderForm.id ? 'Update Bill' : 'Save Bill' }}</button>
         </footer>
       </form>
     </div>
@@ -384,6 +436,10 @@ const orders = ref([]);
 const payments = ref([]);
 const products = ref([]);
 const vendorSearch = ref('');
+const costProductSearch = ref('');
+const costProductOptions = ref([]);
+const costProductOpen = ref(false);
+const costProductLoading = ref(false);
 const orderFilters = reactive({ vendor_id: '', status: '' });
 const orderPagination = reactive({ current_page: 1, per_page: 25, total: 0, total_pages: 1, has_next: false, has_prev: false });
 const paymentPagination = reactive({ current_page: 1, per_page: 25, total: 0, total_pages: 1, has_next: false, has_prev: false });
@@ -399,7 +455,17 @@ const ledger = reactive({ vendor: null, summary: null, entries: [] });
 const averageCost = reactive({ product: null, total_quantity: 0, total_cost: 0, average_cost: 0, last_purchase_cost: 0, history: [] });
 
 const vendorForm = reactive({ id: '', name: '', location: '', phone_number: '', account_details: '', notes: '' });
-const blankProductLine = () => ({ line_type: 'product', product_id: '', description: '', quantity: 1, cost_per_unit: 0 });
+const blankProductLine = () => ({
+  line_type: 'product',
+  product_id: '',
+  product_search: '',
+  product_options: [],
+  product_open: false,
+  product_loading: false,
+  description: '',
+  quantity: 1,
+  cost_per_unit: 0,
+});
 const blankExpenseLine = () => ({ line_type: 'expense', product_id: '', description: '', quantity: 1, cost_per_unit: 0 });
 const orderForm = reactive({ id: '', vendor_id: '', order_date: today(), items: [blankProductLine()], notes: '' });
 const paymentForm = reactive({ id: '', vendor_id: '', payment_date: today(), amount: '', account: '', notes: '' });
@@ -416,7 +482,9 @@ const statusLabel = (status) => status === 'received' ? 'Received' : 'Not Receiv
 const ledgerEntryLabel = (type) => type === 'payment' ? 'Payment Made' : 'Bill Added';
 const lineTotal = (item) => (item.line_type === 'expense' ? 1 : Number(item.quantity || 0)) * Number(item.cost_per_unit || 0);
 const lineRequiresDetails = (item) => lineTotal(item) > 0;
+const lineHasDetails = item => item.line_type === 'expense' ? String(item.description || '').trim() !== '' : Boolean(item.product_id);
 const orderTotal = computed(() => orderForm.items.reduce((sum, item) => sum + lineTotal(item), 0));
+const orderHasInvalidLines = computed(() => orderForm.items.some(item => lineRequiresDetails(item) && !lineHasDetails(item)));
 
 const filteredVendors = computed(() => {
   const query = vendorSearch.value.trim().toLowerCase();
@@ -495,6 +563,87 @@ const changePaymentPage = async (page) => {
 
 const fetchProducts = async () => {
   products.value = (await ProductService.getProducts({ per_page: 100 })).data.data.products;
+};
+
+let productSearchTimer = null;
+const lineProductLabel = product => product ? `${product.name}${product.sku ? ` (${product.sku})` : ''}` : '';
+const openProductSearch = (item) => {
+  item.product_open = true;
+  if (!item.product_options.length) {
+    item.product_options = products.value.slice(0, 25);
+  }
+};
+const closeProductSearch = (item) => {
+  item.product_open = false;
+};
+const deferCloseProductSearch = (item) => {
+  setTimeout(() => closeProductSearch(item), 120);
+};
+const queueProductSearch = (item) => {
+  item.product_id = '';
+  item.product_open = true;
+  clearTimeout(productSearchTimer);
+  productSearchTimer = setTimeout(() => searchLineProducts(item), 300);
+};
+const searchLineProducts = async (item) => {
+  const search = item.product_search.trim();
+  if (search.length < 2) {
+    item.product_options = products.value.slice(0, 25);
+    return;
+  }
+
+  item.product_loading = true;
+  try {
+    const res = await ProductService.getProducts({ search, per_page: 25 });
+    item.product_options = res.data.data.products || [];
+  } finally {
+    item.product_loading = false;
+  }
+};
+const selectLineProduct = (item, product) => {
+  item.product_id = product.id;
+  item.product_search = lineProductLabel(product);
+  item.product_options = [product];
+  item.product_open = false;
+};
+const openCostProductSearch = () => {
+  costProductOpen.value = true;
+  if (!costProductOptions.value.length) {
+    costProductOptions.value = products.value.slice(0, 25);
+  }
+};
+const closeCostProductSearch = () => {
+  costProductOpen.value = false;
+};
+const deferCloseCostProductSearch = () => {
+  setTimeout(closeCostProductSearch, 120);
+};
+const queueCostProductSearch = () => {
+  costForm.product_id = '';
+  costProductOpen.value = true;
+  clearTimeout(productSearchTimer);
+  productSearchTimer = setTimeout(searchCostProducts, 300);
+};
+const searchCostProducts = async () => {
+  const search = costProductSearch.value.trim();
+  if (search.length < 2) {
+    costProductOptions.value = products.value.slice(0, 25);
+    return;
+  }
+
+  costProductLoading.value = true;
+  try {
+    const res = await ProductService.getProducts({ search, per_page: 25 });
+    costProductOptions.value = res.data.data.products || [];
+  } finally {
+    costProductLoading.value = false;
+  }
+};
+const selectCostProduct = (product) => {
+  costForm.product_id = product.id;
+  costProductSearch.value = lineProductLabel(product);
+  costProductOptions.value = [product];
+  costProductOpen.value = false;
 };
 
 const fetchDashboard = async () => {
@@ -578,11 +727,20 @@ const removeLine = (index) => {
 const syncLineType = (item) => {
   if (item.line_type === 'expense') {
     item.product_id = '';
+    item.product_search = '';
+    item.product_options = [];
+    item.product_open = false;
+    item.product_loading = false;
     item.quantity = 1;
     return;
   }
 
   item.description = '';
+  item.product_id ||= '';
+  item.product_search ||= '';
+  item.product_open = false;
+  item.product_loading = false;
+  item.product_options = products.value.slice(0, 25);
 };
 const resetOrderForm = () => Object.assign(orderForm, { id: '', vendor_id: '', order_date: today(), items: [blankProductLine()], notes: '' });
 const openOrderModal = () => {
@@ -602,6 +760,10 @@ const editOrder = (order) => {
     items: order.items.map(item => ({
       line_type: item.line_type || (item.product_id ? 'product' : 'expense'),
       product_id: item.product_id || '',
+      product_search: item.product_name || '',
+      product_options: item.product_id ? [{ id: item.product_id, name: item.product_name || 'Selected product', sku: '' }] : [],
+      product_open: false,
+      product_loading: false,
       description: item.description || '',
       quantity: item.quantity || 1,
       cost_per_unit: item.cost_per_unit || 0,
@@ -1166,6 +1328,53 @@ textarea {
 
 .line-row.expense {
   grid-template-columns: 110px minmax(220px, 1fr) 120px 95px 32px;
+}
+
+.product-combobox {
+  position: relative;
+  min-width: 0;
+}
+
+.product-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #ccd7e5;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
+.product-results button {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  background: #fff;
+  padding: 9px 11px;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.product-results button:hover {
+  background: #f8fafc;
+}
+
+.product-results small,
+.product-results p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.product-results p {
+  padding: 10px 11px;
 }
 
 .line-actions {

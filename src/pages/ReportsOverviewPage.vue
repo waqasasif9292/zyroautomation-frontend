@@ -59,7 +59,7 @@
           <span>{{ formatDateTime(data.generated_at) }}</span>
         </div>
         <div class="flow-track">
-          <div v-for="step in data.order_flow" :key="step.key" class="flow-step">
+          <div v-for="step in orderFlowWithHold" :key="step.key" class="flow-step">
             <div class="flow-bar">
               <span :style="{ height: `${barPercent(step.orders, maxFlowOrders)}%` }"></span>
             </div>
@@ -92,9 +92,9 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>14 Day Movement</h2>
+            <h2>Order Count</h2>
           </div>
-          <div class="trend-chart">
+          <div class="trend-chart" :style="trendGridStyle">
             <div v-for="row in data.trend" :key="row.date" class="trend-day" :title="`${row.label}: ${row.orders} orders`">
               <span :style="{ height: `${barPercent(row.orders, maxTrendOrders)}%` }"></span>
               <small>{{ row.label }}</small>
@@ -103,22 +103,37 @@
         </section>
       </div>
 
-      <div class="dashboard-grid">
+      <div class="dashboard-grid reports-table-grid">
         <section class="panel">
           <div class="panel-head">
             <h2>Courier Exposure</h2>
             <button type="button" @click="router.push('/delivery-charges')">Charges</button>
           </div>
-          <div class="bar-list">
-            <div v-for="row in data.couriers" :key="row.courier_id || row.courier_name" class="bar-row">
-              <div class="bar-copy">
-                <strong>{{ row.courier_name }}</strong>
-                <span>{{ formatNumber(row.in_progress) }} in progress · {{ formatMoney(row.cod) }}</span>
-              </div>
-              <div class="bar-track courier"><span :style="{ width: `${barPercent(row.in_progress, maxCourierActive)}%` }"></span></div>
-            </div>
-            <div v-if="!data.couriers.length" class="empty-line">No courier data.</div>
-          </div>
+          <table class="courier-table">
+            <thead>
+              <tr>
+                <th>Courier</th>
+                <th>Dispatched</th>
+                <th>Return</th>
+                <th>Delivered</th>
+                <th>Pending</th>
+                <th>Total Charges</th>
+                <th>Avg DC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in data.couriers" :key="row.courier_id || row.courier_name">
+                <td>{{ row.courier_name }}</td>
+                <td>{{ formatNumber(row.dispatched) }}</td>
+                <td>{{ countWithPercent(row.returned, row.return_rate) }}</td>
+                <td>{{ countWithPercent(row.delivered, row.delivery_rate) }}</td>
+                <td>{{ countWithPercent(row.pending, row.pending_rate) }}</td>
+                <td>{{ formatMoney(row.delivery_charges) }}</td>
+                <td>{{ formatMoney(row.average_delivery_charge) }}</td>
+              </tr>
+              <tr v-if="!data.couriers.length"><td colspan="7">No courier data.</td></tr>
+            </tbody>
+          </table>
         </section>
 
         <section class="panel">
@@ -126,30 +141,42 @@
             <h2>Product Status Summary</h2>
             <button type="button" @click="router.push('/reports/products')">Products</button>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>In Progress</th>
-                <th>Returned</th>
-                <th>Cancelled</th>
-                <th>In-Stock Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in data.products" :key="row.key">
-                <td>
-                  <div class="strong">{{ row.product_name }}</div>
-                  <small>{{ row.sku || 'No SKU' }}</small>
-                </td>
-                <td>{{ formatNumber(row.in_progress) }}</td>
-                <td>{{ formatNumber(row.returned) }}</td>
-                <td>{{ formatNumber(row.cancelled) }}</td>
-                <td>{{ formatMoney(row.product_value) }}</td>
-              </tr>
-              <tr v-if="!data.products.length"><td colspan="5">No product status data.</td></tr>
-            </tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="product-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Total Orders</th>
+                  <th>Cancel</th>
+                  <th>Dispatched</th>
+                  <th>Delivered</th>
+                  <th>Return</th>
+                  <th>Pending</th>
+                  <th>Dispatched Qty</th>
+                  <th>Total COD</th>
+                  <th>Avg COD</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in data.products" :key="row.key">
+                  <td>
+                    <div class="strong">{{ row.product_name }}</div>
+                    <small>{{ row.sku || 'No SKU' }}</small>
+                  </td>
+                  <td>{{ formatNumber(row.orders) }}</td>
+                  <td>{{ countWithPercent(row.cancelled, row.cancel_rate) }}</td>
+                  <td>{{ formatNumber(row.dispatched) }}</td>
+                  <td>{{ countWithPercent(row.delivered, row.delivery_rate) }}</td>
+                  <td>{{ countWithPercent(row.returned, row.return_rate) }}</td>
+                  <td>{{ countWithPercent(row.pending, row.pending_rate) }}</td>
+                  <td>{{ formatNumber(row.dispatched_quantity) }}</td>
+                  <td>{{ formatMoney(row.cod) }}</td>
+                  <td>{{ formatMoney(row.average_cod) }}</td>
+                </tr>
+                <tr v-if="!data.products.length"><td colspan="10">No product status data.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
 
@@ -157,12 +184,17 @@
         <section class="panel">
           <div class="panel-head">
             <h2>Sales Channel Summary</h2>
+            <select v-model="summaryMode" class="panel-select">
+              <option value="source">Source</option>
+              <option value="brand">Brand</option>
+            </select>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Source</th>
+                <th>{{ summaryLabel }}</th>
                 <th>Orders</th>
+                <th>Dispatched</th>
                 <th>Delivered</th>
                 <th>Returned</th>
                 <th>Cancelled</th>
@@ -170,15 +202,16 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in data.sources" :key="row.source">
-                <td>{{ row.source }}</td>
+              <tr v-for="row in summaryRows" :key="row.key">
+                <td>{{ row.name }}</td>
                 <td>{{ formatNumber(row.orders) }}</td>
-                <td>{{ formatNumber(row.delivered) }}</td>
-                <td>{{ formatNumber(row.returned) }}</td>
-                <td>{{ formatNumber(row.cancelled) }}</td>
+                <td>{{ formatNumber(row.dispatched) }}</td>
+                <td>{{ countWithPercent(row.delivered, row.delivery_rate) }}</td>
+                <td>{{ countWithPercent(row.returned, row.return_rate) }}</td>
+                <td>{{ countWithPercent(row.cancelled, row.cancel_rate) }}</td>
                 <td>{{ formatMoney(row.cod) }}</td>
               </tr>
-              <tr v-if="!data.sources.length"><td colspan="6">No source data.</td></tr>
+              <tr v-if="!summaryRows.length"><td colspan="7">No {{ summaryLabel.toLowerCase() }} data.</td></tr>
             </tbody>
           </table>
         </section>
@@ -219,6 +252,7 @@ import OrderPerformanceService from '../services/OrderPerformanceService';
 
 const router = useRouter();
 const loading = ref(false);
+const summaryMode = ref('source');
 const localDateValue = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -259,22 +293,68 @@ const data = ref({
 const kpis = computed(() => {
   const summary = data.value.summary || {};
   const inProgress = data.value.in_progress || {};
+  const dispatchedOrders = Math.max(0,
+    Number(summary.total_orders || 0)
+    - statusCount('cancel_by_shipper')
+    - statusCount('hold')
+    - statusCount('error')
+    - statusCount('pending_confirmation')
+  );
+  const dispatchedCod = Math.max(0,
+    Number(summary.total_cod || 0)
+    - statusCod('cancel_by_shipper')
+    - statusCod('hold')
+    - statusCod('error')
+    - statusCod('pending_confirmation')
+  );
+  const dispatchedReturnRate = percentage(statusCount('returned_to_shipper'), dispatchedOrders);
 
   return [
     { key: 'total', label: 'Total Orders', value: formatNumber(summary.total_orders), note: formatMoney(summary.total_revenue), tone: '' },
+    { key: 'dispatched', label: 'Dispatched', value: formatNumber(dispatchedOrders), note: `${formatMoney(dispatchedCod)} COD`, tone: 'indigo' },
     { key: 'open', label: 'Open Orders', value: formatNumber(summary.open_orders), note: 'Not delivered, returned, or cancelled', tone: 'blue' },
     { key: 'in-progress', label: 'With Couriers', value: formatNumber(inProgress.orders), note: `${formatMoney(inProgress.cod)} COD`, tone: 'teal' },
     { key: 'return-risk', label: 'Return Exposure', value: formatNumber(summary.return_exposure_orders), note: formatMoney(summary.return_exposure_cod), tone: 'amber' },
-    { key: 'delivery-rate', label: 'Delivery Rate', value: `${formatPercent(summary.delivery_rate)}%`, note: `${formatPercent(summary.return_rate)}% return · ${formatPercent(summary.cancel_rate)}% cancel`, tone: 'green' },
+    { key: 'delivery-rate', label: 'Delivery Rate', value: `${formatPercent(summary.delivery_rate)}%`, note: `${formatPercent(dispatchedReturnRate)}% return (dispatched) · ${formatPercent(summary.cancel_rate)}% cancel`, tone: 'green' },
   ];
 });
 
-const maxFlowOrders = computed(() => Math.max(...data.value.order_flow.map(row => row.orders), 1));
+const orderFlowWithHold = computed(() => [
+  {
+    key: 'hold',
+    label: 'On Hold',
+    orders: statusCount('hold'),
+    cod: statusCod('hold'),
+  },
+  ...data.value.order_flow,
+]);
+const maxFlowOrders = computed(() => Math.max(...orderFlowWithHold.value.map(row => row.orders), 1));
 const maxTrendOrders = computed(() => Math.max(...data.value.trend.map(row => row.orders), 1));
-const maxCourierActive = computed(() => Math.max(...data.value.couriers.map(row => row.in_progress), 1));
 const topStatusRows = computed(() => data.value.status_mix.slice(0, 7));
+const trendGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${Math.max(data.value.trend.length, 1)}, minmax(0, 1fr))`,
+}));
+const summaryLabel = computed(() => summaryMode.value === 'brand' ? 'Brand' : 'Source');
+const summaryRows = computed(() => {
+  const rows = summaryMode.value === 'brand' ? data.value.brands : data.value.sources;
+
+  return rows.map(row => ({
+    key: summaryMode.value === 'brand' ? `brand:${row.brand_id || row.brand_name}` : `source:${row.source}`,
+    name: summaryMode.value === 'brand' ? row.brand_name : row.source,
+    orders: row.orders,
+    dispatched: row.dispatched,
+    delivered: row.delivered,
+    delivery_rate: row.delivery_rate,
+    returned: row.returned,
+    return_rate: row.return_rate,
+    cancelled: row.cancelled,
+    cancel_rate: row.cancel_rate,
+    cod: row.cod,
+  }));
+});
 
 const statusPalette = {
+  hold: '#475569',
   pending_confirmation: '#64748b',
   merchant_warehouse: '#2563eb',
   dispatched: '#0f766e',
@@ -308,6 +388,9 @@ const statusDonut = computed(() => {
 const requestParams = () => Object.fromEntries(
   Object.entries(filters).filter(([, value]) => value !== null && value !== '')
 );
+const statusRow = key => data.value.status_mix.find(row => row.key === key) || {};
+const statusCount = key => Number(statusRow(key).orders || 0);
+const statusCod = key => Number(statusRow(key).cod || 0);
 
 const fetchData = async () => {
   loading.value = true;
@@ -330,6 +413,8 @@ const fetchData = async () => {
 const formatNumber = value => Number(value || 0).toLocaleString();
 const formatMoney = value => `PKR ${Number(value || 0).toLocaleString()}`;
 const formatPercent = value => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+const countWithPercent = (count, percent) => `${formatNumber(count)} (${formatPercent(percent)}%)`;
+const percentage = (part, total) => Number(total || 0) > 0 ? (Number(part || 0) / Number(total || 0)) * 100 : 0;
 const barPercent = (part, total) => Math.max(Number(part || 0) > 0 ? 6 : 0, Math.round((Number(part || 0) / Number(total || 1)) * 100));
 const formatDateTime = (value) => {
   if (!value) return '-';
@@ -460,7 +545,7 @@ select {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -471,6 +556,7 @@ select {
 }
 
 .kpi-card.blue { border-top-color: #2563eb; }
+.kpi-card.indigo { border-top-color: #4f46e5; }
 .kpi-card.teal { border-top-color: #0f766e; }
 .kpi-card.amber { border-top-color: #f59e0b; }
 .kpi-card.green { border-top-color: #16a34a; }
@@ -520,9 +606,15 @@ select {
   font-weight: 700;
 }
 
+.panel-select {
+  width: 130px;
+  height: 38px;
+  font-weight: 800;
+}
+
 .flow-track {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: 10px;
   padding: 16px;
   min-height: 190px;
@@ -577,6 +669,10 @@ select {
 
 .dashboard-grid.bottom {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.reports-table-grid {
+  grid-template-columns: 1fr;
 }
 
 .pie-layout {
@@ -641,7 +737,6 @@ select {
 
 .trend-chart {
   display: grid;
-  grid-template-columns: repeat(14, minmax(0, 1fr));
   align-items: end;
   gap: 8px;
   height: 240px;
@@ -708,6 +803,10 @@ select {
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.table-scroll {
+  overflow-x: auto;
 }
 
 th,
@@ -784,7 +883,7 @@ td small {
 
   .flow-track {
     overflow-x: auto;
-    grid-template-columns: repeat(8, 120px);
+    grid-template-columns: repeat(9, 120px);
   }
 
   .panel {
