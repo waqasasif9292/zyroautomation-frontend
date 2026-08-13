@@ -94,11 +94,33 @@
           <div class="panel-head">
             <h2>Order Count</h2>
           </div>
-          <div class="trend-chart" :style="trendGridStyle">
-            <div v-for="row in data.trend" :key="row.date" class="trend-day" :title="`${row.label}: ${row.orders} orders`">
-              <span :style="{ height: `${barPercent(row.orders, maxTrendOrders)}%` }"></span>
-              <small>{{ row.label }}</small>
-            </div>
+          <div class="trend-chart">
+            <svg viewBox="0 0 720 240" preserveAspectRatio="none" role="img" aria-label="Order count trend">
+              <g class="trend-grid">
+                <g v-for="tick in trendChart.yTicks" :key="tick.value">
+                  <line :x1="trendChart.plot.left" :x2="trendChart.plot.right" :y1="tick.y" :y2="tick.y" />
+                  <text :x="trendChart.plot.left - 10" :y="tick.y + 4">{{ formatNumber(tick.value) }}</text>
+                </g>
+              </g>
+              <line class="trend-axis" :x1="trendChart.plot.left" :x2="trendChart.plot.left" :y1="trendChart.plot.top" :y2="trendChart.plot.bottom" />
+              <line class="trend-axis" :x1="trendChart.plot.left" :x2="trendChart.plot.right" :y1="trendChart.plot.bottom" :y2="trendChart.plot.bottom" />
+              <polyline v-if="trendChart.points.length > 1" class="trend-line" :points="trendChart.linePoints" />
+              <g v-for="point in trendChart.points" :key="point.date">
+                <title>{{ point.label }}: {{ formatNumber(point.orders) }} orders</title>
+                <circle class="trend-point" :cx="point.x" :cy="point.y" r="4" />
+              </g>
+              <g class="trend-labels">
+                <text
+                  v-for="label in trendChart.xLabels"
+                  :key="label.date"
+                  :x="label.x"
+                  :y="trendChart.plot.bottom + 24"
+                  text-anchor="middle"
+                >
+                  {{ label.label }}
+                </text>
+              </g>
+            </svg>
           </div>
         </section>
       </div>
@@ -307,6 +329,7 @@ const kpis = computed(() => {
     - statusCod('error')
     - statusCod('pending_confirmation')
   );
+  const dispatchedDeliveryRate = percentage(statusCount('delivered'), dispatchedOrders);
   const dispatchedReturnRate = percentage(statusCount('returned_to_shipper'), dispatchedOrders);
 
   return [
@@ -315,7 +338,7 @@ const kpis = computed(() => {
     { key: 'open', label: 'Open Orders', value: formatNumber(summary.open_orders), note: 'Not delivered, returned, or cancelled', tone: 'blue' },
     { key: 'in-progress', label: 'With Couriers', value: formatNumber(inProgress.orders), note: `${formatMoney(inProgress.cod)} COD`, tone: 'teal' },
     { key: 'return-risk', label: 'Return Exposure', value: formatNumber(summary.return_exposure_orders), note: formatMoney(summary.return_exposure_cod), tone: 'amber' },
-    { key: 'delivery-rate', label: 'Delivery Rate', value: `${formatPercent(summary.delivery_rate)}%`, note: `${formatPercent(dispatchedReturnRate)}% return (dispatched) · ${formatPercent(summary.cancel_rate)}% cancel`, tone: 'green' },
+    { key: 'delivery-rate', label: 'Delivery Rate', value: `${formatPercent(dispatchedDeliveryRate)}%`, note: `${formatPercent(dispatchedReturnRate)}% return (dispatched) · ${formatPercent(summary.cancel_rate)}% cancel`, tone: 'green' },
   ];
 });
 
@@ -329,11 +352,34 @@ const orderFlowWithHold = computed(() => [
   ...data.value.order_flow,
 ]);
 const maxFlowOrders = computed(() => Math.max(...orderFlowWithHold.value.map(row => row.orders), 1));
-const maxTrendOrders = computed(() => Math.max(...data.value.trend.map(row => row.orders), 1));
 const topStatusRows = computed(() => data.value.status_mix.slice(0, 7));
-const trendGridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${Math.max(data.value.trend.length, 1)}, minmax(0, 1fr))`,
-}));
+const trendChart = computed(() => {
+  const rows = data.value.trend || [];
+  const plot = { left: 54, right: 700, top: 22, bottom: 198 };
+  const maxOrders = Math.max(...rows.map(row => Number(row.orders || 0)), 1);
+  const tickStep = Math.max(1, Math.ceil(maxOrders / 4));
+  const yMax = tickStep * 4;
+  const span = Math.max(rows.length - 1, 1);
+  const xForIndex = index => plot.left + ((plot.right - plot.left) * index) / span;
+  const yForOrders = orders => plot.bottom - ((plot.bottom - plot.top) * Number(orders || 0)) / yMax;
+  const points = rows.map((row, index) => ({
+    ...row,
+    x: xForIndex(index),
+    y: yForOrders(row.orders),
+  }));
+  const labelEvery = rows.length > 20 ? Math.ceil(rows.length / 10) : 1;
+
+  return {
+    plot,
+    points,
+    linePoints: points.map(point => `${point.x},${point.y}`).join(' '),
+    yTicks: [4, 3, 2, 1, 0].map(multiplier => ({
+      value: tickStep * multiplier,
+      y: yForOrders(tickStep * multiplier),
+    })),
+    xLabels: points.filter((_, index) => index === 0 || index === points.length - 1 || index % labelEvery === 0),
+  };
+});
 const summaryLabel = computed(() => summaryMode.value === 'brand' ? 'Brand' : 'Source');
 const summaryRows = computed(() => {
   const rows = summaryMode.value === 'brand' ? data.value.brands : data.value.sources;
@@ -736,32 +782,53 @@ select {
 }
 
 .trend-chart {
-  display: grid;
-  align-items: end;
-  gap: 8px;
   height: 240px;
-  padding: 18px 16px;
+  padding: 14px 16px 10px;
 }
 
-.trend-day {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  align-items: end;
-  gap: 6px;
+.trend-chart svg {
+  display: block;
+  width: 100%;
   height: 100%;
 }
 
-.trend-day span {
-  min-height: 4px;
-  border-radius: 6px 6px 0 0;
-  background: #0f766e;
+.trend-grid line {
+  stroke: #e2e8f0;
+  stroke-width: 1;
 }
 
-.trend-day small {
-  color: #64748b;
+.trend-grid text,
+.trend-labels text {
+  fill: #64748b;
   font-size: 10px;
-  text-align: center;
-  white-space: nowrap;
+  font-weight: 700;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-grid text {
+  text-anchor: end;
+}
+
+.trend-axis {
+  stroke: #94a3b8;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-line {
+  fill: none;
+  stroke: #0f766e;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.trend-point {
+  fill: #0f766e;
+  stroke: #fff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .bar-row {
