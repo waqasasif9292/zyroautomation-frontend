@@ -195,6 +195,20 @@ export const useIntegrationStore = defineStore('integration', () => {
     });
   };
 
+  const fetchTraxCities = async (credentials) => {
+    return fetchRuntimeData('trax_cities_v2', credentials, async () => {
+      const res = await IntegrationService.fetchTraxCities(credentials);
+      return res.data.data.cities;
+    });
+  };
+
+  const fetchTraxPickupAddresses = async (credentials) => {
+    return fetchRuntimeData('trax_pickup_addresses_v2', credentials, async () => {
+      const res = await IntegrationService.fetchTraxPickupAddresses(credentials);
+      return res.data.data.addresses;
+    });
+  };
+
   return {
     integrations,
     loading,
@@ -213,5 +227,7 @@ export const useIntegrationStore = defineStore('integration', () => {
     fetchDastaqAllowedCities,
     fetchDastaqPickupAddresses,
     fetchArgoCities,
+    fetchTraxCities,
+    fetchTraxPickupAddresses,
   };
 });
