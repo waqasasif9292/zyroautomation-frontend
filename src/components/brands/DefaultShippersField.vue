@@ -7,7 +7,7 @@
       Loading couriers...
     </div>
     <div v-else-if="shippableIntegrations.length === 0" class="shipper-list muted-panel">
-      Add PostEx, Leopard, or Dastaq integrations first.
+      Add PostEx, Leopard, Dastaq, or Trax integrations first.
     </div>
     <div v-else class="shipper-list">
       <div v-for="integration in shippableIntegrations" :key="integration.id" class="shipper-row">
@@ -52,7 +52,7 @@ const integrationStore = useIntegrationStore();
 const state = reactive({});
 
 const shippableIntegrations = computed(() => integrationStore.integrations
-  .filter(integration => ['postex', 'leopard', 'dastaq'].includes(integration.courier_slug)));
+  .filter(integration => ['postex', 'leopard', 'dastaq', 'trax'].includes(integration.courier_slug)));
 
 onMounted(async () => {
   await integrationStore.fetchIntegrations();
@@ -147,6 +147,15 @@ const loadOptions = async (integration) => {
         value: address.id,
         label: dastaqPickupAddressName(address),
       })).filter(option => option.value);
+    } else if (integration.courier_slug === 'trax') {
+      const api_key = integration.courier_options?.api_key;
+      const base_url = integration.courier_options?.base_url;
+      if (!api_key) throw new Error('Trax API key is missing.');
+      const res = await IntegrationService.fetchTraxPickupAddresses({ api_key, base_url });
+      currentState.options = (res.data.data.addresses || []).map(address => ({
+        value: address.id,
+        label: traxPickupAddressName(address),
+      })).filter(option => option.value);
     }
 
     currentState.loaded = true;
@@ -176,6 +185,35 @@ const dastaqPickupAddressName = address => [
   address.phone,
   address.id,
 ].filter(Boolean).join(' - ');
+
+const traxPickupBrandName = (address = {}) => (
+  address.brand_name
+  || address.brandName
+  || address.raw?.brand_name
+  || address.raw?.brandName
+  || address.raw?.['Brand Name']
+  || address.raw?.Brand
+  || address.raw?.brand
+  || ''
+);
+
+const traxPickupContactName = (address = {}) => (
+  address.contact_name
+  || address.contactName
+  || address.raw?.person_of_contact
+  || address.raw?.personOfContact
+  || address.raw?.['Person of Contact']
+  || ''
+);
+
+const traxPickupShipperName = (address = {}) => {
+  const name = traxPickupBrandName(address) || address.name || address.address || 'Pickup Address';
+  return String(name).split(',')[0].trim() || 'Pickup Address';
+};
+
+const traxPickupAddressName = address => (
+  traxPickupShipperName(address)
+);
 </script>
 
 <style scoped>

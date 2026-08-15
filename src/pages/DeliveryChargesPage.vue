@@ -214,7 +214,7 @@ const page = ref(1);
 const loading = ref(false);
 const syncingOrderId = ref('');
 let syncingQuery = false;
-const supportedDeliveryChargeCouriers = ['postex', 'leopard', 'dastaq', 'argo'];
+const supportedDeliveryChargeCouriers = ['postex', 'leopard', 'dastaq', 'argo', 'trax'];
 
 const defaultFilters = () => ({
   brand_id: '',

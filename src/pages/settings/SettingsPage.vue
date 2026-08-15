@@ -490,6 +490,7 @@ const fallbackCouriers = [
   { key: 'leopard', label: 'Leopard Courier' },
   { key: 'dastaq', label: 'Dastaq' },
   { key: 'argo', label: 'Argo Courier' },
+  { key: 'trax', label: 'Trax' },
 ];
 
 const statusTabs = computed(() => [

@@ -22,6 +22,12 @@ export const COURIERS = [
     name: 'Dastaq',
     image: '/images/couriers/dastaq.png',
     placeholder: 'Dastaq configuration options will appear here.'
+  },
+  {
+    slug: 'trax',
+    name: 'Trax',
+    image: '/images/couriers/trax.png',
+    placeholder: 'Enter your Trax API key and booking defaults to connect this courier.'
   }
 ];
 

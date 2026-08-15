@@ -83,6 +83,12 @@
                 :apiSecretError="errors.argoApiSecret || argoApiSecretError"
                 :generalError="errors.argo"
               />
+              <TraxOptionsForm
+                v-else-if="form.courier_slug === 'trax'"
+                v-model="form.courier_options"
+                :apiKeyError="errors.traxApiKey || traxApiKeyError"
+                :generalError="errors.trax"
+              />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
           </template>
@@ -112,6 +118,7 @@ import PostexOptionsForm from '../../components/integrations/PostexOptionsForm.v
 import LeopardOptionsForm from '../../components/integrations/LeopardOptionsForm.vue';
 import DastaqOptionsForm from '../../components/integrations/DastaqOptionsForm.vue';
 import ArgoOptionsForm from '../../components/integrations/ArgoOptionsForm.vue';
+import TraxOptionsForm from '../../components/integrations/TraxOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -183,7 +190,16 @@ const argoApiSecretError = computed(() => {
   if (!form.courier_options.api_secret) return 'The Argo API secret is required.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value || argoIncomplete.value);
+const traxIncomplete = computed(() => {
+  if (form.courier_slug !== 'trax') return false;
+  return !form.courier_options.api_key;
+});
+const traxApiKeyError = computed(() => {
+  if (form.courier_slug !== 'trax') return '';
+  if (!form.courier_options.api_key) return 'The Trax API key is required.';
+  return '';
+});
+const disableSave = computed(() => saving.value || !form.name.trim() || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value || argoIncomplete.value || traxIncomplete.value);
 
 watch(() => form.courier_options.api_token, () => {
   errors.postex = '';
@@ -200,6 +216,8 @@ watch(() => [form.courier_options.api_key, form.courier_options.api_secret], () 
   errors.argo = '';
   errors.argoApiKey = '';
   errors.argoApiSecret = '';
+  errors.trax = '';
+  errors.traxApiKey = '';
 });
 
 const applyOptionErrors = (responseErrors) => {
@@ -213,6 +231,10 @@ const applyOptionErrors = (responseErrors) => {
   if (form.courier_slug === 'dastaq') {
     errors.dastaqApiKey = optionErrors?.api_key?.[0] || '';
     errors.dastaqApiSecret = optionErrors?.api_secret?.[0] || '';
+    return;
+  }
+  if (form.courier_slug === 'trax') {
+    errors.traxApiKey = optionErrors?.api_key?.[0] || '';
     return;
   }
   errors.leopardApiKey = optionErrors?.api_key?.[0] || '';
@@ -239,6 +261,8 @@ const handleSubmit = async () => {
         errors.argo = error.response.data.message;
       } else if (form.courier_slug === 'dastaq') {
         errors.dastaq = error.response.data.message;
+      } else if (form.courier_slug === 'trax') {
+        errors.trax = error.response.data.message;
       } else {
         errors.postex = error.response.data.message;
       }
@@ -254,7 +278,19 @@ onMounted(async () => {
     form.id = integration.id;
     form.name = integration.name || '';
     form.courier_slug = integration.courier_slug;
-    form.courier_options = integration.courier_options || {};
+    form.courier_options = integration.courier_slug === 'trax'
+      ? {
+          service_type_id: 1,
+          information_display: 0,
+          item_product_type_id: 24,
+          item_insurance: 0,
+          shipping_mode_id: 1,
+          payment_mode_id: 1,
+          charges_mode_id: 4,
+          default_consignee_email: 'orders@zyroautomation.com',
+          ...(integration.courier_options || {}),
+        }
+      : (integration.courier_options || {});
   } catch (error) {
     notFound.value = true;
   } finally {

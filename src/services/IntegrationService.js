@@ -40,4 +40,10 @@ export default {
   fetchDastaqPickupAddresses(params) {
     return axiosInstance.get('/integrations/dastaq/pickup-addresses', { params });
   },
+  fetchTraxCities(params) {
+    return axiosInstance.get('/integrations/trax/cities', { params });
+  },
+  fetchTraxPickupAddresses(params) {
+    return axiosInstance.get('/integrations/trax/pickup-addresses', { params });
+  },
 };
