@@ -92,6 +92,75 @@
             <p>The courier returned the current shipment status, but detailed journey events are not available for this order yet.</p>
           </div>
         </div>
+
+        <div class="order-details-card">
+          <div class="details-head">
+            <div>
+              <p class="eyebrow">Order Details</p>
+              <h2>{{ order.order_name || 'Order Information' }}</h2>
+            </div>
+          </div>
+
+          <div class="details-grid">
+            <section class="detail-section customer-section">
+              <div class="section-title-row">
+                <h3>Customer</h3>
+                <button class="copy-detail-btn" type="button" title="Copy customer details" aria-label="Copy customer details" @click="copyCustomerDetails">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="8" y="8" width="11" height="11" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+              <div class="rows">
+                <div v-for="row in customerRows" :key="row.label" class="detail-row">
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value || '—' }}</strong>
+                </div>
+              </div>
+            </section>
+
+            <OrderDetailSection class="summary-section" title="Order Summary" :rows="summaryRows" />
+
+            <section class="detail-section products-section">
+              <h3>Products</h3>
+              <div v-if="order.line_items?.length" class="product-list">
+                <div class="product-row" v-for="item in order.line_items" :key="item.shopify_line_item_id || item.id || item.title">
+                  <div class="product-top">
+                    <strong>{{ productTitle(item) }}</strong>
+                    <span>{{ formatMoney(order.currency, item.price) }}</span>
+                  </div>
+                  <div v-if="productMeta(item).length" class="product-meta">
+                    <span v-for="meta in productMeta(item)" :key="meta.label">{{ meta.label }}: {{ meta.value }}</span>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="empty-detail-text">No products found.</p>
+            </section>
+
+            <OrderDetailSection v-if="hasUtm" title="Marketing" :rows="utmRows" />
+
+            <section v-if="internalNote" class="detail-section internal-note-section">
+              <h3>Internal Note</h3>
+              <p>{{ internalNote }}</p>
+            </section>
+
+            <section v-if="holdCallLogs.length" class="detail-section hold-log-section">
+              <h3>Hold Call Logs</h3>
+              <ul>
+                <li v-for="log in holdCallLogs" :key="log.id || `${log.action}-${log.created_at}`">
+                  <div>
+                    <strong>{{ log.label }}</strong>
+                    <span>{{ log.user_name || 'Unknown User' }} · {{ formatDetailDateTime(log.created_at) }}</span>
+                  </div>
+                  <p v-if="log.note">{{ log.note }}</p>
+                </li>
+              </ul>
+            </section>
+
+            <OrderDetailSection title="Meta" :rows="metaRows" />
+          </div>
+        </div>
       </section>
 
       <section v-else class="tracking-shell empty-history">
@@ -105,11 +174,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import OrderDetailSection from '../../components/orders/OrderDetailSection.vue';
 import AppLayout from '../../layouts/AppLayout.vue';
 import OrderService from '../../services/OrderService';
+import { useNotificationStore } from '../../stores/notificationStore';
 
 const route = useRoute();
 const router = useRouter();
+const notificationStore = useNotificationStore();
 const order = ref(null);
 const history = ref([]);
 const loading = ref(false);
@@ -120,6 +192,63 @@ const trackingResponse = ref(null);
 const trackingNumber = computed(() => order.value?.tracking_number || trackingResponse.value?.tracking_number || '');
 const trackingStatus = computed(() => trackingResponse.value?.order_status || order.value?.status || '—');
 const courierName = computed(() => trackingResponse.value?.courier_name || order.value?.manual_order?.courier_name || order.value?.shipping_method || '');
+const customerPhone = computed(() => order.value?.customer?.phone_local || order.value?.customer?.phone_intl || '');
+const customerRows = computed(() => [
+  { label: 'Name', value: order.value?.customer?.name },
+  { label: 'Phone', value: customerPhone.value },
+  { label: 'City', value: [order.value?.customer?.city, order.value?.customer?.country_code].filter(Boolean).join(', ') },
+  { label: 'Address', value: order.value?.customer?.address },
+]);
+const summaryRows = computed(() => [
+  { label: 'Brand', value: order.value?.brand_name },
+  { label: 'Source', value: order.value?.source },
+  { label: 'Payment', value: order.value?.payment_method },
+  { label: 'Shipping', value: order.value?.shipping_method },
+  { label: 'Subtotal', value: formatMoney(order.value?.currency, order.value?.subtotal_price) },
+  { label: 'Discount', value: formatMoney(order.value?.currency, order.value?.total_discounts) },
+  { label: 'Tax', value: formatMoney(order.value?.currency, order.value?.total_tax) },
+  { label: 'Total', value: formatMoney(order.value?.currency, order.value?.total_price) },
+  { label: 'Advance', value: formatMoney(order.value?.currency, order.value?.advance_payment) },
+  { label: 'Courier COD', value: formatMoney(order.value?.currency, order.value?.cod) },
+  { label: 'Outstanding', value: formatMoney(order.value?.currency, order.value?.total_outstanding) },
+]);
+const hasUtm = computed(() => Object.values(order.value?.utm || {}).some(Boolean));
+const utmRows = computed(() => [
+  { label: 'Source', value: order.value?.utm?.source },
+  { label: 'Medium', value: order.value?.utm?.medium },
+  { label: 'Campaign', value: order.value?.utm?.campaign },
+  { label: 'Content', value: order.value?.utm?.content },
+  { label: 'Term', value: order.value?.utm?.term },
+]);
+const internalNote = computed(() => String(order.value?.manual_order?.internal_notes || '').trim());
+const holdCallLogs = computed(() => Array.isArray(order.value?.hold_call_logs) ? order.value.hold_call_logs : []);
+const metaRows = computed(() => [
+  { label: 'Order #', value: order.value?.order_name },
+  { label: 'Confirmation', value: order.value?.confirmation_number },
+  { label: 'Created By', value: order.value?.created_by?.name },
+  { label: 'Last Saved By', value: order.value?.last_saved_by?.name },
+  { label: 'Label Generated By', value: order.value?.label_generated_by?.name },
+  { label: 'Label Generated At', value: formatDetailDateTime(order.value?.label_generated_at) },
+  { label: 'Tags', value: order.value?.tags },
+  { label: 'Received at', value: formatDetailDateTime(order.value?.created_at) },
+]);
+
+const formatMoney = (currency, value) => `${currency || ''} ${Number(value || 0).toLocaleString()}`.trim();
+const presentValue = value => {
+  const normalized = String(value ?? '').trim();
+  return normalized && normalized !== '—' ? normalized : '';
+};
+const productTitle = (item) => {
+  const quantity = Number(item.quantity || 1);
+  const title = presentValue(item.title) || presentValue(item.name) || 'Product';
+
+  return `${quantity} X ${title}`;
+};
+const productMeta = (item) => [
+  { label: 'Vendor', value: presentValue(item.vendor) },
+  { label: 'SKU', value: presentValue(item.sku) },
+  { label: 'Variant', value: presentValue(item.variant_title || item.variant) },
+].filter(meta => meta.value);
 
 const fetchOrder = async () => {
   const res = await OrderService.getOrder(route.params.id);
@@ -177,6 +306,41 @@ const formatEventDate = (value) => {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
+};
+
+const formatDetailDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+};
+
+const copyCustomerDetails = async () => {
+  const lines = [
+    order.value?.customer?.name,
+    customerPhone.value,
+    order.value?.customer?.address,
+    [order.value?.customer?.city, order.value?.customer?.country_code].filter(Boolean).join(', '),
+  ].map(value => String(value ?? '').trim()).filter(Boolean);
+
+  if (!lines.length || !navigator.clipboard) {
+    notificationStore.show('Unable to copy customer details.', { type: 'error' });
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    notificationStore.show('Customer details copied.');
+  } catch (error) {
+    notificationStore.show('Unable to copy customer details.', { type: 'error' });
+  }
 };
 
 onMounted(loadPage);
@@ -464,6 +628,223 @@ onMounted(loadPage);
   font-weight: 750;
 }
 
+.order-details-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
+}
+
+.details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.details-head h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 34px;
+}
+
+.detail-section {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.customer-section,
+.products-section {
+  margin-top: 0;
+}
+
+.customer-section,
+.summary-section.summary-section {
+  padding-top: 0;
+  border-top: none;
+}
+
+.detail-section h3 {
+  margin: 0 0 12px;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-title-row h3 {
+  margin: 0;
+}
+
+.copy-detail-btn {
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  background: #fff;
+  color: #2563eb;
+  cursor: pointer;
+  padding: 0;
+}
+
+.copy-detail-btn:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.copy-detail-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.rows {
+  display: grid;
+  gap: 9px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.detail-row strong {
+  color: #1e293b;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.product-list {
+  display: grid;
+}
+
+.product-row {
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.product-row:first-child {
+  padding-top: 0;
+}
+
+.product-row:last-child {
+  border-bottom: none;
+}
+
+.product-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.product-top strong {
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.product-top span {
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.product-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.internal-note-section p,
+.hold-log-section p,
+.empty-detail-text {
+  margin: 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.internal-note-section p {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.empty-detail-text {
+  color: #64748b;
+}
+
+.hold-log-section ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hold-log-section li {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 11px 12px;
+}
+
+.hold-log-section li div {
+  display: grid;
+  gap: 3px;
+}
+
+.hold-log-section strong {
+  color: #1e293b;
+  font-size: 13.5px;
+  font-weight: 850;
+}
+
+.hold-log-section span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .loading-shell {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -482,7 +863,8 @@ onMounted(loadPage);
 
 @media (max-width: 1050px) {
   .summary-grid,
-  .loading-shell {
+  .loading-shell,
+  .details-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -499,8 +881,24 @@ onMounted(loadPage);
   }
 
   .summary-grid,
-  .loading-shell {
+  .loading-shell,
+  .details-grid {
     grid-template-columns: 1fr;
+  }
+
+  .order-details-card,
+  .journey-card {
+    padding: 18px;
+  }
+
+  .product-top,
+  .detail-row {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .detail-row strong {
+    text-align: left;
   }
 }
 </style>

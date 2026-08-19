@@ -467,6 +467,7 @@ const orderQueryDefaults = {
   brand_ids: [],
   courier_integration_id: null,
   courier_integration_ids: [],
+  cod_min: null,
   customer_id: null,
   date_from: null,
   date_to: null,
@@ -494,6 +495,7 @@ const hasActiveFilters = computed(() => Boolean(
   orderStore.filters.brand_ids?.length ||
   orderStore.filters.courier_integration_id ||
   orderStore.filters.courier_integration_ids?.length ||
+  orderStore.filters.cod_min ||
   orderStore.filters.customer_id ||
   orderStore.filters.date_from ||
   orderStore.filters.date_to ||

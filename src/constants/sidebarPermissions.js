@@ -76,7 +76,7 @@ export const permissionForPath = (path) => {
   return match?.[1] || null;
 };
 
-export const isTeamAdmin = (user) => ['admin', 'owner'].includes(user?.team_role || 'admin');
+export const isTeamAdmin = (user) => Boolean(user?.is_admin) || ['admin', 'owner'].includes(user?.team_role || 'admin');
 
 export const firstAccessiblePath = (user) => {
   if (isTeamAdmin(user)) return '/dashboard';

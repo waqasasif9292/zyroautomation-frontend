@@ -339,6 +339,51 @@
           </div>
         </div>
 
+        <!-- Preferences Tab -->
+        <div v-else-if="activeTab === 'preferences'" class="content-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Preferences</h2>
+            <p class="panel-subtitle">Save account-wide options for your workspace team.</p>
+          </div>
+
+          <div class="panel-body">
+            <div v-if="preferencesSuccessMsg" class="alert alert-success">{{ preferencesSuccessMsg }}</div>
+            <div v-if="preferencesErrorMsg" class="alert alert-error">{{ preferencesErrorMsg }}</div>
+
+            <div v-if="preferencesLoading" class="empty-state">Loading preferences...</div>
+            <template v-else>
+              <section class="preference-card">
+                <div>
+                  <h3>Priority order &gt;=</h3>
+                  <p>Save the minimum order value for priority orders. This is stored only and is not applied anywhere yet.</p>
+                </div>
+                <div class="preference-input-wrap">
+                  <input
+                    v-model.number="preferencesForm.priority_order_min_total"
+                    class="form-input preference-input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    :class="{ 'input-error': preferencesErrors.priority_order_min_total }"
+                  >
+                  <span v-if="preferencesErrors.priority_order_min_total" class="field-error">
+                    {{ preferencesErrors.priority_order_min_total }}
+                  </span>
+                </div>
+              </section>
+
+              <div class="panel-actions">
+                <button class="btn-cancel" type="button" @click="resetPreferences" :disabled="preferencesSaving">
+                  Reset
+                </button>
+                <button class="btn-save" type="button" @click="savePreferences" :disabled="preferencesSaving">
+                  {{ preferencesSaving ? 'Saving...' : 'Save preferences' }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- Billing Tab -->
         <div v-else-if="activeTab === 'billing'" class="content-panel">
           <div class="panel-header">
@@ -442,10 +487,20 @@ const statusMappings = ref([]);
 const savedStatusMappings = ref([]);
 const statusDeleteDialogOpen = ref(false);
 const statusDeleteTarget = ref(null);
+const preferencesLoading = ref(false);
+const preferencesSaving = ref(false);
+const preferencesSuccessMsg = ref('');
+const preferencesErrorMsg = ref('');
+const preferencesErrors = reactive({});
 const newStatusForm = reactive({
   raw_status: '',
   main_category: '',
 });
+const defaultPreferences = () => ({
+  priority_order_min_total: 3000,
+});
+const preferencesForm = reactive(defaultPreferences());
+const savedPreferences = ref(defaultPreferences());
 const visibleLeopardAddresses = computed(() => {
   if (!leopardEditingId.value) return leopardAddresses.value;
 
@@ -522,10 +577,17 @@ const loadFromStore = () => {
 
 loadFromStore();
 
+const canManagePreferences = computed(() => Boolean(authStore.user?.is_admin) || ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+
 watch(() => authStore.user, loadFromStore);
 watch(() => [route.meta.settingsTab, route.query.tab], () => {
   if (route.query.tab === 'statuses' && route.path === '/settings') {
     router.replace('/settings/statuses');
+    return;
+  }
+
+  if (route.query.tab === 'preferences' && route.path === '/settings') {
+    router.replace('/settings/preferences');
     return;
   }
 
@@ -538,7 +600,16 @@ onMounted(async () => {
     return;
   }
 
-  await Promise.all([loadLeopardData(), loadParcelStatuses()]);
+  if (route.query.tab === 'preferences' && route.path === '/settings') {
+    await router.replace('/settings/preferences');
+    return;
+  }
+
+  await Promise.all([
+    loadLeopardData(),
+    loadParcelStatuses(),
+    canManagePreferences.value ? loadPreferences() : Promise.resolve(),
+  ]);
   hydrateLeopardEditorFromQuery();
 });
 
@@ -858,6 +929,63 @@ const saveStatuses = async () => {
   }
 };
 
+const hydratePreferences = (preferences = {}) => {
+  const nextPreferences = {
+    priority_order_min_total: Number(preferences.priority_order_min_total ?? 3000),
+  };
+  Object.assign(preferencesForm, nextPreferences);
+  savedPreferences.value = { ...nextPreferences };
+};
+
+const loadPreferences = async () => {
+  preferencesLoading.value = true;
+  preferencesErrorMsg.value = '';
+  try {
+    const res = await SettingsService.fetchPreferences();
+    hydratePreferences(res.data.data.preferences);
+  } catch (error) {
+    preferencesErrorMsg.value = error.response?.data?.message || 'Unable to load preferences.';
+  } finally {
+    preferencesLoading.value = false;
+  }
+};
+
+const resetPreferences = () => {
+  Object.assign(preferencesForm, savedPreferences.value);
+  preferencesSuccessMsg.value = '';
+  preferencesErrorMsg.value = '';
+  Object.keys(preferencesErrors).forEach(key => delete preferencesErrors[key]);
+};
+
+const savePreferences = async () => {
+  preferencesSaving.value = true;
+  preferencesSuccessMsg.value = '';
+  preferencesErrorMsg.value = '';
+  Object.keys(preferencesErrors).forEach(key => delete preferencesErrors[key]);
+
+  try {
+    const payload = {
+      priority_order_min_total: Number(preferencesForm.priority_order_min_total || 0),
+    };
+    const res = await SettingsService.updatePreferences(payload);
+    hydratePreferences(res.data.data.preferences);
+    await authStore.fetchUser();
+    preferencesSuccessMsg.value = 'Preferences saved successfully.';
+    setTimeout(() => { preferencesSuccessMsg.value = ''; }, 3000);
+  } catch (error) {
+    const responseErrors = error.response?.data?.errors;
+    if (responseErrors) {
+      Object.assign(preferencesErrors, Object.fromEntries(
+        Object.entries(responseErrors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
+      ));
+    } else {
+      preferencesErrorMsg.value = error.response?.data?.message || 'Unable to save preferences.';
+    }
+  } finally {
+    preferencesSaving.value = false;
+  }
+};
+
 </script>
 
 <style scoped>
@@ -1095,6 +1223,40 @@ const saveStatuses = async () => {
   font-weight: 500;
   color: #dc2626;
   cursor: pointer;
+}
+
+.preference-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 24px;
+  align-items: flex-start;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 18px;
+}
+
+.preference-card h3 {
+  margin: 0 0 6px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.preference-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.preference-input-wrap {
+  display: grid;
+  gap: 6px;
+}
+
+.preference-input {
+  text-align: right;
 }
 
 .pickup-form {
@@ -1388,7 +1550,8 @@ const saveStatuses = async () => {
 @media (max-width: 860px) {
   .settings-body,
   .form-row,
-  .status-groups {
+  .status-groups,
+  .preference-card {
     grid-template-columns: 1fr;
   }
 
