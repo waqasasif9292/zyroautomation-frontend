@@ -12,6 +12,7 @@ const routes = [
   { path: '/dashboard', component: () => import('../pages/DashboardPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/statuses', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true, settingsTab: 'statuses' } },
+  { path: '/settings/preferences', component: () => import('../pages/settings/SettingsPage.vue'), meta: { requiresAuth: true, settingsTab: 'preferences', adminOnly: true } },
   { path: '/settings/billing', component: () => import('../pages/settings/BillingPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/activity-logs', component: () => import('../pages/settings/ActivityLogsPage.vue'), meta: { requiresAuth: true } },
   { path: '/settings/security', component: () => import('../pages/settings/SecurityPage.vue'), meta: { requiresAuth: true } },

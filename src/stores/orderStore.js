@@ -8,6 +8,7 @@ const defaultFilters = () => ({
   brand_ids: [],
   courier_integration_id: null,
   courier_integration_ids: [],
+  cod_min: null,
   customer_id: null,
   date_from: null,
   date_to: null,
@@ -80,6 +81,7 @@ export const useOrderStore = defineStore('order', () => {
     Object.assign(filters, defaultFilters(), values);
     filters.brand_ids = Array.isArray(filters.brand_ids) ? filters.brand_ids : [];
     filters.courier_integration_ids = Array.isArray(filters.courier_integration_ids) ? filters.courier_integration_ids : [];
+    filters.cod_min = filters.cod_min === '' ? null : filters.cod_min;
     filters.sources = Array.isArray(filters.sources) ? filters.sources : [];
     filters.statuses = Array.isArray(filters.statuses) ? filters.statuses : [];
     filters.page = Number.parseInt(filters.page, 10) || 1;

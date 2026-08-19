@@ -47,7 +47,7 @@ const emit = defineEmits(['change']);
 const route  = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
-const isTeamAdmin = computed(() => ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
+const isTeamAdmin = computed(() => Boolean(authStore.user?.is_admin) || ['admin', 'owner'].includes(authStore.user?.team_role || 'admin'));
 const billingEnabled = computed(() => authStore.user?.billing_enabled !== false);
 const hasPermission = (item) => {
   if (item.key === 'billing' && !billingEnabled.value) return false;
@@ -61,6 +61,7 @@ const effectiveActive = computed(() => {
   if (route.path.startsWith('/leopard-pickup-addresses')) return 'leopard';
   if (route.path.startsWith('/brands')) return 'brands';
   if (route.path.startsWith('/settings/statuses')) return 'statuses';
+  if (route.path.startsWith('/settings/preferences')) return 'preferences';
   if (route.path.startsWith('/settings/billing')) return 'billing';
   if (route.path.startsWith('/settings/activity-logs')) return 'activity-logs';
   if (route.path.startsWith('/settings/security')) return 'security';
@@ -118,6 +119,12 @@ const baseNavItems = [
     key: 'statuses', label: 'Courier Statuses',
     to: '/settings/statuses',
     icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><path d="M7 7h.01"/><path d="M14 8h4"/><path d="M16 6v4"/></svg>`,
+  },
+  {
+    key: 'preferences', label: 'Preferences',
+    to: '/settings/preferences',
+    adminOnly: true,
+    icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><path d="m15 5 3 3"/></svg>`,
   },
   {
     key: 'billing', label: 'Billing', to: '/settings/billing',
