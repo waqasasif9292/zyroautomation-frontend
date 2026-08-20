@@ -210,7 +210,7 @@ const queryDefaults = () => ({
 });
 
 const dueCount = computed(() => pagination.value?.total ?? summary.value.due_count ?? 0);
-const thresholdHours = computed(() => summary.value.threshold_hours || 4);
+const thresholdHours = computed(() => summary.value.threshold_hours || 3);
 const courierButtons = computed(() => summary.value.couriers || []);
 const serialStart = computed(() => {
   if (!pagination.value) return 1;
