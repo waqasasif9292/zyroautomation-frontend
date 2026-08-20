@@ -46,12 +46,38 @@ const statusText = computed(() => {
   }
   return '';
 });
+const traxShipmentLabels = {
+  booked: 'Shipment - Booked',
+  'arrived at origin': 'Shipment - Arrived at Origin',
+  'arrival service center': 'Shipment - Arrival Service Center',
+  'in transit': 'Shipment - In Transit',
+  'out for delivery': 'Shipment - Out for Delivery',
+  'delivery unsuccessful': 'Shipment - Delivery Unsuccessful',
+  delivered: 'Shipment - Delivered',
+  returned: 'Shipment - Returned',
+  cancelled: 'Shipment - Cancelled',
+};
+const normalizedCourierLabel = (value) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  const traxMatch = text.match(/^shipment(?:\s*-\s*|\s+)(.+)$/i);
+
+  if (traxMatch) {
+    const status = traxMatch[1].trim();
+    return traxShipmentLabels[status.toLowerCase()] || `Shipment - ${status}`;
+  }
+
+  if (text.includes('_')) {
+    return text
+      .replace(/_+/g, ' ')
+      .replace(/\b\w/g, letter => letter.toUpperCase());
+  }
+
+  return text;
+};
 const label = computed(() => {
   if (labels[statusText.value]) return labels[statusText.value];
   if (!statusText.value) return '—';
-  return statusText.value
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, letter => letter.toUpperCase());
+  return normalizedCourierLabel(statusText.value);
 });
 const statusClass = computed(() => `status-${(statusText.value || 'unknown').toLowerCase().replace(/[\s_]+/g, '-')}`);
 </script>
