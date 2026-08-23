@@ -315,20 +315,9 @@ const data = ref({
 const kpis = computed(() => {
   const summary = data.value.summary || {};
   const inProgress = data.value.in_progress || {};
-  const dispatchedOrders = Math.max(0,
-    Number(summary.total_orders || 0)
-    - statusCount('cancel_by_shipper')
-    - statusCount('hold')
-    - statusCount('error')
-    - statusCount('pending_confirmation')
-  );
-  const dispatchedCod = Math.max(0,
-    Number(summary.total_cod || 0)
-    - statusCod('cancel_by_shipper')
-    - statusCod('hold')
-    - statusCod('error')
-    - statusCod('pending_confirmation')
-  );
+  const nonDispatchedStatuses = ['cancel_by_shipper', 'hold', 'error', 'pending_confirmation', 'duplicate'];
+  const dispatchedOrders = Math.max(0, Number(summary.dispatched_orders || 0));
+  const dispatchedCod = Math.max(0, Number(summary.total_cod || 0) - nonDispatchedStatuses.reduce((sum, key) => sum + statusCod(key), 0));
   const dispatchedDeliveryRate = percentage(statusCount('delivered'), dispatchedOrders);
   const dispatchedReturnRate = percentage(statusCount('returned_to_shipper'), dispatchedOrders);
 
