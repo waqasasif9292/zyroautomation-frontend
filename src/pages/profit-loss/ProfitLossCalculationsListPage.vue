@@ -67,25 +67,33 @@
             </tbody>
           </table>
         </div>
+        <OrderPagination
+          class="list-pagination"
+          :pagination="pagination"
+          item-label="reports"
+          @page-change="changePage"
+        />
       </section>
     </main>
   </AppLayout>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
+import OrderPagination from '../../components/orders/OrderPagination.vue';
 import { useProfitLossCalculationStore } from '../../stores/profitLossCalculationStore';
 
 const router = useRouter();
 const route = useRoute();
 const store = useProfitLossCalculationStore();
-const { calculations, loading } = storeToRefs(store);
+const { calculations, pagination, loading } = storeToRefs(store);
 const toast = ref('');
 const refreshingIds = ref(new Set());
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
+const currentPage = computed(() => Math.max(1, Number(route.query.page || 1)));
 
 const showToast = (message) => {
   toast.value = message;
@@ -95,6 +103,11 @@ const showToast = (message) => {
 const remove = async (calculation) => {
   if (!confirm(`Delete ${calculation.name}?`)) return;
   await store.deleteCalculation(calculation.id);
+  if (calculations.value.length === 0 && pagination.value?.has_prev) {
+    await changePage(pagination.value.current_page - 1);
+  } else {
+    await loadCalculations(currentPage.value);
+  }
   showToast('Report deleted.');
 };
 
@@ -114,14 +127,24 @@ const refreshProfit = async (calculation) => {
   }
 };
 
+const loadCalculations = async (page = currentPage.value) => {
+  await store.fetchCalculations({ page, per_page: 15 });
+};
+
+const changePage = async (page) => {
+  const targetPage = Math.max(1, Number(page || 1));
+  await router.push({ query: { ...route.query, page: targetPage === 1 ? undefined : targetPage } });
+  await loadCalculations(targetPage);
+};
+
 onMounted(async () => {
-  await store.fetchCalculations();
+  await loadCalculations();
   if (route.query.toast === 'created') {
     showToast('Report created.');
-    router.replace({ query: {} });
+    router.replace({ query: route.query.page ? { page: route.query.page } : {} });
   } else if (route.query.toast === 'updated') {
     showToast('Report updated.');
-    router.replace({ query: {} });
+    router.replace({ query: route.query.page ? { page: route.query.page } : {} });
   }
 });
 </script>
@@ -188,6 +211,10 @@ p {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.list-pagination {
+  margin: 0 28px 24px;
 }
 
 table {
