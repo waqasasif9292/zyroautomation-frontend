@@ -117,6 +117,7 @@ const stats = ref({
   delivered_this_month: 0,
   ready_for_return: 0,
   ready_for_return_this_month: 0,
+  out_for_return: 0,
   returned_to_shipper: 0,
   returned_to_shipper_this_month: 0,
   cancel_by_shipper: 0,
@@ -139,6 +140,7 @@ const formatDate = date => {
 };
 const dateFilter = (from, to) => ({ date_from: formatDate(from), date_to: formatDate(to), status: null });
 const statusFilter = status => ({ date_from: null, date_to: null, status });
+const statusesFilter = statuses => ({ date_from: null, date_to: null, status: null, statuses });
 const thisMonthStatusFilter = status => ({ ...dateFilter(startOfMonth(new Date()), new Date()), status });
 const percentOfDispatched = value => {
   const dispatched = Number(orderListDispatched.value || 0);
@@ -153,6 +155,8 @@ const percentOfThisMonth = value => {
   return ((Number(value || 0) / thisMonth) * 100).toFixed(1);
 };
 const orderListDispatched = computed(() => Math.max(0, Number(stats.value.dispatched_this_month || 0)));
+const processingStatuses = ['merchant_warehouse', 'dispatched', 'out_for_delivery', 'ready_for_return'];
+const processingCount = computed(() => processingStatuses.reduce((total, status) => total + Number(stats.value[status] || 0), 0));
 
 const statItems = computed(() => [
   {
@@ -168,6 +172,13 @@ const statItems = computed(() => [
     value: stats.value.yesterday,
     icon: 'yesterday',
     filter: dateFilter(addDays(new Date(), -1), addDays(new Date(), -1)),
+  },
+  {
+    key: 'last_7_days',
+    label: 'Last 7 Days',
+    value: stats.value.last_7_days,
+    icon: 'week',
+    filter: dateFilter(addDays(new Date(), -6), new Date()),
   },
   {
     key: 'this_month',
@@ -204,12 +215,14 @@ const statItems = computed(() => [
   { key: 'pending_confirmation', label: 'Pending Confirmation', value: stats.value.pending_confirmation, icon: 'pending', filter: statusFilter('pending_confirmation') },
   { key: 'duplicate', label: 'Duplicate', value: stats.value.duplicate, icon: 'duplicate', filter: statusFilter('duplicate') },
   { key: 'error', label: 'Error', value: stats.value.error, icon: 'error', filter: statusFilter('error') },
+  { key: 'processing', label: 'Processing', value: processingCount.value, icon: 'transit', filter: statusesFilter(processingStatuses) },
   { key: 'merchant_warehouse', label: 'Merchant Warehouse', value: stats.value.merchant_warehouse, icon: 'warehouse', filter: statusFilter('merchant_warehouse') },
   { key: 'dispatched', label: 'In Transit', value: stats.value.dispatched, icon: 'transit', filter: statusFilter('dispatched') },
   { key: 'out_for_delivery', label: 'Out For Delivery', value: stats.value.out_for_delivery, icon: 'delivery', filter: statusFilter('out_for_delivery') },
   { key: 'dispatched_this_month', label: 'Dispatched', value: orderListDispatched.value, icon: 'transit', filter: thisMonthStatusFilter('dispatched') },
   { key: 'delivered', label: 'Delivered', value: stats.value.delivered_this_month, percentage: percentOfDispatched(stats.value.delivered_this_month), icon: 'delivered', filter: thisMonthStatusFilter('delivered') },
   { key: 'ready_for_return', label: 'Ready For Return', value: stats.value.ready_for_return, icon: 'return', filter: statusFilter('ready_for_return') },
+  { key: 'out_for_return', label: 'Out For Return', value: stats.value.out_for_return, percentage: percentOfDispatched(stats.value.out_for_return), icon: 'return', filter: statusFilter('out_for_return') },
   { key: 'returned_to_shipper', label: 'Returned', value: stats.value.returned_to_shipper_this_month, percentage: percentOfDispatched(stats.value.returned_to_shipper_this_month), icon: 'return', filter: thisMonthStatusFilter('returned_to_shipper') },
   { key: 'cancel_by_shipper', label: 'Cancel', value: stats.value.cancel_by_shipper_this_month, percentage: percentOfThisMonth(stats.value.cancel_by_shipper_this_month), percentageLabel: 'of this month', icon: 'error', filter: thisMonthStatusFilter('cancel_by_shipper') },
 ]);
@@ -239,7 +252,7 @@ onMounted(fetchStats);
 <style scoped>
 .order-stats-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 14px;
   padding: 22px 12px 18px;
   border-radius: 0;
