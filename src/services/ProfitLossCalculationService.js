@@ -4,8 +4,8 @@ const ProfitLossCalculationService = {
   getOptions() {
     return axiosInstance.get('/profit-loss-calculations/options');
   },
-  getCalculations() {
-    return axiosInstance.get('/profit-loss-calculations');
+  getCalculations(params = {}) {
+    return axiosInstance.get('/profit-loss-calculations', { params });
   },
   getCalculation(id) {
     return axiosInstance.get(`/profit-loss-calculations/${id}`);
