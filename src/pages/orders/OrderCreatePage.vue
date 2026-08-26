@@ -234,6 +234,28 @@
               </select>
               <span v-if="errors.leopard_pickup_address_id" class="field-error">{{ errors.leopard_pickup_address_id }}</span>
             </div>
+            <div v-else-if="isTcsSelected" class="field">
+              <label>Shipper / Cost Center</label>
+              <select
+                v-model="form.pickup_address_code"
+                :class="{ invalid: errors.pickup_address_code }"
+                :disabled="tcsCostCenterLoading || readonlyLocksPartialForm"
+                @focus="ensureTcsCostCenters"
+              >
+                <option value="">
+                  {{ tcsCostCenterLoading ? 'Fetching shippers...' : 'Select Shipper / Cost Center' }}
+                </option>
+                <option
+                  v-for="costCenter in tcsCostCenters"
+                  :key="costCenter.costcentercode"
+                  :value="costCenter.costcentercode"
+                >
+                  {{ tcsCostCenterName(costCenter) }}
+                </option>
+              </select>
+              <span v-if="tcsCostCenterLoading" class="helper-text">Fetching shippers from TCS...</span>
+              <span v-if="errors.pickup_address_code" class="field-error">{{ errors.pickup_address_code }}</span>
+            </div>
             <div v-else-if="hasCourierSelected && !isArgoSelected && !isSelfPickupSelected" class="field">
               <label>Origin City</label>
               <select v-model="form.origin_city" :class="{ invalid: errors.origin_city }" :disabled="readonlyLocksPartialForm">
@@ -244,7 +266,76 @@
               </select>
               <span v-if="errors.origin_city" class="field-error">{{ errors.origin_city }}</span>
             </div>
-            <div v-if="hasCourierSelected && !isSelfPickupSelected" class="field">
+            <template v-if="isTcsSelected">
+              <div class="field">
+                <label>City <span class="required">*</span></label>
+                <select
+                  v-model="destinationCitySelection"
+                  :class="{ invalid: errors.destination_city }"
+                  :disabled="tcsCityLoading || readonlyLocksPartialForm"
+                  @focus="ensureTcsCities"
+                  @change="handleTcsCityChange"
+                >
+                  <option value="">
+                    {{ tcsCityLoading ? 'Fetching cities...' : 'Select City' }}
+                  </option>
+                  <option
+                    v-for="city in tcsCities"
+                    :key="`${city.citycode}-${city.cityname}`"
+                    :value="city.citycode"
+                  >
+                    {{ city.cityname }}
+                  </option>
+                </select>
+                <span v-if="tcsCityLoading" class="helper-text">Fetching cities from TCS...</span>
+                <span v-if="errors.destination_city" class="field-error">{{ errors.destination_city }}</span>
+              </div>
+              <div class="field">
+                <label>Area Code</label>
+                <select
+                  v-model="form.tcs_area_code"
+                  :disabled="!form.destination_city_id || tcsAreaLoading || readonlyLocksPartialForm"
+                  @focus="ensureTcsAreas"
+                  @change="handleTcsAreaChange"
+                >
+                  <option value="">
+                    {{ tcsAreaLoading ? 'Fetching areas...' : 'Select Area Code' }}
+                  </option>
+                  <option
+                    v-for="area in tcsAreas"
+                    :key="area.areacode"
+                    :value="area.areacode"
+                  >
+                    {{ area.areaname }}
+                  </option>
+                </select>
+                <span v-if="tcsAreaLoading" class="helper-text">Fetching area codes from TCS...</span>
+                <span v-if="tcsAreaError" class="field-error">{{ tcsAreaError }}</span>
+              </div>
+              <div class="field">
+                <label>Block Code</label>
+                <select
+                  v-model="form.tcs_block_code"
+                  :disabled="!form.tcs_area_code || tcsBlockLoading || readonlyLocksPartialForm"
+                  @focus="ensureTcsBlocks"
+                  @change="handleTcsBlockChange"
+                >
+                  <option value="">
+                    {{ tcsBlockLoading ? 'Fetching blocks...' : 'Select Block Code' }}
+                  </option>
+                  <option
+                    v-for="block in tcsBlocks"
+                    :key="block.blockcode"
+                    :value="block.blockcode"
+                  >
+                    {{ block.blockname }}
+                  </option>
+                </select>
+                <span v-if="tcsBlockLoading" class="helper-text">Fetching block codes from TCS...</span>
+                <span v-if="tcsBlockError" class="field-error">{{ tcsBlockError }}</span>
+              </div>
+            </template>
+            <div v-else-if="hasCourierSelected && !isSelfPickupSelected" class="field">
               <label>Destination City</label>
               <div class="city-combobox" :class="{ invalid: errors.destination_city, disabled: citySelectDisabled }">
                 <input
@@ -288,9 +379,9 @@
               <span v-if="errors.packet_weight" class="field-error">{{ errors.packet_weight }}</span>
             </div>
             <div v-if="!isArgoSelected" class="field">
-              <label>{{ isDastaqSelected ? 'Payment Type' : 'Shipment Type' }}</label>
+              <label>{{ isDastaqSelected ? 'Payment Type' : (isTcsSelected ? 'Services' : 'Shipment Type') }}</label>
               <select v-model="form.shipment_type" :class="{ invalid: errors.shipment_type }" :disabled="readonlyLocksPartialForm">
-                <option value="">{{ isDastaqSelected ? 'Select Payment Type' : 'Select Shipment Type' }}</option>
+                <option value="">{{ isDastaqSelected ? 'Select Payment Type' : (isTcsSelected ? 'Please Select' : 'Select Shipment Type') }}</option>
                 <option v-for="type in shipmentTypeOptions" :key="type" :value="type">{{ type }}</option>
               </select>
               <span v-if="errors.shipment_type" class="field-error">{{ errors.shipment_type }}</span>
@@ -592,6 +683,18 @@ const traxPickupError = ref('');
 const traxCities = ref([]);
 const traxCityLoading = ref(false);
 const traxCityError = ref('');
+const tcsCostCenters = ref([]);
+const tcsCostCenterLoading = ref(false);
+const tcsCostCenterError = ref('');
+const tcsCities = ref([]);
+const tcsCityLoading = ref(false);
+const tcsCityError = ref('');
+const tcsAreas = ref([]);
+const tcsAreaLoading = ref(false);
+const tcsAreaError = ref('');
+const tcsBlocks = ref([]);
+const tcsBlockLoading = ref(false);
+const tcsBlockError = ref('');
 const failedSavedOrderId = ref(null);
 const loadedOrder = ref(null);
 const deleteOrderDialog = ref(false);
@@ -625,6 +728,10 @@ const form = reactive({
   origin_city: '',
   destination_city: '',
   destination_city_id: '',
+  tcs_area_code: '',
+  tcs_area_name: '',
+  tcs_block_code: '',
+  tcs_block_name: '',
   packet_weight: '0.2',
   shipment_type: '',
   self_pickup_fare: '',
@@ -831,6 +938,7 @@ const isLeopardSelected = computed(() => selectedIntegration.value?.courier_slug
 const isDastaqSelected = computed(() => selectedIntegration.value?.courier_slug === 'dastaq');
 const isArgoSelected = computed(() => selectedIntegration.value?.courier_slug === 'argo');
 const isTraxSelected = computed(() => selectedIntegration.value?.courier_slug === 'trax');
+const isTcsSelected = computed(() => selectedIntegration.value?.courier_slug === 'tcs');
 const isGramWeightSelected = computed(() => isLeopardSelected.value || isDastaqSelected.value);
 const courierCodAmount = computed(() => {
   const total = Number(form.total_price || 0);
@@ -839,7 +947,7 @@ const courierCodAmount = computed(() => {
 });
 const destinationCitySelection = computed({
   get() {
-    return (isLeopardSelected.value || isTraxSelected.value) ? form.destination_city_id : form.destination_city;
+    return (isLeopardSelected.value || isTraxSelected.value || isTcsSelected.value) ? form.destination_city_id : form.destination_city;
   },
   set(value) {
     if (isLeopardSelected.value) {
@@ -853,6 +961,10 @@ const destinationCitySelection = computed({
       const city = traxCities.value.find((item) => String(item.id) === String(value));
       form.destination_city_id = value ? Number(value) : '';
       form.destination_city = city?.name || '';
+    } else if (isTcsSelected.value) {
+      const city = tcsCities.value.find((item) => String(item.citycode) === String(value));
+      form.destination_city_id = value || '';
+      form.destination_city = city?.cityname || '';
     } else {
       form.destination_city = value;
       form.destination_city_id = '';
@@ -895,6 +1007,13 @@ const destinationCityOptions = computed(() => {
     }));
   }
 
+  if (isTcsSelected.value) {
+    return tcsCities.value.map((city) => ({
+      value: city.citycode,
+      label: city.citycode ? `${city.cityname} - ${city.citycode}` : city.cityname,
+    }));
+  }
+
   return ['Lahore', 'Karachi', 'Islamabad'].map((city) => ({
     value: city,
     label: city,
@@ -921,9 +1040,10 @@ const citySelectDisabled = computed(() => (
     || (isDastaqSelected.value && dastaqCityLoading.value)
     || (isArgoSelected.value && argoCityLoading.value)
     || (isTraxSelected.value && traxCityLoading.value)
+    || (isTcsSelected.value && tcsCityLoading.value)
 ));
 const citySelectPlaceholder = computed(() => {
-  if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value || argoCityLoading.value || traxCityLoading.value) return 'Fetching cities...';
+  if (postexCityLoading.value || leopardCityLoading.value || dastaqCityLoading.value || argoCityLoading.value || traxCityLoading.value || tcsCityLoading.value) return 'Fetching cities...';
   return 'Search Destination City';
 });
 const shipmentTypeOptions = computed(() => {
@@ -944,6 +1064,10 @@ const shipmentTypeOptions = computed(() => {
     return ['Rush'];
   }
 
+  if (isTcsSelected.value) {
+    return ['Express', 'Economy Express', 'SAMEDAY', 'MYO (SELF COLLECTION)', 'SAMEDAY PREMIUM'];
+  }
+
   return ['Overnight', 'Same Day', 'Detain'];
 });
 
@@ -952,12 +1076,14 @@ const defaultShipmentTypeForSelectedCourier = () => {
   if (isLeopardSelected.value) return 'Overnight';
   if (isDastaqSelected.value) return 'cod';
   if (isTraxSelected.value) return 'Rush';
+  if (isTcsSelected.value) return 'Express';
   return '';
 };
 
 const defaultPacketWeightForSelectedCourier = () => {
   if (isLeopardSelected.value) return '200';
   if (isDastaqSelected.value) return '500';
+  if (isTcsSelected.value) return '0.5';
   return '0.2';
 };
 
@@ -981,7 +1107,7 @@ const applyBrandDefaultShipper = () => {
     return;
   }
 
-  if ((isPostexSelected.value || isDastaqSelected.value || isTraxSelected.value) && defaultShipper.pickup_address_code) {
+  if ((isPostexSelected.value || isDastaqSelected.value || isTraxSelected.value || isTcsSelected.value) && defaultShipper.pickup_address_code) {
     form.pickup_address_code = defaultShipper.pickup_address_code;
     delete errors.pickup_address_code;
   }
@@ -1003,6 +1129,10 @@ watch(() => form.brand_id, () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  form.tcs_area_code = '';
+  form.tcs_area_name = '';
+  form.tcs_block_code = '';
+  form.tcs_block_name = '';
   form.self_pickup_fare = '';
   citySearch.value = '';
   isCityComboboxOpen.value = false;
@@ -1026,6 +1156,10 @@ const resetCourierDependentFields = () => {
   form.origin_city = '';
   form.destination_city = '';
   form.destination_city_id = '';
+  form.tcs_area_code = '';
+  form.tcs_area_name = '';
+  form.tcs_block_code = '';
+  form.tcs_block_name = '';
   if (!isSelfPickupSelected.value) {
     form.self_pickup_fare = '';
   }
@@ -1046,6 +1180,14 @@ const resetCourierDependentFields = () => {
   traxPickupError.value = '';
   traxCities.value = [];
   traxCityError.value = '';
+  tcsCostCenters.value = [];
+  tcsCostCenterError.value = '';
+  tcsCities.value = [];
+  tcsCityError.value = '';
+  tcsAreas.value = [];
+  tcsAreaError.value = '';
+  tcsBlocks.value = [];
+  tcsBlockError.value = '';
   delete errors.courier_integration_id;
   delete errors.pickup_address_code;
   delete errors.leopard_pickup_address_id;
@@ -1068,6 +1210,8 @@ const loadPostexRuntimeData = async () => {
     await loadArgoRuntimeData();
   } else if (isTraxSelected.value) {
     await loadTraxRuntimeData();
+  } else if (isTcsSelected.value) {
+    await loadTcsRuntimeData();
   }
 };
 
@@ -1213,6 +1357,10 @@ const loadOrderForEdit = async (id) => {
   form.origin_city = manual.origin_city || '';
   form.destination_city = savedDestinationCity;
   form.destination_city_id = manual.destination_city_id || '';
+  form.tcs_area_code = manual.tcs_area_code || '';
+  form.tcs_area_name = manual.tcs_area_name || '';
+  form.tcs_block_code = manual.tcs_block_code || '';
+  form.tcs_block_name = manual.tcs_block_name || '';
   form.packet_weight = manual.packet_weight ?? '0.2';
   form.shipment_type = manual.shipment_type || '';
   form.self_pickup_fare = manual.self_pickup_fare ?? order.delivery_charges?.total_charges ?? order.delivery_charges?.delivery_charges ?? '';
@@ -1255,6 +1403,21 @@ const loadOrderForEdit = async (id) => {
   } else if (savedCourierSlug === 'argo') {
     await loadArgoRuntimeData();
     form.packet_weight = manual.packet_weight ?? '0.2';
+  } else if (savedCourierSlug === 'tcs') {
+    await loadTcsRuntimeData();
+    if (form.shipment_type === 'O') {
+      form.shipment_type = 'Express';
+    }
+    if (!form.shipment_type) {
+      form.shipment_type = 'Express';
+    }
+    if (form.destination_city_id && form.tcs_area_code) {
+      await fetchTcsAreas();
+      if (form.tcs_block_code) {
+        await fetchTcsBlocks();
+      }
+    }
+    form.packet_weight = manual.packet_weight ?? '0.5';
   }
 };
 
@@ -1534,6 +1697,15 @@ const traxPickupAddressName = (address) => {
   return traxPickupShipperName(address);
 };
 
+const tcsCostCenterName = (costCenter) => {
+  return [
+    costCenter.costcentername || 'TCS Shipper',
+    costCenter.costcentercode,
+    costCenter.costcentercity,
+    costCenter.phoneno,
+  ].filter(Boolean).join(' - ');
+};
+
 const loadLeopardRuntimeData = async () => {
   await Promise.all([
     fetchLeopardCities(),
@@ -1583,6 +1755,10 @@ const getArgoCredentials = () => ({
 const getTraxCredentials = () => ({
   api_key: selectedIntegration.value?.courier_options?.api_key,
   base_url: selectedIntegration.value?.courier_options?.base_url,
+});
+
+const getTcsCredentials = () => ({
+  integration_id: selectedIntegration.value?.id,
 });
 
 const loadDastaqRuntimeData = async () => {
@@ -1743,6 +1919,172 @@ const ensureTraxPickupAddresses = () => {
   fetchTraxPickupAddresses();
 };
 
+const loadTcsRuntimeData = async () => {
+  await Promise.all([
+    fetchTcsCostCenters(),
+    fetchTcsCities(),
+  ]);
+};
+
+const fetchTcsCostCenters = async () => {
+  const credentials = getTcsCredentials();
+
+  if (!credentials.integration_id) {
+    tcsCostCenterError.value = 'TCS credentials are missing. Update the TCS integration first.';
+    errors.pickup_address_code = tcsCostCenterError.value;
+    return;
+  }
+
+  tcsCostCenterLoading.value = true;
+  tcsCostCenterError.value = '';
+
+  try {
+    tcsCostCenters.value = await integrationStore.fetchTcsCostCenters(credentials);
+    if (tcsCostCenters.value.length === 0) {
+      tcsCostCenterError.value = 'No shippers found for this TCS account.';
+      errors.pickup_address_code = tcsCostCenterError.value;
+    }
+  } catch (error) {
+    tcsCostCenterError.value = apiErrorMessage(error, 'Unable to fetch TCS shippers.');
+    errors.pickup_address_code = tcsCostCenterError.value;
+  } finally {
+    tcsCostCenterLoading.value = false;
+  }
+};
+
+const ensureTcsCostCenters = () => {
+  if (!isTcsSelected.value || tcsCostCenterLoading.value || tcsCostCenters.value.length > 0) return;
+  fetchTcsCostCenters();
+};
+
+const fetchTcsCities = async () => {
+  const credentials = getTcsCredentials();
+
+  if (!credentials.integration_id) {
+    tcsCityError.value = 'TCS credentials are missing. Update the TCS integration first.';
+    errors.destination_city = tcsCityError.value;
+    return;
+  }
+
+  tcsCityLoading.value = true;
+  tcsCityError.value = '';
+
+  try {
+    tcsCities.value = await integrationStore.fetchTcsCities({
+      integration_id: credentials.integration_id,
+      countrycode: 'PK',
+    });
+    if (tcsCities.value.length === 0) {
+      tcsCityError.value = 'No destination cities found for this TCS account.';
+      errors.destination_city = tcsCityError.value;
+    }
+  } catch (error) {
+    tcsCityError.value = apiErrorMessage(error, 'Unable to fetch TCS cities.');
+    errors.destination_city = tcsCityError.value;
+  } finally {
+    tcsCityLoading.value = false;
+  }
+};
+
+const ensureTcsCities = () => {
+  if (!isTcsSelected.value || tcsCityLoading.value || tcsCities.value.length > 0) return;
+  fetchTcsCities();
+};
+
+const fetchTcsAreas = async () => {
+  const credentials = getTcsCredentials();
+
+  if (!credentials.integration_id || !form.destination_city_id) {
+    tcsAreas.value = [];
+    return;
+  }
+
+  tcsAreaLoading.value = true;
+  tcsAreaError.value = '';
+
+  try {
+    tcsAreas.value = await integrationStore.fetchTcsAreas({
+      integration_id: credentials.integration_id,
+      citycode: form.destination_city_id,
+      area: '',
+    });
+  } catch (error) {
+    tcsAreaError.value = apiErrorMessage(error, 'Unable to fetch TCS area codes.');
+  } finally {
+    tcsAreaLoading.value = false;
+  }
+};
+
+const ensureTcsAreas = () => {
+  if (!isTcsSelected.value || tcsAreaLoading.value || tcsAreas.value.length > 0) return;
+  fetchTcsAreas();
+};
+
+const fetchTcsBlocks = async () => {
+  const credentials = getTcsCredentials();
+
+  if (!credentials.integration_id || !form.tcs_area_code) {
+    tcsBlocks.value = [];
+    return;
+  }
+
+  tcsBlockLoading.value = true;
+  tcsBlockError.value = '';
+
+  try {
+    tcsBlocks.value = await integrationStore.fetchTcsBlocks({
+      integration_id: credentials.integration_id,
+      area: form.tcs_area_code,
+      blockcode: '',
+    });
+  } catch (error) {
+    tcsBlockError.value = apiErrorMessage(error, 'Unable to fetch TCS block codes.');
+  } finally {
+    tcsBlockLoading.value = false;
+  }
+};
+
+const ensureTcsBlocks = () => {
+  if (!isTcsSelected.value || tcsBlockLoading.value || tcsBlocks.value.length > 0) return;
+  fetchTcsBlocks();
+};
+
+const handleTcsCityChange = async () => {
+  const city = tcsCities.value.find((item) => String(item.citycode) === String(form.destination_city_id));
+  form.destination_city = city?.cityname || '';
+  form.tcs_area_code = '';
+  form.tcs_area_name = '';
+  form.tcs_block_code = '';
+  form.tcs_block_name = '';
+  tcsAreas.value = [];
+  tcsBlocks.value = [];
+  tcsAreaError.value = '';
+  tcsBlockError.value = '';
+  delete errors.destination_city;
+
+  if (form.destination_city_id) {
+    await fetchTcsAreas();
+  }
+};
+
+const handleTcsAreaChange = async () => {
+  const area = tcsAreas.value.find((item) => String(item.areacode) === String(form.tcs_area_code));
+  form.tcs_area_name = area?.areaname || '';
+  form.tcs_block_code = '';
+  form.tcs_block_name = '';
+  tcsBlocks.value = [];
+  tcsBlockError.value = '';
+
+  if (form.tcs_area_code) {
+    await fetchTcsBlocks();
+  }
+};
+
+const handleTcsBlockChange = () => {
+  const block = tcsBlocks.value.find((item) => String(item.blockcode) === String(form.tcs_block_code));
+  form.tcs_block_name = block?.blockname || '';
+};
+
 const fetchPostexPickupAddresses = async () => {
   const token = getPostexApiToken();
 
@@ -1824,6 +2166,8 @@ const ensureDestinationCities = () => {
     fetchArgoCities();
   } else if (isTraxSelected.value && !traxCityLoading.value && traxCities.value.length === 0) {
     fetchTraxCities();
+  } else if (isTcsSelected.value && !tcsCityLoading.value && tcsCities.value.length === 0) {
+    fetchTcsCities();
   }
 };
 
@@ -2132,6 +2476,31 @@ const handleSave = async (mode) => {
     } else if (!form.destination_city_id) {
       errors.destination_city = 'Destination city is required.';
     }
+  } else if (isTcsSelected.value) {
+    if (tcsCostCenterLoading.value) {
+      errors.pickup_address_code = 'TCS shippers are still loading.';
+    } else if (tcsCostCenterError.value) {
+      errors.pickup_address_code = tcsCostCenterError.value;
+    } else if (!form.pickup_address_code) {
+      errors.pickup_address_code = 'Shipper / cost center is required.';
+    }
+
+    const tcsWeight = Number(form.packet_weight || 0.5);
+    if (Number.isNaN(tcsWeight) || tcsWeight <= 0) {
+      errors.packet_weight = 'Weight must be greater than zero.';
+    }
+
+    if (tcsCityLoading.value) {
+      errors.destination_city = 'TCS cities are still loading.';
+    } else if (tcsCityError.value) {
+      errors.destination_city = tcsCityError.value;
+    } else if (!form.destination_city_id) {
+      errors.destination_city = 'Destination city is required.';
+    }
+
+    if (!shipmentTypeOptions.value.includes(form.shipment_type)) {
+      errors.shipment_type = 'Please select a TCS service.';
+    }
   } else if (hasCourierSelected.value && !form.origin_city) {
     errors.origin_city = 'Origin city is required.';
   }
@@ -2149,7 +2518,7 @@ const handleSave = async (mode) => {
 
   saving.value = true;
   try {
-    const supportsShipmentBooking = isPostexSelected.value || isLeopardSelected.value || isDastaqSelected.value || isArgoSelected.value || isTraxSelected.value || isSelfPickupSelected.value;
+    const supportsShipmentBooking = isPostexSelected.value || isLeopardSelected.value || isDastaqSelected.value || isArgoSelected.value || isTraxSelected.value || isTcsSelected.value || isSelfPickupSelected.value;
     const shouldBookShipment = mode === 'create' && supportsShipmentBooking;
     const payload = buildPayload();
 
@@ -2170,7 +2539,7 @@ const handleSave = async (mode) => {
 
     if (mode === 'create') {
       if (!supportsShipmentBooking) {
-        showErrorPopup('Shipment booking is only available for PostEx, Leopard, Dastaq, Argo, Trax, and Self Pickup / Bykea right now.');
+        showErrorPopup('Shipment booking is only available for PostEx, Leopard, Dastaq, Argo, Trax, TCS, and Self Pickup / Bykea right now.');
         return;
       }
 
@@ -2197,6 +2566,7 @@ const handleSave = async (mode) => {
       error.response?.data?.leopard_response ||
       error.response?.data?.argo_response ||
       error.response?.data?.trax_response ||
+      error.response?.data?.tcs_response ||
       error.response?.data?.dastaq_response
     );
     const errorDetails = formatApiErrorDetails(error.response?.data?.errors);

@@ -46,4 +46,16 @@ export default {
   fetchTraxPickupAddresses(params) {
     return axiosInstance.get('/integrations/trax/pickup-addresses', { params });
   },
+  fetchTcsCostCenters(params) {
+    return axiosInstance.get('/integrations/tcs/cost-centers', { params });
+  },
+  fetchTcsCities(params) {
+    return axiosInstance.get('/integrations/tcs/cities', { params });
+  },
+  fetchTcsAreas(params) {
+    return axiosInstance.get('/integrations/tcs/areas', { params });
+  },
+  fetchTcsBlocks(params) {
+    return axiosInstance.get('/integrations/tcs/blocks', { params });
+  },
 };

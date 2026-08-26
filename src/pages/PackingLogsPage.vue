@@ -286,6 +286,8 @@ const page = ref(1);
 const showLoadSheetPanel = ref(false);
 const loadSheetDownloading = ref(false);
 let syncingQuery = false;
+const PENDING_PER_PAGE = 1000;
+const PACKED_PER_PAGE = 200;
 const packingStats = ref({
   total_pending: 0,
   today_packed: 0,
@@ -462,7 +464,8 @@ const downloadLoadSheet = async () => {
 const requestParams = () => Object.fromEntries(
   Object.entries({
     ...appliedFilters,
-    ...(isPackedView.value ? { page: page.value, per_page: 200 } : {}),
+    page: page.value,
+    per_page: isPackedView.value ? PACKED_PER_PAGE : PENDING_PER_PAGE,
   }).filter(([, value]) => value !== null && value !== '')
 );
 
@@ -480,7 +483,7 @@ const replaceFilterQuery = async () => {
   try {
     await router.replace({
       query: buildFilterQuery(
-        { ...appliedFilters, ...(isPackedView.value ? { page: page.value } : {}) },
+        { ...appliedFilters, page: page.value },
         queryDefaults()
       ),
     });

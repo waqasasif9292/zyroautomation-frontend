@@ -28,6 +28,12 @@ export const COURIERS = [
     name: 'Trax',
     image: '/images/couriers/trax.png',
     placeholder: 'Enter your Trax API key and booking defaults to connect this courier.'
+  },
+  {
+    slug: 'tcs',
+    name: 'TCS',
+    image: '/images/couriers/tcs.png',
+    placeholder: 'Enter your TCS username, password, and bearer token to connect this courier.'
   }
 ];
 

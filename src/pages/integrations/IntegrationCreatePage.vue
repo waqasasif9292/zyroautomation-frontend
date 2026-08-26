@@ -85,6 +85,14 @@
                 :apiKeyError="errors.traxApiKey || traxApiKeyError"
                 :generalError="errors.trax"
               />
+              <TcsOptionsForm
+                v-else-if="form.courier_slug === 'tcs'"
+                v-model="form.courier_options"
+                :usernameError="errors.tcsUsername || tcsUsernameError"
+                :passwordError="errors.tcsPassword || tcsPasswordError"
+                :bearerTokenError="errors.tcsBearerToken || tcsBearerTokenError"
+                :generalError="errors.tcs"
+              />
               <CourierOptionsBox v-else :courierSlug="form.courier_slug" />
             </section>
           </template>
@@ -117,6 +125,7 @@ import LeopardOptionsForm from '../../components/integrations/LeopardOptionsForm
 import DastaqOptionsForm from '../../components/integrations/DastaqOptionsForm.vue';
 import ArgoOptionsForm from '../../components/integrations/ArgoOptionsForm.vue';
 import TraxOptionsForm from '../../components/integrations/TraxOptionsForm.vue';
+import TcsOptionsForm from '../../components/integrations/TcsOptionsForm.vue';
 import { getCourierName } from '../../constants/couriers';
 import { useIntegrationStore } from '../../stores/integrationStore';
 
@@ -193,7 +202,26 @@ const traxApiKeyError = computed(() => {
   if (!form.courier_options.api_key) return 'The Trax API key is required.';
   return '';
 });
-const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value || argoIncomplete.value || traxIncomplete.value);
+const tcsIncomplete = computed(() => {
+  if (form.courier_slug !== 'tcs') return false;
+  return !form.courier_options.username || !form.courier_options.password || !form.courier_options.bearer_token;
+});
+const tcsUsernameError = computed(() => {
+  if (form.courier_slug !== 'tcs') return '';
+  if (!form.courier_options.username) return 'The TCS username is required.';
+  return '';
+});
+const tcsPasswordError = computed(() => {
+  if (form.courier_slug !== 'tcs') return '';
+  if (!form.courier_options.password) return 'The TCS password is required.';
+  return '';
+});
+const tcsBearerTokenError = computed(() => {
+  if (form.courier_slug !== 'tcs') return '';
+  if (!form.courier_options.bearer_token) return 'The TCS bearer token is required.';
+  return '';
+});
+const disableSave = computed(() => saving.value || !form.name.trim() || !form.courier_slug || postexIncomplete.value || leopardIncomplete.value || dastaqIncomplete.value || argoIncomplete.value || traxIncomplete.value || tcsIncomplete.value);
 
 const resetErrors = () => {
   errors.name = '';
@@ -225,6 +253,10 @@ watch(() => form.courier_slug, () => {
   errors.argoApiSecret = '';
   errors.trax = '';
   errors.traxApiKey = '';
+  errors.tcs = '';
+  errors.tcsUsername = '';
+  errors.tcsPassword = '';
+  errors.tcsBearerToken = '';
 });
 watch(() => form.courier_options.api_token, () => {
   errors.postex = '';
@@ -244,6 +276,12 @@ watch(() => [form.courier_options.api_key, form.courier_options.api_secret], () 
   errors.trax = '';
   errors.traxApiKey = '';
 });
+watch(() => [form.courier_options.username, form.courier_options.password, form.courier_options.bearer_token], () => {
+  errors.tcs = '';
+  errors.tcsUsername = '';
+  errors.tcsPassword = '';
+  errors.tcsBearerToken = '';
+});
 
 const applyOptionErrors = (responseErrors) => {
   const optionErrors = responseErrors?.courier_options;
@@ -260,6 +298,12 @@ const applyOptionErrors = (responseErrors) => {
   }
   if (form.courier_slug === 'trax') {
     errors.traxApiKey = optionErrors?.api_key?.[0] || '';
+    return;
+  }
+  if (form.courier_slug === 'tcs') {
+    errors.tcsUsername = optionErrors?.username?.[0] || '';
+    errors.tcsPassword = optionErrors?.password?.[0] || '';
+    errors.tcsBearerToken = optionErrors?.bearer_token?.[0] || '';
     return;
   }
   errors.leopardApiKey = optionErrors?.api_key?.[0] || '';
@@ -290,6 +334,8 @@ const handleSubmit = async () => {
         errors.dastaq = error.response.data.message;
       } else if (form.courier_slug === 'trax') {
         errors.trax = error.response.data.message;
+      } else if (form.courier_slug === 'tcs') {
+        errors.tcs = error.response.data.message;
       } else {
         errors.postex = error.response.data.message;
       }

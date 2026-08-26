@@ -7,7 +7,7 @@
       Loading couriers...
     </div>
     <div v-else-if="shippableIntegrations.length === 0" class="shipper-list muted-panel">
-      Add PostEx, Leopard, Dastaq, or Trax integrations first.
+      Add PostEx, Leopard, Dastaq, Trax, or TCS integrations first.
     </div>
     <div v-else class="shipper-list">
       <div v-for="integration in shippableIntegrations" :key="integration.id" class="shipper-row">
@@ -52,7 +52,7 @@ const integrationStore = useIntegrationStore();
 const state = reactive({});
 
 const shippableIntegrations = computed(() => integrationStore.integrations
-  .filter(integration => ['postex', 'leopard', 'dastaq', 'trax'].includes(integration.courier_slug)));
+  .filter(integration => ['postex', 'leopard', 'dastaq', 'trax', 'tcs'].includes(integration.courier_slug)));
 
 onMounted(async () => {
   await integrationStore.fetchIntegrations();
@@ -156,6 +156,13 @@ const loadOptions = async (integration) => {
         value: address.id,
         label: traxPickupAddressName(address),
       })).filter(option => option.value);
+    } else if (integration.courier_slug === 'tcs') {
+      if (!integration.id) throw new Error('TCS integration is missing.');
+      const res = await IntegrationService.fetchTcsCostCenters({ integration_id: integration.id });
+      currentState.options = (res.data.data.cost_centers || []).map(costCenter => ({
+        value: costCenter.costcentercode,
+        label: tcsCostCenterName(costCenter),
+      })).filter(option => option.value);
     }
 
     currentState.loaded = true;
@@ -214,6 +221,13 @@ const traxPickupShipperName = (address = {}) => {
 const traxPickupAddressName = address => (
   traxPickupShipperName(address)
 );
+
+const tcsCostCenterName = costCenter => [
+  costCenter.costcentername || 'TCS Shipper',
+  costCenter.costcentercode,
+  costCenter.costcentercity,
+  costCenter.phoneno,
+].filter(Boolean).join(' - ');
 </script>
 
 <style scoped>

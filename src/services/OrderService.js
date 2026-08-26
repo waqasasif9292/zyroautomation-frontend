@@ -56,6 +56,9 @@ const OrderService = {
   getTraxTrackingHistory(id) {
     return axiosInstance.get(`/orders/${id}/trax/track-history`);
   },
+  getTcsTrackingHistory(id) {
+    return axiosInstance.get(`/orders/${id}/tcs/track-history`);
+  },
   cancelByShipper(id) {
     return axiosInstance.put(`/orders/${id}/cancel-by-shipper`);
   },
