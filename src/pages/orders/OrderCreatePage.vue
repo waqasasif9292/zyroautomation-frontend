@@ -952,7 +952,7 @@ const destinationCitySelection = computed({
   set(value) {
     if (isLeopardSelected.value) {
       const city = leopardCities.value.find((item) => String(item.id) === String(value));
-      form.destination_city_id = value ? Number(value) : '';
+      form.destination_city_id = value ? String(value) : '';
       form.destination_city = city?.name || '';
       if (city?.shipment_type?.length && !city.shipment_type.includes(form.shipment_type)) {
         form.shipment_type = city.shipment_type[0];
