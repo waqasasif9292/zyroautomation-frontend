@@ -959,7 +959,7 @@ const destinationCitySelection = computed({
       }
     } else if (isTraxSelected.value) {
       const city = traxCities.value.find((item) => String(item.id) === String(value));
-      form.destination_city_id = value ? Number(value) : '';
+      form.destination_city_id = value ? String(value) : '';
       form.destination_city = city?.name || '';
     } else if (isTcsSelected.value) {
       const city = tcsCities.value.find((item) => String(item.citycode) === String(value));
