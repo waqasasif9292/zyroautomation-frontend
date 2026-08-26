@@ -111,9 +111,6 @@
                 <th>Fuel Charges</th>
                 <th>GST</th>
                 <th>Total</th>
-                <th>Settled</th>
-                <th>Settlement</th>
-                <th>CPR</th>
                 <th>Updated Date/Time</th>
                 <th>Action</th>
               </tr>
@@ -121,11 +118,11 @@
             <tbody>
               <template v-if="loading">
                 <tr v-for="row in 7" :key="row">
-                  <td v-for="col in 16" :key="col"><span class="skeleton"></span></td>
+                  <td v-for="col in 13" :key="col"><span class="skeleton"></span></td>
                 </tr>
               </template>
               <tr v-else-if="orders.length === 0">
-                <td colspan="16" class="empty-cell">No tracked orders found.</td>
+                <td colspan="13" class="empty-cell">No tracked orders found.</td>
               </tr>
               <tr v-else v-for="(order, index) in orders" :key="order.id">
                 <td class="serial-cell">{{ serialStart + index }}</td>
@@ -155,12 +152,6 @@
                 <td>{{ formatMoney(order.fuel_charges) }}</td>
                 <td>{{ formatMoney(order.gst) }}</td>
                 <td>{{ formatMoney(order.total_charges) }}</td>
-                <td>{{ formatSettled(order) }}</td>
-                <td>{{ formatSettlementDate(order) }}</td>
-                <td>
-                  <span v-if="supportsSettlement(order) && order.cpr" class="cpr-pill">{{ order.cpr }}</span>
-                  <span v-else>{{ supportsSettlement(order) ? '-' : 'N/A' }}</span>
-                </td>
                 <td>{{ formatDateTime(order.charges_updated_at) }}</td>
                 <td>
                   <button
@@ -363,24 +354,6 @@ const formatDateTime = (value) => {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
-};
-
-const supportsSettlement = (order) => ['postex', 'leopard', 'dastaq'].includes(order.courier_slug);
-
-const formatSettled = (order) => {
-  if (!supportsSettlement(order)) return 'N/A';
-  if (order.settled === null || order.settled === undefined) return '-';
-  return order.settled ? 'Yes' : 'No';
-};
-
-const formatSettlementDate = (order) => {
-  if (!supportsSettlement(order)) return 'N/A';
-  if (!order.settlement_date) return '-';
-  const datePart = String(order.settlement_date).match(/^\d{4}-\d{2}-\d{2}/)?.[0];
-  if (datePart) return datePart;
-  const date = new Date(order.settlement_date);
-  if (Number.isNaN(date.getTime())) return order.settlement_date;
-  return date.toISOString().slice(0, 10);
 };
 
 onMounted(async () => {
@@ -626,18 +599,6 @@ select.filter-control {
   font-size: 12px;
   font-weight: 850;
   white-space: normal;
-}
-
-.cpr-pill {
-  display: inline-flex;
-  max-width: 160px;
-  overflow: hidden;
-  border-radius: 6px;
-  background: #e0f2fe;
-  color: #075985;
-  padding: 3px 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .sync-btn {

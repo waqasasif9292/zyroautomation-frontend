@@ -17,6 +17,26 @@
           </div>
         </div>
 
+        <div class="filters-bar">
+          <form class="search-group" @submit.prevent="applySearch">
+            <div class="search-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                v-model="localSearch"
+                class="search-input"
+                type="search"
+                placeholder="Search reports"
+                aria-label="Search reports"
+              >
+              <button v-if="localSearch" class="clear-search" type="button" aria-label="Clear search" @click="clearSearch">&times;</button>
+            </div>
+            <button class="search-btn" type="submit">Search</button>
+          </form>
+        </div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -79,7 +99,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRoute, useRouter } from 'vue-router';
 import AppLayout from '../../layouts/AppLayout.vue';
@@ -92,8 +112,11 @@ const store = useProfitLossCalculationStore();
 const { calculations, pagination, loading } = storeToRefs(store);
 const toast = ref('');
 const refreshingIds = ref(new Set());
+const localSearch = ref(String(route.query.search || ''));
+const perPage = 30;
 const money = (value) => `PKR ${Math.round(Number(value || 0)).toLocaleString()}`;
 const currentPage = computed(() => Math.max(1, Number(route.query.page || 1)));
+const currentSearch = computed(() => String(route.query.search || '').trim());
 
 const showToast = (message) => {
   toast.value = message;
@@ -128,7 +151,11 @@ const refreshProfit = async (calculation) => {
 };
 
 const loadCalculations = async (page = currentPage.value) => {
-  await store.fetchCalculations({ page, per_page: 15 });
+  await store.fetchCalculations({
+    page,
+    per_page: perPage,
+    search: currentSearch.value || undefined,
+  });
 };
 
 const changePage = async (page) => {
@@ -137,14 +164,49 @@ const changePage = async (page) => {
   await loadCalculations(targetPage);
 };
 
+const applySearch = async () => {
+  const search = localSearch.value.trim();
+  await router.push({
+    query: {
+      ...route.query,
+      page: undefined,
+      search: search || undefined,
+    },
+  });
+  await loadCalculations(1);
+};
+
+const clearSearch = async () => {
+  localSearch.value = '';
+  if (!currentSearch.value) return;
+  await applySearch();
+};
+
+watch(
+  () => route.query.search,
+  (search) => {
+    localSearch.value = String(search || '');
+  }
+);
+
 onMounted(async () => {
   await loadCalculations();
   if (route.query.toast === 'created') {
     showToast('Report created.');
-    router.replace({ query: route.query.page ? { page: route.query.page } : {} });
+    router.replace({
+      query: {
+        page: route.query.page,
+        search: route.query.search,
+      },
+    });
   } else if (route.query.toast === 'updated') {
     showToast('Report updated.');
-    router.replace({ query: route.query.page ? { page: route.query.page } : {} });
+    router.replace({
+      query: {
+        page: route.query.page,
+        search: route.query.search,
+      },
+    });
   }
 });
 </script>
@@ -197,6 +259,83 @@ p {
 .header-actions {
   display: flex;
   gap: 10px;
+}
+
+.filters-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 28px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+
+.search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 11px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 14px;
+  outline: none;
+  padding: 0 32px 0 34px;
+}
+
+.search-input:focus {
+  border-color: #1e293b;
+}
+
+.clear-search {
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.search-btn {
+  height: 38px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #fff;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.search-btn:hover {
+  background: #0f172a;
 }
 
 .secondary-btn {

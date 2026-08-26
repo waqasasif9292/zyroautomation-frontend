@@ -209,6 +209,34 @@ export const useIntegrationStore = defineStore('integration', () => {
     });
   };
 
+  const fetchTcsCostCenters = async (credentials) => {
+    return fetchRuntimeData('tcs_cost_centers', credentials, async () => {
+      const res = await IntegrationService.fetchTcsCostCenters(credentials);
+      return res.data.data.cost_centers;
+    });
+  };
+
+  const fetchTcsCities = async (credentials) => {
+    return fetchRuntimeData('tcs_cities', credentials, async () => {
+      const res = await IntegrationService.fetchTcsCities(credentials);
+      return res.data.data.cities;
+    });
+  };
+
+  const fetchTcsAreas = async (credentials) => {
+    return fetchRuntimeData('tcs_areas', credentials, async () => {
+      const res = await IntegrationService.fetchTcsAreas(credentials);
+      return res.data.data.areas;
+    });
+  };
+
+  const fetchTcsBlocks = async (credentials) => {
+    return fetchRuntimeData('tcs_blocks', credentials, async () => {
+      const res = await IntegrationService.fetchTcsBlocks(credentials);
+      return res.data.data.blocks;
+    });
+  };
+
   return {
     integrations,
     loading,
@@ -229,5 +257,9 @@ export const useIntegrationStore = defineStore('integration', () => {
     fetchArgoCities,
     fetchTraxCities,
     fetchTraxPickupAddresses,
+    fetchTcsCostCenters,
+    fetchTcsCities,
+    fetchTcsAreas,
+    fetchTcsBlocks,
   };
 });
