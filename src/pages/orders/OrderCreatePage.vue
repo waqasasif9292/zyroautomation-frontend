@@ -269,24 +269,33 @@
             <template v-if="isTcsSelected">
               <div class="field">
                 <label>City <span class="required">*</span></label>
-                <select
-                  v-model="destinationCitySelection"
-                  :class="{ invalid: errors.destination_city }"
-                  :disabled="tcsCityLoading || readonlyLocksPartialForm"
-                  @focus="ensureTcsCities"
-                  @change="handleTcsCityChange"
-                >
-                  <option value="">
-                    {{ tcsCityLoading ? 'Fetching cities...' : 'Select City' }}
-                  </option>
-                  <option
-                    v-for="city in tcsCities"
-                    :key="`${city.citycode}-${city.cityname}`"
-                    :value="city.citycode"
+                <div class="city-combobox" :class="{ invalid: errors.destination_city, disabled: citySelectDisabled }">
+                  <input
+                    v-model="citySearch"
+                    type="text"
+                    autocomplete="off"
+                    :disabled="citySelectDisabled || readonlyLocksPartialForm"
+                    :placeholder="citySelectPlaceholder"
+                    @focus="openCityCombobox"
+                    @input="handleCitySearch"
+                    @keydown.enter.prevent="selectFirstFilteredCity"
+                    @keydown.esc="closeCityCombobox"
+                    @blur="closeCityCombobox"
                   >
-                    {{ city.cityname }}
-                  </option>
-                </select>
+                  <div v-if="isCityComboboxOpen" class="city-options">
+                    <button
+                      v-for="city in filteredDestinationCityOptions"
+                      :key="city.value"
+                      type="button"
+                      class="city-option"
+                      :disabled="readonlyLocksPartialForm"
+                      @mousedown.prevent="selectDestinationCity(city)"
+                    >
+                      {{ city.label }}
+                    </button>
+                    <div v-if="!filteredDestinationCityOptions.length" class="city-option-empty">No cities found</div>
+                  </div>
+                </div>
                 <span v-if="tcsCityLoading" class="helper-text">Fetching cities from TCS...</span>
                 <span v-if="errors.destination_city" class="field-error">{{ errors.destination_city }}</span>
               </div>
@@ -1548,6 +1557,9 @@ const handleCitySearch = () => {
 
   if (citySearch.value !== selectedDestinationCityLabel.value) {
     destinationCitySelection.value = '';
+    if (isTcsSelected.value) {
+      resetTcsLocationFields();
+    }
   }
 };
 
@@ -1556,6 +1568,10 @@ const selectDestinationCity = (city) => {
   citySearch.value = city.label;
   isCityComboboxOpen.value = false;
   delete errors.destination_city;
+
+  if (isTcsSelected.value) {
+    handleTcsCityChange();
+  }
 };
 
 const selectFirstFilteredCity = () => {
@@ -1991,6 +2007,17 @@ const ensureTcsCities = () => {
   fetchTcsCities();
 };
 
+const resetTcsLocationFields = () => {
+  form.tcs_area_code = '';
+  form.tcs_area_name = '';
+  form.tcs_block_code = '';
+  form.tcs_block_name = '';
+  tcsAreas.value = [];
+  tcsBlocks.value = [];
+  tcsAreaError.value = '';
+  tcsBlockError.value = '';
+};
+
 const fetchTcsAreas = async () => {
   const credentials = getTcsCredentials();
 
@@ -2052,14 +2079,7 @@ const ensureTcsBlocks = () => {
 const handleTcsCityChange = async () => {
   const city = tcsCities.value.find((item) => String(item.citycode) === String(form.destination_city_id));
   form.destination_city = city?.cityname || '';
-  form.tcs_area_code = '';
-  form.tcs_area_name = '';
-  form.tcs_block_code = '';
-  form.tcs_block_name = '';
-  tcsAreas.value = [];
-  tcsBlocks.value = [];
-  tcsAreaError.value = '';
-  tcsBlockError.value = '';
+  resetTcsLocationFields();
   delete errors.destination_city;
 
   if (form.destination_city_id) {
