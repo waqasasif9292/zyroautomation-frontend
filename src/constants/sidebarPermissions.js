@@ -39,7 +39,6 @@ export const routePermissionMap = {
   '/overall-profit-loss': 'financials',
   '/brands': 'brands',
   '/integrations': 'integrations',
-  '/whatsapp': 'integrations',
   '/leopard-pickup-addresses': 'integrations',
   '/settings/statuses': 'courier-statuses',
   '/settings/billing': 'billing',
